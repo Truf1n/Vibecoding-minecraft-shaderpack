@@ -10,7 +10,16 @@
 #define TM_WHITE_PATH 10.0 //[4.0 6.0 8.0 10.0 12.0 16.0 24.0]
 #define T_SATURATION 1.10 //[0.00 0.50 0.70 0.80 0.90 1.00 1.05 1.10 1.15 1.20 1.30 1.40 1.50]
 
-// ---- Lighting (placeholder model until M1) ----------------------------------
+// ---- Shadows ----------------------------------------------------------------
+// Iris reads these two constants directly; they are also menu options.
+const int shadowMapResolution = 4096; //[1024 2048 3072 4096 6144 8192]
+const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0 320.0 384.0 512.0]
+#define SHADOW_SOFTNESS 1.5 //[0.5 1.0 1.5 2.0 3.0 4.0]
+#define ENTITY_SHADOWS
+#define COLORED_SHADOWS
+#define FOLIAGE_SSS 1.00 //[0.00 0.50 0.75 1.00 1.25 1.50 2.00]
+
+// ---- Lighting -------------------------------------------------------------------
 #define AMBIENT_MULT 1.00   //[0.25 0.50 0.75 1.00 1.25 1.50 2.00]
 #define CAVE_LIGHTING 1.00  //[0.00 0.25 0.50 0.75 1.00 1.50 2.00 3.00]
 #define BLOCKLIGHT_I 1.00   //[0.25 0.50 0.75 1.00 1.25 1.50 2.00]

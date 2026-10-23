@@ -21,7 +21,6 @@ out vec2 lmCoord;
 out vec4 vertColor;
 out vec3 playerPos;
 out vec3 worldNormal;
-out float NdotL;
 flat out int blockId;
 flat out vec3 sunDir;
 flat out vec3 lightDir;
@@ -38,11 +37,6 @@ void main() {
 
     vec3 viewNormal = normalize(gl_NormalMatrix * gl_Normal);
     worldNormal = mat3(gbufferModelViewInverse) * viewNormal;
-    #if defined PROG_GBUFFERS_TEXTURED || defined PROG_GBUFFERS_WEATHER
-        NdotL = -1.0; // camera-facing sprites: no meaningful normal
-    #else
-        NdotL = saturate(dot(viewNormal, normalize(shadowLightPosition)));
-    #endif
 
     #ifdef PROG_GBUFFERS_WATER
         blockId = int(mc_Entity.x + 0.5);
@@ -77,7 +71,11 @@ void main() {
 #include "/lib/util/space.glsl"
 #include "/lib/util/encoding.glsl"
 #include "/lib/atmosphere/sky.glsl"
-#include "/lib/lighting/basicLighting.glsl"
+#ifndef WORLD_NETHER
+    #include "/lib/lighting/shadowSpace.glsl"
+    #include "/lib/lighting/shadows.glsl"
+#endif
+#include "/lib/lighting/lighting.glsl"
 #include "/lib/lighting/basicFog.glsl"
 
 uniform sampler2D gtexture;
@@ -90,7 +88,6 @@ in vec2 lmCoord;
 in vec4 vertColor;
 in vec3 playerPos;
 in vec3 worldNormal;
-in float NdotL;
 flat in int blockId;
 flat in vec3 sunDir;
 flat in vec3 lightDir;
@@ -132,7 +129,14 @@ void main() {
         vec3 color = SrgbToLinear(albedo.rgb);
 
         #if defined OVERLAY_CLOUDS
-            color *= GetBasicLighting(vec2(0.0, 1.0), -1.0, 1.0, false, sunDir);
+            Surface surf;
+            surf.playerPos = playerPos;
+            surf.normal = vec3(0.0, 1.0, 0.0);
+            surf.lm = vec2(0.0, 1.0);
+            surf.ao = 1.0;
+            surf.foliage = false;
+            surf.useShadowMap = false;
+            color *= GetLighting(surf, sunDir, lightDir);
             outColor = vec4(color * albedo.a, albedo.a); // alpha-blended layer
         #else
             float strength = 1.0;
@@ -181,7 +185,18 @@ void main() {
 
         vec2 lm = RemapLightmap(lmCoord);
         lm.x = max(lm.x, HeldLight(length(playerPos)));
-        vec3 color = SrgbToLinear(albedo.rgb) * GetBasicLighting(lm, NdotL, 1.0, false, sunDir);
+        Surface surf;
+        surf.playerPos = playerPos;
+        #if defined PROG_GBUFFERS_TEXTURED || defined PROG_GBUFFERS_WEATHER
+            surf.normal = vec3(0.0); // camera-facing sprites
+        #else
+            surf.normal = normalize(worldNormal);
+        #endif
+        surf.lm = lm;
+        surf.ao = 1.0;
+        surf.foliage = false;
+        surf.useShadowMap = true;
+        vec3 color = SrgbToLinear(albedo.rgb) * GetLighting(surf, sunDir, lightDir);
 
         #ifdef PROG_GBUFFERS_WEATHER
             albedo.a *= 0.6;

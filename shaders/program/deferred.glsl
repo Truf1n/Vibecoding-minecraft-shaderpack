@@ -26,7 +26,11 @@ void main() {
 #include "/lib/util/encoding.glsl"
 #include "/lib/util/space.glsl"
 #include "/lib/atmosphere/sky.glsl"
-#include "/lib/lighting/basicLighting.glsl"
+#ifndef WORLD_NETHER
+    #include "/lib/lighting/shadowSpace.glsl"
+    #include "/lib/lighting/shadows.glsl"
+#endif
+#include "/lib/lighting/lighting.glsl"
 #include "/lib/lighting/basicFog.glsl"
 
 uniform sampler2D colortex0;
@@ -68,10 +72,15 @@ void main() {
         vec2 lm = normalLight.zw;
         lm.x = max(lm.x, HeldLight(length(playerPos)));
 
-        bool foliage = shadingModel == SM_FOLIAGE || shadingModel == SM_LEAVES;
-        float NdotL = foliage ? abs(dot(normal, lightDir)) : saturate(dot(normal, lightDir));
+        Surface surf;
+        surf.playerPos = playerPos;
+        surf.normal = normal;
+        surf.lm = lm;
+        surf.ao = albedoAo.a;
+        surf.foliage = shadingModel == SM_FOLIAGE || shadingModel == SM_LEAVES;
+        surf.useShadowMap = shadingModel != SM_HAND; // hand depth uses its own projection
 
-        color = albedo * GetBasicLighting(lm, NdotL, albedoAo.a, foliage, sunDir);
+        color = albedo * GetLighting(surf, sunDir, lightDir);
         color += albedo * material.g * EMISSION_BRIGHTNESS;
         color = ApplyFog(color, playerPos, sunDir, false);
     }

@@ -8,9 +8,11 @@ choose **OpenGL**; Iris does not run on the Vulkan renderer.
 
 ## Status
 
-Milestone **M0 (skeleton)**: the pipeline runs end to end (G-buffer → deferred lighting →
-forward translucents → final) with placeholder lighting and fog. It should look roughly like
-vanilla with smooth light falloff, a tilted sun path, and no shadows yet.
+Milestone **M1 (core lighting)**: deferred pipeline with shadow-mapped sun/moon (coloured
+shadows through stained glass, leaf translucency), sky-matched ambient light, blocklight,
+handheld light, filmic tonemap, a procedural sky for all three dimensions (sunset glow,
+stars, End sky), and interim water (waves, sky reflection, sun glint, depth tint).
+Not yet: atmospheric fog, clouds, light shafts, materials/PBR, TAA (see docs/PLAN.md).
 
 ## Install / test
 
@@ -39,14 +41,15 @@ tools/
 docs/PLAN.md           research, feature list (IDs), milestones
 ```
 
-## Rendering pipeline (M0)
+## Rendering pipeline
 
 | Stage | Programs | Writes |
 |---|---|---|
-| Sky | `gbuffers_skybasic`, `gbuffers_skytextured` | colortex0 |
+| Shadow map | `shadow` (not in the Nether) | shadowtex0/1, shadowcolor0 (glass tint) |
+| Sun / moon | `gbuffers_skytextured` (vanilla sky disc and stars are discarded) | colortex0 |
 | Opaque geometry | `gbuffers_terrain/entities/block/hand` | G-buffer: colortex1 albedo+AO, colortex2 normal+lightmap, colortex3 shading model+emission |
 | Overlays | `gbuffers_clouds/armor_glint/spidereyes/beaconbeam/lightning` | colortex4 (premultiplied) |
-| Deferred | `deferred` | lights the G-buffer once per pixel → colortex0 |
+| Deferred | `deferred` | procedural sky behind everything; lights the G-buffer once per pixel → colortex0 |
 | Translucents, particles, weather | `gbuffers_water/hand_water/textured/weather` | colortex0 (forward-lit, blended) |
 | Output | `final` | tonemap, sRGB, dither, debug views |
 

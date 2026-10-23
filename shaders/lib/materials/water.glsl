@@ -1,7 +1,7 @@
 // Interim water (pulled forward from M3): procedural wave normals, Fresnel sky
 // reflection with a sun/moon glint, and depth-based absorption. Screen-space
 // reflections and refraction come with the full water pass in M3.
-// Runs in gbuffers_water; needs sky.glsl, basicLighting.glsl, basicFog.glsl, space.glsl.
+// Runs in gbuffers_water; needs sky.glsl, lighting.glsl, basicFog.glsl, space.glsl.
 
 uniform sampler2D noisetex;
 uniform sampler2D depthtex1; // opaque depth (without translucents)
@@ -40,7 +40,14 @@ vec4 ShadeWater(vec4 albedo, vec3 playerPos, vec3 geoNormal, vec2 lm, vec3 sunDi
 
     // Water colour from the (biome-tinted) texture, darkened; lit like everything else.
     vec3 tint = SrgbToLinear(albedo.rgb);
-    vec3 bodyLight = GetBasicLighting(lm, 0.5, 1.0, false, sunDir);
+    Surface surf;
+    surf.playerPos = playerPos;
+    surf.normal = geoNormal;
+    surf.lm = lm;
+    surf.ao = 1.0;
+    surf.foliage = false;
+    surf.useShadowMap = true;
+    vec3 bodyLight = GetLighting(surf, sunDir, lightDir);
     vec3 body = tint * vec3(0.15, 0.30, 0.32) * bodyLight;
 
     // Thickness of water between this surface and the opaque geometry behind it.
