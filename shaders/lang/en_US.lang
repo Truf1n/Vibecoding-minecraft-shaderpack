@@ -1,0 +1,32 @@
+screen.LIGHTING=Lighting
+screen.LIGHTING.comment=Light levels and colours. These are placeholder controls until the full lighting model (milestone M1).
+screen.CAMERA=Camera
+screen.CAMERA.comment=Exposure and image settings.
+screen.DEBUG=Debug
+screen.DEBUG.comment=Development views. Leave off for normal play.
+
+option.TM_EXPOSURE=Brightness
+option.TM_EXPOSURE.comment=Overall image brightness (tonemap exposure).
+option.AMBIENT_MULT=Shadow Light
+option.AMBIENT_MULT.comment=Amount of sky light in shaded areas.
+option.CAVE_LIGHTING=Cave Lighting
+option.CAVE_LIGHTING.comment=Minimum light in places without sky or block light.
+option.BLOCKLIGHT_I=Blocklight Intensity
+option.BLOCKLIGHT_I.comment=Brightness of torches, lanterns and other light sources.
+option.BLOCKLIGHT_R=Blocklight Red
+option.BLOCKLIGHT_G=Blocklight Green
+option.BLOCKLIGHT_B=Blocklight Blue
+option.VANILLA_AO_I=Vanilla AO
+option.VANILLA_AO_I.comment=Strength of Minecraft's own corner shading (smooth lighting).
+option.BORDER_FOG=Border Fog
+option.BORDER_FOG.comment=Fades out the edge of the loaded world to hide chunk borders.
+
+option.DEBUG_VIEW=Debug View
+option.DEBUG_VIEW.comment=Shows one G-buffer channel instead of the final image.
+value.DEBUG_VIEW.0=Off
+value.DEBUG_VIEW.1=Albedo
+value.DEBUG_VIEW.2=Normals
+value.DEBUG_VIEW.3=Lightmap
+value.DEBUG_VIEW.4=Shading Model
+value.DEBUG_VIEW.5=Vanilla AO
+value.DEBUG_VIEW.6=Emission
