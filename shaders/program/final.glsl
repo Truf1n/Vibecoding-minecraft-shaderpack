@@ -29,10 +29,22 @@ in vec2 texCoord;
 
 layout(location = 0) out vec4 outColor;
 
-// Placeholder tonemap (Narkowicz ACES fit); the Unbound-style curve arrives in M1.
+// Filmic curve (Lottes 2016): x^a / (x^(a*d) * b + c), solved so mid grey 0.18 -> 0.22
+// and TM_WHITE_PATH -> 1. Per channel, so very bright colours drift towards white.
 vec3 Tonemap(vec3 x) {
-    return saturate((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14));
+    const float a = TM_CONTRAST;
+    const float d = 0.95;
+    const float hdrMax = TM_WHITE_PATH;
+    const float midIn = 0.18;
+    const float midOut = 0.22;
+    float hA = pow(hdrMax, a), hAD = pow(hdrMax, a * d), mA = pow(midIn, a), mAD = pow(midIn, a * d);
+    float b = (-mA + hA * midOut) / ((hAD - mAD) * midOut);
+    float c = (hAD * mA - hA * mAD * midOut) / ((hAD - mAD) * midOut);
+    x = max(x, 0.0);
+    return saturate(pow(x, vec3(a)) / (pow(x, vec3(a * d)) * b + c));
 }
+
+vec3 Saturation(vec3 c, float s) { return max(mix(vec3(Luminance(c)), c, s), 0.0); }
 
 // Interleaved gradient noise (Jimenez 2014): breaks up 8-bit banding in skies.
 float Dither(vec2 pixel) { return fract(52.9829189 * fract(dot(pixel, vec2(0.06711056, 0.00583715)))); }
@@ -40,7 +52,8 @@ float Dither(vec2 pixel) { return fract(52.9829189 * fract(dot(pixel, vec2(0.067
 void main() {
     ivec2 pixel = ivec2(gl_FragCoord.xy);
     vec3 color = texelFetch(colortex0, pixel, 0).rgb;
-    color = LinearToSrgb(Tonemap(color * TM_EXPOSURE));
+    color = Saturation(Tonemap(color * TM_EXPOSURE), T_SATURATION);
+    color = LinearToSrgb(color);
     color += (Dither(gl_FragCoord.xy) - 0.5) / 255.0;
 
     #if DEBUG_VIEW == 1

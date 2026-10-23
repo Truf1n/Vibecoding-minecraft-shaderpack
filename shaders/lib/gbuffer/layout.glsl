@@ -11,6 +11,7 @@ const bool colortex1Clear = true;
 const bool colortex2Clear = true;
 const bool colortex3Clear = true;
 const bool colortex4Clear = true;
+const vec4 colortex0ClearColor = vec4(0.0, 0.0, 0.0, 1.0); // sky is added in deferred
 const vec4 colortex1ClearColor = vec4(0.0, 0.0, 0.0, 0.0); // Iris default for colortex1 is white
 const vec4 colortex4ClearColor = vec4(0.0, 0.0, 0.0, 0.0);
 

@@ -30,3 +30,14 @@ value.DEBUG_VIEW.3=Lightmap
 value.DEBUG_VIEW.4=Shading Model
 value.DEBUG_VIEW.5=Vanilla AO
 value.DEBUG_VIEW.6=Emission
+
+option.TM_CONTRAST=Contrast
+option.TM_CONTRAST.comment=Darkens darks and brightens brights.
+option.TM_WHITE_PATH=White Reachability
+option.TM_WHITE_PATH.comment=How bright something must be to reach pure white. Lower values make bright areas clip to white sooner.
+option.T_SATURATION=Saturation
+option.T_SATURATION.comment=Overall colourfulness of the image.
+option.DEBUG_PARTICLES=Debug Particles
+option.DEBUG_PARTICLES.comment=Draws all particles flat magenta. Used to diagnose missing particles.
+value.DEBUG_PARTICLES.0=Off
+value.DEBUG_PARTICLES.1=On

@@ -21,3 +21,6 @@ vec3 DecodeNormal(vec2 e) {
 // 8-bit shading model id stored in a UNORM8 channel.
 float EncodeId(int id) { return float(id) / 255.0; }
 int DecodeId(float v) { return int(v * 255.0 + 0.5); }
+
+// Vanilla lightmap coordinates (texel centres of a 16x16 map) -> [0,1] block/sky light.
+vec2 RemapLightmap(vec2 lm) { return saturate((lm - 0.5 / 16.0) * (16.0 / 15.0)); }

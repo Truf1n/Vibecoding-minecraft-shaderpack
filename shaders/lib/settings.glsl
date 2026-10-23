@@ -6,6 +6,9 @@
 
 // ---- Camera / colour balance -------------------------------------------------
 #define TM_EXPOSURE 1.00 //[0.50 0.60 0.70 0.80 0.90 1.00 1.10 1.20 1.30 1.40 1.50 1.75 2.00]
+#define TM_CONTRAST 1.25 //[1.00 1.05 1.10 1.15 1.20 1.25 1.30 1.35 1.40 1.50]
+#define TM_WHITE_PATH 10.0 //[4.0 6.0 8.0 10.0 12.0 16.0 24.0]
+#define T_SATURATION 1.10 //[0.00 0.50 0.70 0.80 0.90 1.00 1.05 1.10 1.15 1.20 1.30 1.40 1.50]
 
 // ---- Lighting (placeholder model until M1) ----------------------------------
 #define AMBIENT_MULT 1.00   //[0.25 0.50 0.75 1.00 1.25 1.50 2.00]
@@ -22,4 +25,11 @@
 // ---- Debug ------------------------------------------------------------------
 // 0 off, 1 albedo, 2 world normal, 3 lightmap, 4 shading model, 5 vanilla AO, 6 emission
 #define DEBUG_VIEW 0 //[0 1 2 3 4 5 6]
+// Draws every particle flat magenta, to tell "not drawn" apart from "drawn but hidden".
+#define DEBUG_PARTICLES 0 //[0 1]
+
+// ---- Internal (not menu options) --------------------------------------------
+// Particles also write the "keep" shading model, so they survive if Iris draws them
+// before the deferred pass instead of after it.
+#define FORWARD_ORDER_SAFE 1
 

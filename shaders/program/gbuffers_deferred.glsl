@@ -39,7 +39,6 @@ void main() {
 #ifdef FRAGMENT_SHADER
 
 #include "/lib/util/encoding.glsl"
-#include "/lib/lighting/basicLighting.glsl"
 #include "/lib/materials/terrainMaterial.glsl"
 
 uniform sampler2D gtexture;
