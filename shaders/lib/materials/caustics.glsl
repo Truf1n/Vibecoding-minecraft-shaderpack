@@ -21,11 +21,12 @@ float Caustics(vec2 worldXZ) {
 }
 
 // Sunlight reaching a point `depth` blocks under the surface; surfaceXZ is where the
-// light ray entered the water.
-vec3 UnderwaterLight(float depth, vec2 surfaceXZ) {
+// light ray entered the water. causticStrength < 1 when something flat (glass, ice)
+// covers the surface and calms the light.
+vec3 UnderwaterLight(float depth, vec2 surfaceXZ, float causticStrength) {
     vec3 light = exp(-depth * WaterAbsorption());
     #ifdef WATER_CAUSTICS
-        light *= mix(1.0, Caustics(surfaceXZ), saturate(depth * 1.5));
+        light *= mix(1.0, Caustics(surfaceXZ), saturate(depth * 1.5) * causticStrength);
     #endif
     return light;
 }

@@ -60,27 +60,47 @@ TranslucentSurface ShadeWater(vec3 biomeTint, vec3 playerPos, vec3 geoNormal, Su
     vec3 viewPos = ScreenToView(uv, gl_FragCoord.z);
     float surfaceDist = length(viewPos);
 
-    // Waves only on upward (or, from below, downward) faces; gentler with distance.
-    vec3 N = geoNormal;
+    #ifdef WATER_HEIGHT_WRITER
+        if (abs(geoNormal.y) > 0.5) WriteWaterHeight(worldPos); // for underwater lighting
+    #endif
+
+    // Normal of the face towards the camera (the surface can be seen from either side),
+    // with waves on horizontal faces; gentler with distance.
+    vec3 faceN = dot(geoNormal, V) >= 0.0 ? geoNormal : -geoNormal;
+    vec3 N = faceN;
     float detail = 1.0 - smoothstep(12.0, 48.0, dist);
     if (abs(geoNormal.y) > 0.5) {
         N = WaveNormal(worldPos.xz, WATER_WAVE_STRENGTH * 0.22 / (1.0 + dist * 0.01), detail);
-        if (geoNormal.y < 0.0) N = -N;
+        if (faceN.y < 0.0) N = -N;
     }
 
     vec3 scatterLight = WaterScatterColor(biomeTint) * GetLighting(surf, sunDir, lightDir);
 
     // ---- Seen from below -------------------------------------------------------------
     if (isEyeInWater == 1) {
-        // Snell's window: inside the critical angle the world above is visible (bent);
-        // outside it the surface is a mirror of the water (total internal reflection).
-        vec3 T = refract(-V, -N, 1.333);
-        if (dot(T, T) < 0.01) return PlainSurface(WaterFogColor(sunDir), 1.0);
-        vec2 refrUV = clamp(uv + RefractionOffset(-N, viewPos, 2.0), vec2(0.001), vec2(0.999));
+        // From inside the water only the real water/air surface is drawn: vertical faces
+        // (water against glass and the like) and surfaces pressed right under a block are
+        // skipped, so whatever is behind them shows directly.
+        if (abs(geoNormal.y) < 0.5) discard;
+        float behindDist = length(ScreenToView(uv, texture(depthtex1, uv).r));
+        if ((behindDist - surfaceDist) * abs(V.y) < 0.25) discard;
+
+        // Total internal reflection: the surface mirrors the underwater scene.
+        vec3 R = reflect(-V, N);
+        vec3 mirrored = WaterFogColor(sunDir);
+        #if WATER_REFLECTIONS == 1
+            vec4 ssr = TraceSSR(viewPos, normalize(mat3(gbufferModelView) * R), normalize(mat3(gbufferModelView) * faceN), SSRDither());
+            mirrored = mix(mirrored, ssr.rgb, ssr.a);
+        #endif
+
+        // Snell's window: inside the critical angle the world above is visible (bent).
+        vec3 T = refract(-V, N, 1.333);
+        if (dot(T, T) < 0.01) return PlainSurface(mirrored, 1.0);
+        vec2 refrUV = clamp(uv + RefractionOffset(N, viewPos, 2.0), vec2(0.001), vec2(0.999));
         vec3 above = texture(colortex7, refrUV).rgb;
         if (texture(depthtex1, refrUV).r >= 1.0) above = GetSky(normalize(T), sunDir, -1.0);
         float transmit = 1.0 - pow(1.0 - saturate(dot(N, V)), 5.0);
-        return PlainSurface(mix(WaterFogColor(sunDir), above, transmit), 1.0);
+        return PlainSurface(mix(mirrored, above, transmit), 1.0);
     }
 
     // ---- Refraction and absorption ---------------------------------------------------

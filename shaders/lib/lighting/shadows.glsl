@@ -2,6 +2,7 @@
 // Needs common.glsl and shadowSpace.glsl. Not available in the Nether (no shadow pass).
 
 #include "/lib/materials/caustics.glsl"
+#include "/lib/materials/waterHeight.glsl"
 
 uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
@@ -66,17 +67,25 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
     opaque /= 9.0;
     r.light = vec3(opaque);
 
-    // Light blocked only by translucent casters: water absorbs it (with caustics),
-    // stained glass tints it.
+    // Light blocked only by translucent casters: stained glass/ice tints it. Water is
+    // handled below from the water height map (glass on the water cannot hide it); the
+    // shadow-map water mask is only a fallback for water not seen yet.
+    vec3 worldPos = playerPos + cameraPosition;
+    float waterHeight = WaterSurfaceHeight(worldPos);
+    bool underwater = waterHeight > worldPos.y;
+    bool coveredByGlass = false;
     float allVis = texture(shadowtex0HW, coord);
     if (allVis < opaque - 0.01) {
-        vec3 tint;
-        if (texture(shadowcolor1, coord.xy).r > 0.5) {
-            float depth = max(ShadowDepthToBlocks(coord.z - texture(shadowtex0, coord.xy).r), 0.0);
-            vec3 L = ShadowLightDir();
-            vec3 worldPos = playerPos + cameraPosition;
-            tint = UnderwaterLight(depth, worldPos.xz + L.xz / max(L.y, 0.15) * depth);
+        vec3 tint = vec3(1.0);
+        bool waterCaster = texture(shadowcolor1, coord.xy).r > 0.5;
+        if (waterCaster) {
+            if (!underwater) {
+                float depth = max(ShadowDepthToBlocks(coord.z - texture(shadowtex0, coord.xy).r), 0.0);
+                vec3 L = ShadowLightDir();
+                tint = UnderwaterLight(depth, worldPos.xz + L.xz / max(L.y, 0.15) * depth, 1.0);
+            }
         } else {
+            coveredByGlass = true;
             #ifdef COLORED_SHADOWS
                 vec4 glass = texture(shadowcolor0, coord.xy);
                 tint = mix(vec3(1.0), SrgbToLinear(glass.rgb), glass.a);
@@ -85,6 +94,13 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
             #endif
         }
         r.light = vec3(allVis) + (opaque - allVis) * tint;
+    }
+    if (underwater) {
+        vec3 L = ShadowLightDir();
+        float verticalDepth = waterHeight - worldPos.y;
+        float depth = verticalDepth / max(L.y, 0.15);
+        vec2 entry = worldPos.xz + L.xz / max(L.y, 0.15) * verticalDepth;
+        r.light *= UnderwaterLight(depth, entry, coveredByGlass ? 0.4 : 1.0);
     }
 
     // Depth of opaque material in front of this point (light travelling through leaves).

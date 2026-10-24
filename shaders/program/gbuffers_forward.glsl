@@ -87,6 +87,10 @@ void main() {
 
 #ifdef FRAGMENT_SHADER
 
+#ifdef PROG_GBUFFERS_WATER
+    #define WATER_HEIGHT_WRITER // water surfaces record their height (waterHeight.glsl)
+#endif
+
 #include "/lib/util/space.glsl"
 #include "/lib/util/encoding.glsl"
 #include "/lib/atmosphere/sky.glsl"
@@ -108,6 +112,7 @@ uniform sampler2D gtexture;
     #include "/lib/materials/glass.glsl"
     #include "/lib/materials/ice.glsl"
     #include "/lib/materials/caustics.glsl"
+    #include "/lib/materials/waterHeight.glsl"
     #include "/lib/materials/water.glsl"
 #elif defined PROG_GBUFFERS_ENTITIES_TRANSLUCENT || defined PROG_GBUFFERS_BLOCK_TRANSLUCENT
     // Translucent mobs may be drawn before or after deferred: order-independent layers.
