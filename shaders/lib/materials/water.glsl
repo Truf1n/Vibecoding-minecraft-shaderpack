@@ -55,9 +55,12 @@ vec2 RefractionOffset(vec3 N, vec3 viewPos, float thickness) {
 // 0 = open water, 1 = covered and the view ray ends inside the gap (on the block's
 // underside or on a wall poking into the gap) - drawn as if the water filled the block,
 // 2 = covered but the ray leaves the gap sideways - a flat surface, no waves.
+// Under see-through blocks (glass, ice) there is a real water/air surface to look through:
+// always 2.
 int UnderBlockState(vec3 worldPos) {
     float cellTop = floor(worldPos.y - 0.5) + 1.0; // surface is at 8/9 (lowered by waving)
-    if (!HasCeiling(vec3(worldPos.x, cellTop + 0.5, worldPos.z))) return 0;
+    vec3 above = vec3(worldPos.x, cellTop + 0.5, worldPos.z);
+    if (!HasCeiling(above)) return HasGlassCeiling(above) ? 2 : 0;
     float depth = texelFetch(depthtex1, ivec2(gl_FragCoord.xy), 0).r;
     if (depth >= 1.0) return 2;
     float hitY = ViewToPlayer(ScreenToView(gl_FragCoord.xy / vec2(viewWidth, viewHeight), depth)).y + cameraPosition.y;
@@ -88,11 +91,16 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
 
     // ---- Seen from below -------------------------------------------------------------
     if (isEyeInWater == 1) {
-        // From inside the water only the real water/air surface is drawn: vertical faces
-        // (water against glass and the like) are skipped, and so is a source block's
-        // surface sitting in the thin gap right under a block, which is treated as if the
-        // water filled the block up to the top.
+        // From inside the water only the real water/air surface is drawn: vertical faces and
+        // undersides (water against glass and the like) are skipped, and so is a source
+        // block's surface sitting in the thin gap right under a solid block, which is
+        // treated as if the water filled the block up to the top.
         if (abs(geoNormal.y) < 0.5) discard;
+        // The underside of water resting on glass or the like (a downward face on a block
+        // boundary) is not a water/air surface either. The surface itself seen from below
+        // sits partway up its block.
+        float yInBlock = fract(worldPos.y + 0.005);
+        if (geoNormal.y < -0.5 && yInBlock < 0.02) discard;
         if (sourceBlock) {
             int covered = UnderBlockState(worldPos);
             if (covered == 1) discard;

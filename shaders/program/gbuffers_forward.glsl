@@ -25,7 +25,8 @@ bool CornerUnderBlock(vec3 wp) {
     float level = floor(wp.y - 0.5) + 1.5;
     for (int i = 0; i < 4; i++) {
         vec2 o = vec2(i & 1, i >> 1) - 0.5;
-        if (HasCeiling(vec3(wp.x + o.x * 0.98, level, wp.z + o.y * 0.98))) return true;
+        vec3 p = vec3(wp.x + o.x * 0.98, level, wp.z + o.y * 0.98);
+        if (HasCeiling(p) || HasGlassCeiling(p)) return true;
     }
     return false;
 }

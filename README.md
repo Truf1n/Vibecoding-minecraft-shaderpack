@@ -59,7 +59,7 @@ docs/PLAN.md           research, feature list (IDs), milestones
 
 | Stage | Programs | Writes |
 |---|---|---|
-| Shadow map | `shadow` (not in the Nether) | shadowtex0/1, shadowcolor0 (glass tint), shadowcolor1 (water mask), water height map image (top of every water surface nearby) |
+| Shadow map | `shadow` (not in the Nether) | shadowtex0/1, shadowcolor0 (glass tint), shadowcolor1 (water mask), water height map (top of every water surface nearby), ceiling maps (block undersides over water) |
 | Sun / moon | `gbuffers_skytextured` (vanilla sky disc and stars are discarded) | colortex0 |
 | Opaque geometry | `gbuffers_terrain/entities/block/hand` | G-buffer: colortex1 albedo+AO, colortex2 normal+lightmap, colortex3 shading model+emission+dry-waterloggable flag |
 | Overlays | `gbuffers_clouds/armor_glint/spidereyes/beaconbeam/lightning` | colortex4 (premultiplied) |

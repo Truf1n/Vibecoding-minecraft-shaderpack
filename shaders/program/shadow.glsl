@@ -39,7 +39,9 @@ void main() {
             if (gl_Normal.y > 0.5) WriteWaterHeight(worldPos, blockCenter);
         } else if (gl_Normal.y < -0.5 && abs(worldPos.y - (blockCenter.y - 0.5)) < 0.01
                    && blockId != BLOCK_DRY_WATERLOGGABLE && blockId != BLOCK_LEAVES && !IsPlant(blockId)) {
-            WriteCeiling(blockCenter);
+            bool seeThrough = IsGlass(blockId) || blockId == BLOCK_ICE || blockId == BLOCK_SLIME_HONEY
+                           || renderStage == MC_RENDER_STAGE_TERRAIN_TRANSLUCENT;
+            WriteCeiling(blockCenter, seeThrough);
         }
     }
 
