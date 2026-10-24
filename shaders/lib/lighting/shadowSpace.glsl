@@ -17,3 +17,9 @@ vec3 DistortShadowClip(vec3 clip) {
 const bool shadowHardwareFiltering = true;  // enables the shadowtex*HW compare samplers
 const float shadowDistanceRenderMul = 1.0;  // don't render shadow casters beyond shadowDistance (CPU saver)
 const float entityShadowDistanceMul = 0.25; // entities only cast shadows within 1/4 of shadowDistance
+
+/*
+const int shadowcolor0Format = RGBA8;
+const int shadowcolor1Format = R8;
+*/
+const vec4 shadowcolor1ClearColor = vec4(0.0, 0.0, 0.0, 0.0); // no water

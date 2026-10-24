@@ -2,10 +2,13 @@
 // All fog colours come from the sky, so distant terrain melts into the sky behind it.
 
 vec3 WaterFogColor(vec3 sunDir) {
+    vec3 c = vec3(0.010, 0.050, 0.070) * vec3(UNDERWATER_COLOR_R, UNDERWATER_COLOR_G, UNDERWATER_COLOR_B);
     #ifdef WORLD_OVERWORLD
-        return vec3(0.010, 0.050, 0.070) * (0.2 + 0.8 * DayFactor(sunDir.y));
+        // Darker at night and in caves; a little sky light keeps it from going black.
+        float light = (0.2 + 0.8 * DayFactor(sunDir.y)) * mix(1.0, 0.25, caveFactor);
+        return c * light;
     #else
-        return vec3(0.010, 0.050, 0.070) * 0.4;
+        return c * 0.4;
     #endif
 }
 

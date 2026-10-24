@@ -31,18 +31,25 @@ in vec2 texCoord;
 in vec4 vertColor;
 flat in int blockId;
 
-/* RENDERTARGETS: 0 */
-layout(location = 0) out vec4 outShadowColor;
+/* RENDERTARGETS: 0,1 */
+layout(location = 0) out vec4 outShadowColor; // tint of translucent casters
+layout(location = 1) out vec4 outShadowWater; // r = 1 where the nearest caster is water
 
 void main() {
-    // Water does not cast sun shadows (caustics come with the water pass).
-    if (blockId == BLOCK_WATER) discard;
+    // Water goes into the translucent shadow depth with no tint, marked in shadowcolor1:
+    // lighting uses it for underwater absorption and caustics.
+    if (blockId == BLOCK_WATER) {
+        outShadowColor = vec4(1.0, 1.0, 1.0, 0.0);
+        outShadowWater = vec4(1.0, 0.0, 0.0, 1.0);
+        return;
+    }
 
     vec4 albedo = texture(gtexture, texCoord);
     if (renderStage == MC_RENDER_STAGE_TERRAIN_TRANSLUCENT) albedo.rgb *= vertColor.rgb;
     if (albedo.a < 0.1) discard;
 
     outShadowColor = albedo;
+    outShadowWater = vec4(0.0);
 }
 
 #endif

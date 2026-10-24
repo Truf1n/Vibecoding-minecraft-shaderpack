@@ -48,6 +48,19 @@ void main() {
         blockId = 0;
     #endif
 
+    bool wavedWater = false;
+    #if defined PROG_GBUFFERS_WATER && defined WAVING_WATER_VERTEX
+        // Gently raise and lower the water surface (plan item W10). Only downwards, so it
+        // never pokes above the shore, and only on top faces of water.
+        if (blockId == BLOCK_WATER && worldNormal.y > 0.9) {
+            vec3 wp = playerPos + cameraPosition;
+            float t = frameTimeCounter * WATER_WAVE_SPEED;
+            float wave = sin(wp.x * 0.65 + t * 1.3) * sin(wp.z * 0.55 + t * 1.1) * 0.5 + 0.5;
+            playerPos.y -= wave * 0.05;
+            wavedWater = true;
+        }
+    #endif
+
     #ifdef PROG_GBUFFERS_LINE
         // Lines arrive as point pairs with the direction in gl_Normal; expand them into
         // screen-space quads the way vanilla's line shader does.
@@ -64,7 +77,9 @@ void main() {
         if (gl_VertexID % 2 != 0) offset = -offset;
         gl_Position = vec4((startNdc + vec3(offset, 0.0)) * startClip.w, startClip.w);
     #else
-        gl_Position = ftransform();
+        gl_Position = wavedWater
+            ? gl_ProjectionMatrix * (gbufferModelView * vec4(playerPos, 1.0))
+            : ftransform();
     #endif
 }
 
@@ -92,6 +107,7 @@ uniform sampler2D gtexture;
     #include "/lib/materials/ssr.glsl"
     #include "/lib/materials/glass.glsl"
     #include "/lib/materials/ice.glsl"
+    #include "/lib/materials/caustics.glsl"
     #include "/lib/materials/water.glsl"
 #elif defined PROG_GBUFFERS_ENTITIES_TRANSLUCENT || defined PROG_GBUFFERS_BLOCK_TRANSLUCENT
     // Translucent mobs may be drawn before or after deferred: order-independent layers.

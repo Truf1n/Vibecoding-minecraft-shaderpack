@@ -8,7 +8,7 @@ choose **OpenGL**; Iris does not run on the Vulkan renderer.
 
 ## Status
 
-Milestone **M2 (atmosphere)** on top of M1 (core lighting):
+Milestone **M3 (water)** on top of M2 (atmosphere) and M1 (core lighting):
 
 - Deferred pipeline; shadow-mapped sun/moon with coloured shadows and leaf translucency;
   sky-matched ambient, blocklight, handheld light; filmic tonemap.
@@ -16,11 +16,13 @@ Milestone **M2 (atmosphere)** on top of M1 (core lighting):
   phases (moonlight follows the phase), adjustable stars.
 - Fog: altitude-based atmospheric haze coloured by the sky, border fog, cave fog,
   biome-tinted Nether haze with a view limit, End haze.
-- Water: textureless, screen-space reflections, smooth waves, depth-based opacity.
+- Water: refraction and per-channel absorption of the scene behind, screen-space
+  reflections, caustics and absorbed sunlight under water (via the shadow map), shoreline
+  foam, waving surface, Snell's window and total internal reflection from below.
 - Translucents: sorted blending for terrain, clean stained-glass tint (frames from the
   texture, e.g. Continuity), order-independent layers for translucent mobs.
 
-Not yet: clouds, light shafts, TAA, materials/PBR, bloom (see docs/PLAN.md, M3+).
+Not yet: TAA, clouds, light shafts, materials/PBR, bloom (see docs/PLAN.md, M4+).
 
 ## Install / test
 
@@ -53,15 +55,15 @@ docs/PLAN.md           research, feature list (IDs), milestones
 
 | Stage | Programs | Writes |
 |---|---|---|
-| Shadow map | `shadow` (not in the Nether) | shadowtex0/1, shadowcolor0 (glass tint) |
+| Shadow map | `shadow` (not in the Nether) | shadowtex0/1, shadowcolor0 (glass tint), shadowcolor1 (water mask) |
 | Sun / moon | `gbuffers_skytextured` (vanilla sky disc and stars are discarded) | colortex0 |
 | Opaque geometry | `gbuffers_terrain/entities/block/hand` | G-buffer: colortex1 albedo+AO, colortex2 normal+lightmap, colortex3 shading model+emission |
 | Overlays | `gbuffers_clouds/armor_glint/spidereyes/beaconbeam/lightning` | colortex4 (premultiplied) |
 | Deferred | `deferred` | procedural sky behind everything; lights the G-buffer once per pixel → colortex0, copy in colortex7 |
-| Translucent terrain | `gbuffers_water/hand_water` | colortex0 (sorted alpha blend, SSR from colortex7) + colortex5 tint |
+| Translucent terrain | `gbuffers_water/hand_water` | colortex0 (sorted alpha blend; water opaque, refracting colortex7) + colortex5 tint |
 | Translucent mobs | `gbuffers_entities_translucent/block_translucent` | colortex5/6 (order-independent) |
 | Particles, weather | `gbuffers_textured/weather` | colortex0 (forward-lit, blended) |
-| Composite | `composite` | colortex0 × colortex5 + colortex6 |
+| Composite | `composite` | colortex0 × colortex5 + colortex6, underwater distortion |
 | Output | `final` | tonemap, sRGB, dither, debug views |
 
 ## Licence
