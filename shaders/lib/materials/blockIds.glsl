@@ -21,16 +21,27 @@
 #define BLOCK_LIGHT_CRYING      2010
 
 #define BLOCK_WATER             3001
-#define BLOCK_STAINED_GLASS     3002
 #define BLOCK_GLASS             3003
 #define BLOCK_ICE               3004
 #define BLOCK_SLIME_HONEY       3005
 #define BLOCK_NETHER_PORTAL     3006
+#define BLOCK_GLASS_PANE        3007
+#define BLOCK_TINTED_GLASS      3008
+#define BLOCK_STAINED_GLASS     3100 // + colour index 0..15
+#define BLOCK_STAINED_PANE      3200 // + colour index 0..15
 
 #define BLOCK_END_PORTAL        9001
 
 bool IsPlant(int id)       { return id >= 1001 && id <= 1008; }
 bool IsLightSource(int id) { return id >= 2001 && id <= 2010; }
+bool IsStainedGlass(int id) { return id >= 3100 && id <= 3115; }
+bool IsStainedPane(int id)  { return id >= 3200 && id <= 3215; }
+bool IsGlass(int id) {
+    return id == BLOCK_GLASS || id == BLOCK_GLASS_PANE || id == BLOCK_TINTED_GLASS || IsStainedGlass(id) || IsStainedPane(id);
+}
+bool IsPane(int id) { return id == BLOCK_GLASS_PANE || IsStainedPane(id); }
+// Glass ids squeezed into 8 bits for the glass voxel grid (0 = no glass).
+uint GlassVoxelCode(int id) { return IsGlass(id) ? uint(id - 3000) : 0u; }
 
 // Shading models stored in the G-buffer (8 bits). 0 means "not deferred-lit":
 // the deferred pass keeps whatever colortex0 holds (sky, forward-rendered geometry).

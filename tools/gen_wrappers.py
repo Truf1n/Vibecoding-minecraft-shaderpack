@@ -42,10 +42,15 @@ PROGRAMS = {
     "gbuffers_weather":     ("gbuffers_forward", ["FWD_LIT"]),
     "gbuffers_water":       ("gbuffers_forward", ["FWD_LIT"]),
     "gbuffers_hand_water":  ("gbuffers_forward", ["FWD_LIT"]),
+    # Translucent mobs (slime outer layer, allay, piglins in 26.x, ...) are drawn after
+    # deferred, so they must be forward-lit rather than written to the G-buffer.
+    "gbuffers_entities_translucent": ("gbuffers_forward", ["FWD_LIT"]),
+    "gbuffers_block_translucent":    ("gbuffers_forward", ["FWD_LIT"]),
     # Shadow map (not in the Nether: no sun)
     "shadow":               ("shadow", []),
     # Fullscreen
     "deferred":             ("deferred", []),
+    "composite":            ("composite", []),
     "final":                ("final", []),
 }
 

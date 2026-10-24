@@ -10,6 +10,16 @@ vec3 WaterFogColor(vec3 sunDir) {
     #endif
 }
 
+// Border fog amount at a distance (0 near, 1 at the render distance edge).
+float BorderFogAmount(float dist) {
+    #ifdef BORDER_FOG
+        float f = smoothstep(far * 0.72, far, dist);
+        return f * f;
+    #else
+        return 0.0;
+    #endif
+}
+
 vec3 ApplyFog(vec3 color, vec3 playerPos, vec3 sunDir, bool isSky) {
     float dist = length(playerPos);
 
@@ -22,13 +32,8 @@ vec3 ApplyFog(vec3 color, vec3 playerPos, vec3 sunDir, bool isSky) {
 
     if (isSky) return color;
 
-    #ifdef BORDER_FOG
-        float f = smoothstep(far * 0.72, far, dist);
-        if (f > 0.0) {
-            vec3 dir = playerPos / max(dist, 1e-4);
-            color = mix(color, GetSky(dir, sunDir, false), f * f);
-        }
-    #endif
+    float f = BorderFogAmount(dist);
+    if (f > 0.0) color = mix(color, GetSky(playerPos / max(dist, 1e-4), sunDir, false), f);
 
     #ifdef WORLD_NETHER
         // The Nether is always hazy.

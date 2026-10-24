@@ -79,8 +79,18 @@ void main() {
 #include "/lib/lighting/basicFog.glsl"
 
 uniform sampler2D gtexture;
-#ifdef PROG_GBUFFERS_WATER
+
+#if defined PROG_GBUFFERS_WATER || defined PROG_GBUFFERS_HAND_WATER
+    // Terrain translucents and held translucent items use order-independent layers.
+    #define TRANSLUCENT_OIT
+    #include "/lib/materials/translucent.glsl"
+    #include "/lib/voxel/glassVoxels.glsl"
+    #include "/lib/materials/glass.glsl"
     #include "/lib/materials/water.glsl"
+#endif
+#if FORWARD_ORDER_SAFE == 1 && (defined PROG_GBUFFERS_TEXTURED || defined PROG_GBUFFERS_ENTITIES_TRANSLUCENT || defined PROG_GBUFFERS_BLOCK_TRANSLUCENT)
+    // Also write the "keep" shading model, so this survives if Iris draws it before deferred.
+    #define ORDER_SAFE_LAYER
 #endif
 
 in vec2 texCoord;
@@ -92,7 +102,11 @@ flat in int blockId;
 flat in vec3 sunDir;
 flat in vec3 lightDir;
 
-#if defined FWD_UNLIT || (defined PROG_GBUFFERS_TEXTURED && FORWARD_ORDER_SAFE == 1)
+#if defined TRANSLUCENT_OIT
+    /* RENDERTARGETS: 5,6 */
+    layout(location = 0) out vec4 outTransmit;
+    layout(location = 1) out vec4 outLight;
+#elif defined FWD_UNLIT || defined ORDER_SAFE_LAYER
     /* RENDERTARGETS: 0,3 */
     layout(location = 0) out vec4 outColor;
     layout(location = 1) out vec4 outMaterial;
@@ -163,24 +177,10 @@ void main() {
 
         #if defined PROG_GBUFFERS_TEXTURED && DEBUG_PARTICLES == 1
             outColor = vec4(1.0, 0.0, 1.0, 1.0);
-            #if FORWARD_ORDER_SAFE == 1
+            #ifdef ORDER_SAFE_LAYER
                 outMaterial = vec4(0.0);
             #endif
             return;
-        #endif
-
-        if (albedo.a < alphaTestRef) discard;
-
-        #ifdef PROG_GBUFFERS_WATER
-            if (blockId == BLOCK_WATER) {
-                outColor = ShadeWater(albedo, playerPos, normalize(worldNormal), RemapLightmap(lmCoord), sunDir, lightDir);
-                return;
-            }
-            if (blockId == BLOCK_NETHER_PORTAL) {
-                // Self-lit: never tinted by the (orange) blocklight around it.
-                outColor = vec4(ApplyFog(SrgbToLinear(albedo.rgb) * 2.5, playerPos, sunDir, false), max(albedo.a, 0.6));
-                return;
-            }
         #endif
 
         vec2 lm = RemapLightmap(lmCoord);
@@ -196,14 +196,39 @@ void main() {
         surf.ao = 1.0;
         surf.foliage = false;
         surf.useShadowMap = true;
-        vec3 color = SrgbToLinear(albedo.rgb) * GetLighting(surf, sunDir, lightDir);
 
-        #ifdef PROG_GBUFFERS_WEATHER
-            albedo.a *= 0.6;
-        #endif
-        outColor = vec4(ApplyFog(color, playerPos, sunDir, false), albedo.a);
-        #if defined PROG_GBUFFERS_TEXTURED && FORWARD_ORDER_SAFE == 1
-            outMaterial = vec4(0.0); // if drawn before deferred, keep this pixel as-is
+        #ifdef TRANSLUCENT_OIT
+            TranslucentOut layer;
+            if (blockId == BLOCK_WATER) {
+                layer = ShadeWater(vertColor.rgb, playerPos, surf.normal, surf, sunDir, lightDir);
+            } else if (IsGlass(blockId)) {
+                // Textureless: only the average colour of the glass texture is used.
+                vec4 avgTexel = textureLod(gtexture, texCoord, 4.0) * vertColor;
+                layer = ShadeGlass(blockId, avgTexel, playerPos, surf.normal, surf, sunDir, lightDir);
+            } else if (blockId == BLOCK_NETHER_PORTAL) {
+                // Self-lit: never tinted by the (orange) blocklight around it.
+                layer = AlphaLayer(SrgbToLinear(albedo.rgb) * 2.5, max(albedo.a, 0.6));
+            } else {
+                if (albedo.a < alphaTestRef) discard;
+                layer = AlphaLayer(SrgbToLinear(albedo.rgb) * GetLighting(surf, sunDir, lightDir), albedo.a);
+            }
+            layer = FogLayer(layer, BorderFogAmount(length(playerPos)));
+            outTransmit = vec4(layer.transmit, 1.0);
+            outLight = vec4(layer.light, 1.0);
+        #else
+            if (albedo.a < alphaTestRef) discard;
+            #if defined PROG_GBUFFERS_ENTITIES_TRANSLUCENT
+                albedo.rgb = mix(albedo.rgb, entityColor.rgb, entityColor.a); // hurt flash
+            #endif
+            vec3 color = SrgbToLinear(albedo.rgb) * GetLighting(surf, sunDir, lightDir);
+
+            #ifdef PROG_GBUFFERS_WEATHER
+                albedo.a *= 0.6;
+            #endif
+            outColor = vec4(ApplyFog(color, playerPos, sunDir, false), albedo.a);
+            #ifdef ORDER_SAFE_LAYER
+                outMaterial = vec4(0.0);
+            #endif
         #endif
     #endif
 }

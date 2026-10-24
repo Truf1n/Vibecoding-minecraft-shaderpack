@@ -5,6 +5,7 @@ uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
 uniform sampler2DShadow shadowtex0HW; // all geometry, hardware depth compare
 uniform sampler2DShadow shadowtex1HW; // opaque only, hardware depth compare
+uniform sampler2D shadowtex0;         // all geometry, raw depth
 uniform sampler2D shadowtex1;         // opaque only, raw depth (for foliage thickness)
 uniform sampler2D shadowcolor0;       // tint of translucent casters (stained glass)
 
@@ -62,4 +63,19 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal) {
     r.thickness = max(deltaNdc / abs(shadowProjection[2][2]), 0.0);
 
     return r;
+}
+
+// 1 if a translucent caster (ice, stained glass) sits just above this point towards the
+// sun/moon, with nothing opaque in between. Used to stop water under ice reflecting the sky.
+float TranslucentCoverAbove(vec3 playerPos) {
+    vec3 clip = (shadowProjection * vec4((shadowModelView * vec4(playerPos, 1.0)).xyz, 1.0)).xyz;
+    if (length(clip.xy) > 0.95) return 0.0;
+    vec3 coord = DistortShadowClip(clip) * 0.5 + 0.5;
+
+    float allDepth = texture(shadowtex0, coord.xy).r;
+    float opaqueDepth = texture(shadowtex1, coord.xy).r;
+    if (allDepth >= opaqueDepth - 1e-6) return 0.0; // nearest caster is opaque (or none)
+
+    float gapBlocks = (coord.z - allDepth) * 2.0 / SHADOW_Z_SCALE / abs(shadowProjection[2][2]);
+    return gapBlocks > 0.02 && gapBlocks < 3.0 ? 1.0 : 0.0;
 }

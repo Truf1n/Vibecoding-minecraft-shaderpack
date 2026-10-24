@@ -11,6 +11,7 @@ uniform mat4 gbufferModelViewInverse;
 uniform mat4 gbufferProjection;
 uniform mat4 gbufferProjectionInverse;
 uniform vec3 cameraPosition;
+uniform vec3 cameraPositionFract; // fractional part of cameraPosition (pairs with block indices)
 uniform float near;
 uniform float far;
 uniform float viewWidth;
