@@ -126,7 +126,13 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
         if (dot(T, T) < 0.01) return PlainSurface(mirrored, 1.0);
         vec2 refrUV = clamp(uv + RefractionOffset(N, viewPos, 2.0), vec2(0.001), vec2(0.999));
         vec3 above = texture(colortex7, refrUV).rgb;
-        if (texture(depthtex1, refrUV).r >= 1.0) above = GetSkyFromUnderwater(normalize(T), sunDir);
+        if (texture(depthtex1, refrUV).r >= 1.0) {
+            above = GetSkyFromUnderwater(normalize(T), sunDir);
+            #if defined WORLD_OVERWORLD && CLOUD_STYLE == 1
+                vec4 clouds = CloudsInDirection(normalize(T));
+                above = above * clouds.a + clouds.rgb;
+            #endif
+        }
         float transmit = 1.0 - pow(1.0 - saturate(dot(N, V)), 5.0);
         return PlainSurface(mix(mirrored, above, transmit), 1.0);
     }
@@ -178,7 +184,13 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
     R = normalize(R);
     // How much sky one pixel's reflection covers: stars are spread over it (prefiltered).
     float starFootprint = max(length(fwidth(R)), PixelAngle());
-    vec3 reflection = GetSkyReflection(R, sunDir, starFootprint) * skyVis + scatterLight * (1.0 - skyVis);
+    vec3 skyReflection = GetSkyReflection(R, sunDir, starFootprint);
+    #if defined WORLD_OVERWORLD && CLOUD_STYLE == 1
+        // Clouds, looked up where the reflected direction is on screen.
+        vec4 clouds = CloudsInDirection(R);
+        skyReflection = skyReflection * clouds.a + clouds.rgb;
+    #endif
+    vec3 reflection = skyReflection * skyVis + scatterLight * (1.0 - skyVis);
 
     #if WATER_REFLECTIONS == 1
         if (geoNormal.y > 0.5 && fresnel > 0.03) {

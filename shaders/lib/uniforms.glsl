@@ -35,6 +35,9 @@ uniform int moonPhase;        // 0 full moon ... 4 new moon ... 7
 uniform float caveFactor;     // custom (shaders.properties): 1 when the camera is underground
 uniform float inNetherWastes, inCrimsonForest, inWarpedForest, inBasaltDeltas, inSoulValley; // custom, 0..1
 uniform int frameCounter;
+uniform int worldTime;         // 0..23999 ticks into the day
+uniform int worldDay;
+uniform ivec2 eyeBrightnessSmooth; // block / sky light around the eye, 0..240
 uniform float frameTimeCounter;
 
 // Per-draw

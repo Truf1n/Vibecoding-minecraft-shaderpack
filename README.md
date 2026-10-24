@@ -8,7 +8,8 @@ choose **OpenGL**; Iris does not run on the Vulkan renderer.
 
 ## Status
 
-Milestone **M4 (temporal)** on top of M3 (water), M2 (atmosphere) and M1 (core lighting):
+Milestone **M5 (clouds and light shafts)** on top of M4 (temporal), M3 (water), M2
+(atmosphere) and M1 (core lighting):
 
 - Deferred pipeline; shadow-mapped sun/moon with coloured shadows and leaf translucency;
   sky-matched ambient, blocklight, handheld light; filmic tonemap.
@@ -24,8 +25,11 @@ Milestone **M4 (temporal)** on top of M3 (water), M2 (atmosphere) and M1 (core l
 
 - Temporal anti-aliasing (Halton jitter, reprojection, variance clipping, Catmull-Rom
   history) and contrast-adaptive sharpening.
+- Volumetric clouds at half or quarter resolution, blended over frames, with cloud
+  shadows, reflections in water, and visibility from under water. Light shafts at half
+  resolution (shadow map, coloured glass, clouds; under water with caustics).
 
-Not yet: clouds, light shafts (M5), coloured lighting (M6), materials/PBR, bloom (see docs/PLAN.md).
+Not yet: coloured lighting (M6), materials/PBR (M7), bloom (M8) (see docs/PLAN.md).
 
 ## Install / test
 
@@ -63,12 +67,14 @@ docs/PLAN.md           research, feature list (IDs), milestones
 | Sun / moon | `gbuffers_skytextured` (vanilla sky disc and stars are discarded) | colortex0 |
 | Opaque geometry | `gbuffers_terrain/entities/block/hand` | G-buffer: colortex1 albedo+AO, colortex2 normal+lightmap, colortex3 shading model+emission+dry-waterloggable flag |
 | Overlays | `gbuffers_clouds/armor_glint/spidereyes/beaconbeam/lightning` | colortex4 (premultiplied) |
-| Deferred | `deferred` | procedural sky behind everything; lights the G-buffer once per pixel → colortex0, copy in colortex7 |
+| Clouds | `deferred` (half/quarter size, Overworld) | ray-marched clouds blended with the previous frames → colortex9 (light, transmittance), colortex10 (distance) |
+| Deferred | `deferred1` | procedural sky + clouds behind everything; lights the G-buffer once per pixel → colortex0, copy in colortex7 |
 | Translucent terrain | `gbuffers_water/hand_water` | colortex0 (sorted alpha blend; water opaque, refracting colortex7) + colortex5 tint |
 | Translucent mobs | `gbuffers_entities_translucent/block_translucent` | colortex5/6 (order-independent) |
 | Particles, weather | `gbuffers_textured/weather` | colortex0 (forward-lit, blended) |
 | Composite | `composite` | colortex0 × colortex5 + colortex6, underwater distortion |
-| TAA | `composite1` | history colortex8 (final reads it from there) |
+| Light shafts | `composite1` (half size), `composite2` (Overworld) | march → colortex11; depth-aware upsample added to colortex0 |
+| TAA | `composite3` | history colortex8 (final reads it from there) |
 | Output | `final` | reads colortex8 (TAA on) or colortex0; tonemap, sharpening, sRGB, dither, debug views |
 
 ## Licence

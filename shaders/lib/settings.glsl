@@ -69,6 +69,32 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define MOON_PHASE_LIGHTING
 #define END_STAR_INTENSITY 1.00 //[0.00 0.25 0.50 0.75 1.00 1.50 2.00]
 
+// ---- Clouds -----------------------------------------------------------------
+// 0 off, 1 Unbound-style volumetric, 2 vanilla
+#define CLOUD_STYLE 1           //[0 1 2]
+// Samples per pixel: 1 low, 2 medium, 3 high
+#define CLOUD_QUALITY 2         //[1 2 3]
+// Clouds are rendered at 1/N of the screen size and smoothed over time.
+#define CLOUD_RES_DIV 2         //[2 4]
+#define CLOUD_ALTITUDE 192      //[128 160 192 224 256 320]
+#define CLOUD_THICKNESS 48.0    //[24.0 32.0 48.0 64.0 96.0]
+#define CLOUD_AMOUNT 0.45       //[0.20 0.30 0.40 0.45 0.50 0.60 0.70 0.85]
+#define CLOUD_SIZE 1.00         //[0.50 0.75 1.00 1.25 1.50 2.00]
+#define CLOUD_DENSITY 1.00      //[0.50 0.75 1.00 1.50 2.00]
+#define CLOUD_SPEED 1.00        //[0.00 0.25 0.50 1.00 2.00 4.00]
+// Drift follows the world clock instead of real time (same clouds for everyone).
+//#define CLOUD_WORLD_TIME
+// Strength of cloud shadows on the ground, percent.
+#define CLOUD_SHADOWS 70        //[0 25 50 70 85 100]
+#define CLOUD_COLOR_R 1.00      //[0.50 0.60 0.70 0.80 0.90 1.00]
+#define CLOUD_COLOR_G 1.00      //[0.50 0.60 0.70 0.80 0.90 1.00]
+#define CLOUD_COLOR_B 1.00      //[0.50 0.60 0.70 0.80 0.90 1.00]
+
+// ---- Light shafts --------------------------------------------------------------
+// 0 off, 1 low, 2 medium (with cloud shadows), 3 high
+#define VL_QUALITY 2            //[0 1 2 3]
+#define VL_STRENGTH 1.00        //[0.25 0.50 0.75 1.00 1.25 1.50 2.00 3.00]
+
 // ---- Fog --------------------------------------------------------------------
 #define BORDER_FOG
 #define ATM_FOG_MULT 0.80       //[0.00 0.25 0.50 0.65 0.80 0.95 1.20 1.50 2.00]

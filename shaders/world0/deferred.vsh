@@ -5,4 +5,4 @@
 #define PROG_DEFERRED
 #define VERTEX_SHADER
 
-#include "/program/deferred.glsl"
+#include "/program/clouds.glsl"

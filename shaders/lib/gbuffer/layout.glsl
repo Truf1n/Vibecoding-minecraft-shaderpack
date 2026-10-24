@@ -9,6 +9,9 @@ const int colortex5Format = RGBA8;          // translucent tint (multiplicative:
 const int colortex6Format = RGBA16F;        // translucent mobs: added light (additive, order-independent)
 const int colortex7Format = R11F_G11F_B10F; // lit opaque scene copy from deferred (read by water reflections)
 const int colortex8Format = RGBA16F;        // TAA history (kept between frames)
+const int colortex9Format = RGBA16F;        // clouds, reduced size: scattered light | transmittance (kept: history)
+const int colortex10Format = R32F;          // clouds, reduced size: distance along the view ray
+const int colortex11Format = RGBA16F;       // light shafts, half size: light | linear depth
 */
 
 const bool colortex1Clear = true;
@@ -18,6 +21,9 @@ const bool colortex4Clear = true;
 const bool colortex5Clear = true;
 const bool colortex6Clear = true;
 const bool colortex8Clear = false;
+const bool colortex9Clear = false;
+const bool colortex10Clear = false;
+const bool colortex11Clear = false;
 const vec4 colortex0ClearColor = vec4(0.0, 0.0, 0.0, 1.0); // sky is added in deferred
 const vec4 colortex1ClearColor = vec4(0.0, 0.0, 0.0, 0.0); // Iris default for colortex1 is white
 const vec4 colortex4ClearColor = vec4(0.0, 0.0, 0.0, 0.0);

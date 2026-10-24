@@ -2,6 +2,11 @@
 // Colours come from lib/atmosphere/sky.glsl so lighting matches the sky.
 // Needs: common.glsl, sky.glsl, and (outside the Nether) shadowSpace.glsl + shadows.glsl.
 
+#ifdef WORLD_OVERWORLD
+    #include "/lib/util/noise.glsl"
+    #include "/lib/atmosphere/clouds.glsl"
+#endif
+
 vec3 BlocklightColor() { return vec3(BLOCKLIGHT_R, BLOCKLIGHT_G, BLOCKLIGHT_B) * BLOCKLIGHT_I; }
 
 // Dynamic handheld light (plan item L14): vanilla light level minus distance, like vanilla falloff.
@@ -60,6 +65,10 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir) {
             thickness = mix(thickness, sh.thickness, sh.coverage);
         }
 
+        #ifdef WORLD_OVERWORLD
+            // Cloud shadows (only where the sun reaches at all).
+            if (skyGate > 0.0 && dot(sunVis, vec3(1.0)) > 0.0) sunVis *= CloudShadow(s.playerPos + cameraPosition, lightDir);
+        #endif
         light += directColor * diffuse * sunVis * skyGate;
         light += ambientColor * upFacing * AMBIENT_MULT;
 

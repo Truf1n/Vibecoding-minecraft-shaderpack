@@ -127,6 +127,9 @@ uniform sampler2D gtexture;
     #include "/lib/materials/ice.glsl"
     #include "/lib/materials/caustics.glsl"
     #include "/lib/materials/columnMaps.glsl"
+    #if defined WORLD_OVERWORLD && CLOUD_STYLE == 1
+        #include "/lib/atmosphere/cloudBuffer.glsl"
+    #endif
     #include "/lib/materials/water.glsl"
 #elif defined PROG_GBUFFERS_ENTITIES_TRANSLUCENT || defined PROG_GBUFFERS_BLOCK_TRANSLUCENT
     // Translucent mobs may be drawn before or after deferred: order-independent layers.
@@ -196,6 +199,9 @@ void main() {
         vec3 color = SrgbToLinear(albedo.rgb);
 
         #if defined OVERLAY_CLOUDS
+            #if CLOUD_STYLE != 2
+                discard; // vanilla clouds only with the Vanilla cloud style
+            #endif
             Surface surf;
             surf.playerPos = playerPos;
             surf.normal = vec3(0.0, 1.0, 0.0);

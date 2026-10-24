@@ -1,6 +1,7 @@
-// Deferred resolve: draws the sky behind everything, lights every opaque G-buffer pixel
-// once, then composites the pre-deferred overlay (vanilla clouds, glint, glowing eyes,
-// beacon beams).
+// Deferred resolve (deferred1, after the cloud pass): draws the sky behind everything,
+// lights every opaque G-buffer pixel once, adds the volumetric clouds in front of whatever
+// is farther away than them, then composites the pre-deferred overlay (vanilla clouds,
+// glint, glowing eyes, beacon beams).
 
 #include "/lib/common.glsl"
 
@@ -32,6 +33,10 @@ void main() {
 #endif
 #include "/lib/lighting/lighting.glsl"
 #include "/lib/atmosphere/fog.glsl"
+#if defined WORLD_OVERWORLD && CLOUD_STYLE == 1
+    #define VOLUMETRIC_CLOUDS
+    #include "/lib/atmosphere/cloudBuffer.glsl"
+#endif
 
 uniform sampler2D colortex0;
 uniform sampler2D colortex1;
@@ -61,6 +66,10 @@ void main() {
         // Sky: colortex0 holds only what vanilla drew on top (sun, moon), cleared to black.
         vec3 dir = normalize(playerPos);
         color += isEyeInWater == 1 ? GetSkyFromUnderwater(dir, sunDir) : GetSky(dir, sunDir, PixelAngle());
+        #ifdef VOLUMETRIC_CLOUDS
+            vec4 clouds = SampleClouds(texCoord);
+            color = color * clouds.a + clouds.rgb;
+        #endif
         color = ApplyFog(color, playerPos, sunDir, true);
     } else if (shadingModel != SM_KEEP) {
         vec4 albedoAo = texelFetch(colortex1, pixel, 0);
@@ -85,6 +94,14 @@ void main() {
         color += albedo * material.g * EMISSION_BRIGHTNESS;
         color = ApplyFog(color, playerPos, sunDir, false);
     }
+
+    #ifdef VOLUMETRIC_CLOUDS
+        // Clouds in front of terrain that is farther away than them (mountain tops).
+        if (depth < 1.0 && length(playerPos) > SampleCloudDistance(texCoord)) {
+            vec4 clouds = SampleClouds(texCoord);
+            color = color * clouds.a + clouds.rgb;
+        }
+    #endif
 
     vec4 overlay = texelFetch(colortex4, pixel, 0);
     color = color * (1.0 - overlay.a) + overlay.rgb;
