@@ -68,20 +68,28 @@ vec3 CelestialAxis() {
     return vec3(0.0, -sin(tilt), cos(tilt));
 }
 
-// Point stars on a sphere that turns with the sun path.
-vec3 Stars(vec3 dir, vec3 sunDir, float density, float brightness) {
+// Point stars on a sphere that turns with the sun path. `footprint` is the angular size
+// (radians) one pixel covers in this direction: when it is larger than a star (distant
+// pixels, or reflections on wavy water), the star is spread over it and dimmed so its
+// total light stays the same. That prefiltering is what keeps stars from flickering.
+vec3 Stars(vec3 dir, vec3 sunDir, float density, float brightness, float footprint) {
     if (density <= 0.0) return vec3(0.0);
+    const float cellsPerRadian = 260.0;
     vec3 axis = CelestialAxis();
     vec3 side = normalize(cross(axis, sunDir));
-    vec3 c = vec3(dot(dir, sunDir), dot(dir, side), dot(dir, axis)) * 260.0;
+    vec3 c = vec3(dot(dir, sunDir), dot(dir, side), dot(dir, axis)) * cellsPerRadian;
 
     vec3 cell = floor(c);
     float h = Hash13(cell);
     if (h < 1.0 - density) return vec3(0.0);
-    float shape = smoothstep(0.42, 0.05, length(fract(c) - 0.5));
-    float twinkle = 0.75 + 0.25 * sin(frameTimeCounter * (2.0 + 4.0 * h) + h * 50.0);
+
+    const float starRadius = 0.16; // in cells
+    float spread = max(starRadius, footprint * cellsPerRadian * 0.75);
+    float energy = (starRadius * starRadius) / (spread * spread);
+    energy *= 1.0 - smoothstep(0.35, 0.5, spread); // too blurred to resolve: fade out
+    float shape = smoothstep(spread, spread * 0.25, length(fract(c) - 0.5));
     vec3 tint = mix(vec3(0.75, 0.85, 1.0), vec3(1.0, 0.85, 0.7), fract(h * 37.0));
-    return tint * shape * twinkle * brightness;
+    return tint * shape * energy * brightness * (0.6 + 0.8 * fract(h * 113.0)) * 4.0;
 }
 
 float StarDensity() {
@@ -129,7 +137,9 @@ vec3 MoonDisc(vec3 dir, vec3 moonDir) {
     return vec3(0.75, 0.82, 0.95) * albedo * (lit * 1.6 + 0.02) * edge;
 }
 
-vec3 OverworldSky(vec3 dir, vec3 sunDir, bool withStars) {
+// starFootprint < 0: no stars or sun/moon discs (used for fog). The discs are also left out
+// of reflections, where the specular glint stands in for them.
+vec3 OverworldSky(vec3 dir, vec3 sunDir, float starFootprint, bool discs) {
     float sunUp = sunDir.y;
     vec3 zenith, horizon;
     OverworldSkyColors(sunUp, zenith, horizon);
@@ -155,12 +165,12 @@ vec3 OverworldSky(vec3 dir, vec3 sunDir, bool withStars) {
     sky = mix(sky, horizon * 0.35, smoothstep(0.0, -0.25, up));
 
     // Stars and the sun/moon discs (left out of reflections, where they would sparkle).
-    if (withStars) {
+    if (starFootprint >= 0.0) {
         float starVis = (1.0 - day) * clearSky * smoothstep(-0.05, 0.15, up);
-        if (starVis > 0.0) sky += Stars(dir, sunDir, StarDensity(), 0.6) * starVis;
+        if (starVis > 0.0) sky += Stars(dir, sunDir, StarDensity(), 0.6, starFootprint) * starVis;
 
         #if SUN_MOON_STYLE == 1
-            float discVis = 1.0;
+            float discVis = discs ? 1.0 : 0.0;
             #ifdef SUN_MOON_HORIZON
                 discVis *= smoothstep(-0.01, 0.01, up);
             #endif
@@ -176,23 +186,47 @@ vec3 OverworldSky(vec3 dir, vec3 sunDir, bool withStars) {
     return sky;
 }
 
-vec3 EndSky(vec3 dir) {
+vec3 EndSky(vec3 dir, float starFootprint) {
     float horizon = pow(1.0 - abs(dir.y), 4.0);
     vec3 sky = mix(vec3(0.010, 0.006, 0.020), vec3(0.075, 0.040, 0.110), horizon);
-    sky += Stars(dir, vec3(1.0, 0.0, 0.0), 0.010, 0.9 * END_STAR_INTENSITY) * vec3(0.9, 0.8, 1.0);
+    if (starFootprint >= 0.0) sky += Stars(dir, vec3(1.0, 0.0, 0.0), 0.010, 0.9 * END_STAR_INTENSITY, starFootprint) * vec3(0.9, 0.8, 1.0);
     return sky;
 }
 
-// The Nether "sky" is its fog colour, which vanilla already varies per biome.
-vec3 NetherSky() { return SrgbToLinear(fogColor) * 0.6; }
+// Nether fog/sky colour per biome (weights are smoothed custom uniforms), so it does not
+// depend on vanilla's fog colour. Unknown (modded) biomes fall back to Nether Wastes.
+vec3 NetherSky() {
+    vec3 c = vec3(0.110, 0.028, 0.012) * inNetherWastes
+           + vec3(0.130, 0.018, 0.012) * inCrimsonForest
+           + vec3(0.020, 0.050, 0.055) * inWarpedForest
+           + vec3(0.060, 0.052, 0.058) * inBasaltDeltas
+           + vec3(0.022, 0.048, 0.058) * inSoulValley;
+    float w = inNetherWastes + inCrimsonForest + inWarpedForest + inBasaltDeltas + inSoulValley;
+    return w > 0.01 ? c / w : vec3(0.110, 0.028, 0.012);
+}
 
-// Sky in a given direction for the current dimension.
-vec3 GetSky(vec3 dir, vec3 sunDir, bool withStars) {
+// Angular size of one screen pixel (radians), for star prefiltering.
+float PixelAngle() { return 2.0 / (gbufferProjection[1][1] * viewHeight); }
+
+// Sky in a given direction for the current dimension. starFootprint: angular pixel size
+// for stars and the sun/moon discs, or a negative value to leave them out.
+vec3 GetSky(vec3 dir, vec3 sunDir, float starFootprint) {
     #if defined WORLD_NETHER
         return NetherSky();
     #elif defined WORLD_END
-        return EndSky(dir);
+        return EndSky(dir, starFootprint);
     #else
-        return OverworldSky(dir, sunDir, withStars);
+        return OverworldSky(dir, sunDir, starFootprint, true);
+    #endif
+}
+
+// Sky as seen in a reflection: prefiltered stars, but no sun/moon discs.
+vec3 GetSkyReflection(vec3 dir, vec3 sunDir, float starFootprint) {
+    #if defined WORLD_NETHER
+        return NetherSky();
+    #elif defined WORLD_END
+        return EndSky(dir, starFootprint);
+    #else
+        return OverworldSky(dir, sunDir, starFootprint, false);
     #endif
 }

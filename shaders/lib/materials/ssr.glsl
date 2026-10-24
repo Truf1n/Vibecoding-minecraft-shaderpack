@@ -1,9 +1,10 @@
 // Screen-space reflections (plan item W11, pulled forward): march the reflected ray in
 // view space against the opaque depth buffer and fetch the lit opaque scene that the
 // deferred pass copies into colortex7. Misses fall back to the sky.
-// Needs: common.glsl, space.glsl, and depthtex1 declared by the caller.
+// Needs: common.glsl, space.glsl.
 
 uniform sampler2D colortex7; // lit opaque scene (copied in deferred, before translucents)
+uniform sampler2D depthtex1; // opaque depth (without translucents)
 
 #define SSR_STEPS 24
 #define SSR_REFINE_STEPS 5
@@ -56,3 +57,6 @@ vec4 TraceSSR(vec3 viewPos, vec3 viewDir, float dither) {
     }
     return vec4(0.0);
 }
+
+// Per-pixel jitter for the first ray step (interleaved gradient noise).
+float SSRDither() { return fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))); }

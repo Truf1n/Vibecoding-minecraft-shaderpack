@@ -35,9 +35,9 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir) {
     float upFacing = hasNormal ? 0.75 + 0.25 * s.normal.y : 0.9;
 
     #if defined WORLD_NETHER
-        // Biome-tinted: vanilla's Nether fog colour changes per biome (crimson, warped...).
-        vec3 biomeTint = SrgbToLinear(fogColor);
-        biomeTint /= max(max(biomeTint.r, max(biomeTint.g, biomeTint.b)), 0.05);
+        // Biome-tinted ambient (crimson, warped, ...), from the same colours as the Nether fog.
+        vec3 biomeTint = NetherSky();
+        biomeTint /= max(max(biomeTint.r, max(biomeTint.g, biomeTint.b)), 0.01);
         light += mix(vec3(0.30, 0.13, 0.07), vec3(0.30, 0.13, 0.07) * 0.5 + biomeTint * 0.15, 0.6) * 0.55 * AMBIENT_MULT;
     #else
         #ifdef WORLD_END

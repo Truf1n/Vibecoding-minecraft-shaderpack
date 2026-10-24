@@ -89,7 +89,9 @@ uniform sampler2D gtexture;
     // correctly; stained-glass tint goes to colortex5.
     #define TRANSLUCENT_SORTED
     #include "/lib/materials/translucent.glsl"
+    #include "/lib/materials/ssr.glsl"
     #include "/lib/materials/glass.glsl"
+    #include "/lib/materials/ice.glsl"
     #include "/lib/materials/water.glsl"
 #elif defined PROG_GBUFFERS_ENTITIES_TRANSLUCENT || defined PROG_GBUFFERS_BLOCK_TRANSLUCENT
     // Translucent mobs may be drawn before or after deferred: order-independent layers.
@@ -222,6 +224,9 @@ void main() {
                 // see-through part becomes a clean colour tint instead of a hazy overlay.
                 vec4 avgTexel = textureLod(gtexture, texCoord, 4.0) * vertColor;
                 surface = ShadeGlass(blockId, albedo, avgTexel, playerPos, surf.normal, surf, sunDir, lightDir);
+            } else if (blockId == BLOCK_ICE) {
+                if (albedo.a < alphaTestRef) discard;
+                surface = ShadeIce(albedo, playerPos, surf.normal, surf, sunDir, lightDir);
             } else if (blockId == BLOCK_NETHER_PORTAL) {
                 // Self-lit: never tinted by the (orange) blocklight around it.
                 surface = PlainSurface(SrgbToLinear(albedo.rgb) * 2.5, max(albedo.a, 0.6));

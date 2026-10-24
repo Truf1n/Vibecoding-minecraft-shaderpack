@@ -61,15 +61,15 @@ vec3 ApplyFog(vec3 color, vec3 playerPos, vec3 sunDir, bool isSky) {
             // Haze takes the sky colour near the horizon in that direction (blue by day,
             // warm towards a sunset).
             float atm = AtmosphericFogAmount(playerPos);
-            if (atm > 0.0) color = mix(color, GetSky(normalize(vec3(dir.x, 0.04, dir.z)), sunDir, false), atm);
+            if (atm > 0.0) color = mix(color, GetSky(normalize(vec3(dir.x, 0.04, dir.z)), sunDir, -1.0), atm);
         #elif defined WORLD_NETHER
-            color = mix(color, NetherSky(), 1.0 - exp(-dist * 0.006));
+            color = mix(color, NetherSky(), 1.0 - exp(-dist * 0.012));
         #elif defined WORLD_END
-            color = mix(color, EndSky(normalize(vec3(dir.x, 0.0, dir.z))) * 0.8, 1.0 - exp(-dist * 0.004));
+            color = mix(color, EndSky(normalize(vec3(dir.x, 0.0, dir.z)), -1.0) * 0.8, 1.0 - exp(-dist * 0.004));
         #endif
 
         float border = BorderFogAmount(dist);
-        if (border > 0.0) color = mix(color, GetSky(dir, sunDir, false), border);
+        if (border > 0.0) color = mix(color, GetSky(dir, sunDir, -1.0), border);
 
         #if defined CAVE_FOG && defined WORLD_OVERWORLD
             if (caveFactor > 0.0) color = mix(color, vec3(0.010, 0.011, 0.014), caveFactor * (1.0 - exp(-dist * 0.03)));

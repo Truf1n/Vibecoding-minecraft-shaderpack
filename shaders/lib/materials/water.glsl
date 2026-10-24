@@ -1,12 +1,9 @@
 // Water: textureless, biome-tinted, smooth procedural waves, screen-space reflections of
 // the scene with a sky fallback, a soft sun/moon glint, and depth-based opacity.
 // Needs: sky.glsl, lighting.glsl (+ shadows.glsl outside the Nether), fog.glsl,
-// space.glsl, translucent.glsl.
+// space.glsl, translucent.glsl, ssr.glsl.
 
 uniform sampler2D noisetex;
-uniform sampler2D depthtex1; // opaque depth (without translucents)
-
-#include "/lib/materials/ssr.glsl"
 
 const int noiseTextureResolution = 256;
 
@@ -96,15 +93,17 @@ TranslucentSurface ShadeWater(vec3 biomeTint, vec3 playerPos, vec3 geoNormal, Su
 
     vec3 R = reflect(-V, N);
     R.y = max(R.y, 0.02); // never reflect the ground below the horizon
-    // No stars: single-pixel stars on moving waves turn into sparkling noise.
-    vec3 reflection = GetSky(normalize(R), sunDir, false) * skyVis + scatter * (1.0 - skyVis);
+    R = normalize(R);
+    // How much sky one pixel's reflection covers: stars are spread over it (prefiltered),
+    // so calm water shows crisp stars and wavy water a steady shimmer instead of sparkles.
+    float starFootprint = max(length(fwidth(R)), PixelAngle());
+    vec3 reflection = GetSkyReflection(R, sunDir, starFootprint) * skyVis + scatter * (1.0 - skyVis);
 
     #if WATER_REFLECTIONS == 1
         if (geoNormal.y > 0.5 && fresnel > 0.03) {
             vec3 viewPos = ScreenToView(uv, gl_FragCoord.z);
             vec3 viewR = normalize(mat3(gbufferModelView) * R);
-            float dither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-            vec4 ssr = TraceSSR(viewPos, viewR, dither);
+            vec4 ssr = TraceSSR(viewPos, viewR, SSRDither());
             reflection = mix(reflection, ssr.rgb, ssr.a);
         }
     #endif

@@ -11,7 +11,7 @@ vec3 GlassTint(int blockId, vec4 avgTexel) {
     if (blockId == BLOCK_GLASS || blockId == BLOCK_GLASS_PANE) return vec3(0.96, 0.98, 0.98);
     vec3 c = SrgbToLinear(avgTexel.rgb);
     vec3 hue = c / max(max(c.r, max(c.g, c.b)), 0.6);
-    return mix(vec3(1.0), hue, 0.85);
+    return mix(vec3(1.0), hue, GLASS_TINT);
 }
 
 TranslucentSurface ShadeGlass(int blockId, vec4 texel, vec4 avgTexel, vec3 playerPos, vec3 normal, Surface surf, vec3 sunDir, vec3 lightDir) {
@@ -22,7 +22,7 @@ TranslucentSurface ShadeGlass(int blockId, vec4 texel, vec4 avgTexel, vec3 playe
     float fresnel = 0.04 + 0.96 * pow(1.0 - saturate(abs(dot(normal, V))), 5.0);
     vec3 R = reflect(-V, normal);
     R.y = abs(R.y);
-    vec3 reflection = GetSky(R, sunDir, false) * surf.lm.y * surf.lm.y;
+    vec3 reflection = GetSky(R, sunDir, -1.0) * surf.lm.y * surf.lm.y;
 
     TranslucentSurface s;
     // See-through part: only a faint reflection is blended, the colour is a pure tint.

@@ -33,6 +33,7 @@ uniform float blindness;
 uniform float darknessFactor;
 uniform int moonPhase;        // 0 full moon ... 4 new moon ... 7
 uniform float caveFactor;     // custom (shaders.properties): 1 when the camera is underground
+uniform float inNetherWastes, inCrimsonForest, inWarpedForest, inBasaltDeltas, inSoulValley; // custom, 0..1
 uniform int frameCounter;
 uniform float frameTimeCounter;
 

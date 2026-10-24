@@ -2,7 +2,9 @@
 // Radial distortion concentrates resolution near the player (one map, no cascades);
 // depth is compressed so the whole shadow range fits with good precision.
 
-const float SHADOW_DISTORT = 0.85;  // 0 = none, closer to 1 = sharper near the player
+// Radial distortion: shadow density near the player vs at the edge of the shadow range is
+// 1 / (1 - SHADOW_DISTORT)^2 : 1 (0.6 -> 6x, 0.85 -> 44x). Must match in all programs.
+const float SHADOW_DISTORT = SHADOW_FALLOFF;
 const float SHADOW_Z_SCALE = 0.2;
 
 float ShadowDistortFactor(vec2 clipXY) { return length(clipXY) * SHADOW_DISTORT + (1.0 - SHADOW_DISTORT); }
