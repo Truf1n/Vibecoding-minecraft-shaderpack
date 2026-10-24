@@ -20,7 +20,9 @@ float LinearizeDepth(float depth) {
 }
 
 // rgb = reflected scene colour, a = confidence (0 = use the sky instead).
-vec4 TraceSSR(vec3 viewPos, vec3 viewDir, float dither) {
+// planeNormal: view-space normal of the reflecting surface (not the wave normal); hits
+// behind that plane (e.g. terrain under the water) cannot appear in the reflection.
+vec4 TraceSSR(vec3 viewPos, vec3 viewDir, vec3 planeNormal, float dither) {
     float stepLen = 0.15 + length(viewPos) * 0.02;
     vec3 pos = viewPos + viewDir * stepLen * dither;
     vec3 prev = pos;
@@ -48,7 +50,10 @@ vec4 TraceSSR(vec3 viewPos, vec3 viewDir, float dither) {
                 if (-mid.z > LinearizeDepth(texture(depthtex1, s.xy).r)) b = mid; else a = mid;
             }
             vec3 hit = ViewToScreen(b);
-            if (texture(depthtex1, hit.xy).r >= 1.0) break; // sky: let the caller draw it
+            float hitDepth = texture(depthtex1, hit.xy).r;
+            if (hitDepth >= 1.0) break; // sky: let the caller draw it
+            vec3 hitView = ScreenToView(hit.xy, hitDepth);
+            if (dot(hitView - viewPos, planeNormal) < -0.05) continue; // below the surface
 
             // Fade out near the screen edges, where the information runs out.
             vec2 edge = smoothstep(vec2(0.0), vec2(0.08), hit.xy) * smoothstep(vec2(0.0), vec2(0.08), 1.0 - hit.xy);

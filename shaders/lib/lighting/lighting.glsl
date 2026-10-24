@@ -55,7 +55,7 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir) {
         vec3 sunVis = vec3(pow(s.lm.y, 4.0));
         float thickness = 4.0;
         if (s.useShadowMap && skyGate > 0.0 && (diffuse > 0.0 || s.foliage)) {
-            ShadowResult sh = GetShadow(s.playerPos, hasNormal ? s.normal * (s.foliage ? 0.3 : 1.0) : vec3(0.0));
+            ShadowResult sh = GetShadow(s.playerPos, hasNormal ? s.normal : vec3(0.0), s.foliage);
             sunVis = mix(sunVis, sh.light, sh.coverage);
             thickness = mix(thickness, sh.thickness, sh.coverage);
         }

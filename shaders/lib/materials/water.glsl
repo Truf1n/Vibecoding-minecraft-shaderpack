@@ -103,7 +103,7 @@ TranslucentSurface ShadeWater(vec3 biomeTint, vec3 playerPos, vec3 geoNormal, Su
         if (geoNormal.y > 0.5 && fresnel > 0.03) {
             vec3 viewPos = ScreenToView(uv, gl_FragCoord.z);
             vec3 viewR = normalize(mat3(gbufferModelView) * R);
-            vec4 ssr = TraceSSR(viewPos, viewR, SSRDither());
+            vec4 ssr = TraceSSR(viewPos, viewR, normalize(mat3(gbufferModelView) * geoNormal), SSRDither());
             reflection = mix(reflection, ssr.rgb, ssr.a);
         }
     #endif

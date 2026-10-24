@@ -13,7 +13,7 @@ TranslucentSurface ShadeIce(vec4 albedo, vec3 playerPos, vec3 normal, Surface su
         if (fresnel > 0.02) {
             vec2 uv = gl_FragCoord.xy / vec2(viewWidth, viewHeight);
             vec3 viewPos = ScreenToView(uv, gl_FragCoord.z);
-            vec4 ssr = TraceSSR(viewPos, normalize(mat3(gbufferModelView) * R), SSRDither());
+            vec4 ssr = TraceSSR(viewPos, normalize(mat3(gbufferModelView) * R), normalize(mat3(gbufferModelView) * normal), SSRDither());
             reflection = mix(reflection, ssr.rgb, ssr.a);
         }
     #endif

@@ -16,7 +16,8 @@ struct ShadowResult {
 };
 
 // playerPos: camera-relative world position. normal: world normal (zero for sprites).
-ShadowResult GetShadow(vec3 playerPos, vec3 normal) {
+// foliage: two-sided thin geometry, which needs a stronger bias against self-shadow acne.
+ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
     ShadowResult r;
     r.light = vec3(1.0);
     r.thickness = 0.0;
@@ -30,7 +31,16 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal) {
     // Normal offset scaled by the local (distorted) texel size in blocks, to avoid acne.
     float texelWorld = 2.0 * shadowDistance / float(shadowMapResolution);
     float localTexel = texelWorld * distortFactor * distortFactor / (1.0 - SHADOW_DISTORT);
-    vec3 offsetView = mat3(shadowModelView) * normal * localTexel * 1.2;
+    vec3 offsetView = mat3(shadowModelView) * normal;
+    if (foliage) {
+        // Thin two-sided blades: offset along whichever side faces the light (+z in shadow
+        // view space points at the sun/moon) and step towards the light as well, so a
+        // blade does not shadow itself while still shadowing its neighbours.
+        offsetView *= offsetView.z < 0.0 ? -1.0 : 1.0;
+        offsetView = offsetView * localTexel * 1.5 + vec3(0.0, 0.0, localTexel * 3.0);
+    } else {
+        offsetView *= localTexel * 1.2;
+    }
     clip = (shadowProjection * vec4(shadowView + offsetView, 1.0)).xyz;
 
     vec3 coord = DistortShadowClip(clip) * 0.5 + 0.5;

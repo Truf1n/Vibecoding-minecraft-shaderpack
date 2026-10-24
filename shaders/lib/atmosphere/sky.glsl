@@ -83,11 +83,15 @@ vec3 Stars(vec3 dir, vec3 sunDir, float density, float brightness, float footpri
     float h = Hash13(cell);
     if (h < 1.0 - density) return vec3(0.0);
 
+    // Soft Gaussian star, never narrower than ~1.5 pixels: a star smaller than a pixel
+    // shimmers as the sky turns and it crosses pixel centres. Wider than its true size
+    // means dimmer (same total light).
     const float starRadius = 0.16; // in cells
-    float spread = max(starRadius, footprint * cellsPerRadian * 0.75);
+    float spread = max(starRadius, footprint * cellsPerRadian * 1.5);
     float energy = (starRadius * starRadius) / (spread * spread);
-    energy *= 1.0 - smoothstep(0.35, 0.5, spread); // too blurred to resolve: fade out
-    float shape = smoothstep(spread, spread * 0.25, length(fract(c) - 0.5));
+    energy *= 1.0 - smoothstep(0.30, 0.42, spread); // too blurred to resolve: fade out
+    vec3 d = fract(c) - 0.5;
+    float shape = exp(-2.0 * dot(d, d) / (spread * spread));
     vec3 tint = mix(vec3(0.75, 0.85, 1.0), vec3(1.0, 0.85, 0.7), fract(h * 37.0));
     return tint * shape * energy * brightness * (0.6 + 0.8 * fract(h * 113.0)) * 4.0;
 }
