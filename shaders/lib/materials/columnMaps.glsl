@@ -3,9 +3,10 @@
 
 // Column maps: what occupies the block spaces near the player, as bit masks. Each map is
 // a 512x512 grid of block columns that wraps around the world; each column holds one bit
-// per block level, for the 32 levels around the camera height. The shadow pass sets the
-// bits (atomic OR, so the result does not depend on draw order) and Iris clears the maps
-// at the start of every frame, so they never hold stale data.
+// per block level, for the 128 levels around the camera height (64 below, 64 above),
+// stored as four 32-bit words stacked down the image. The shadow pass sets the bits
+// (atomic OR, so the result does not depend on draw order) and Iris clears the maps at
+// the start of every frame, so they never hold stale data.
 //
 //   ceiling       block levels whose bottom has a solid block underside flush on it
 //   glassCeiling  the same for see-through blocks (glass, ice, slime, honey)
@@ -15,22 +16,26 @@
 //   waterSurfaces block levels containing an upward water surface
 //
 // Used to decide how a water surface looks from below (water.glsl), where the surface may
-// wave (gbuffers_forward.glsl), and to find the water under glass for caustics (shadows.glsl) and to tell whether
-// glass is under water (gbuffers_forward.glsl).
+// wave (gbuffers_forward.glsl), to find the water under glass for caustics (shadows.glsl)
+// and to tell whether glass is under water (gbuffers_forward.glsl).
 
-const int COLUMN_MAP_SIZE = 512;      // must match the images in shaders.properties
+const int COLUMN_MAP_SIZE = 512;      // must match the images in shaders.properties (512 x 2048)
+const int COLUMN_MAP_WORDS = 4;       // 32 levels each
+const int COLUMN_MAP_LEVELS = 128;
 const float COLUMN_MAP_RANGE = 250.0; // blocks from the camera; stays clear of the wrap-around
 
-int ColumnBaseLevel() { return int(floor(cameraPosition.y)) - 16; }
+int ColumnBaseLevel() { return int(floor(cameraPosition.y)) - COLUMN_MAP_LEVELS / 2; }
 
-// Bit index of a block level, or -1 outside the 32 levels covered.
+// Bit index of a block level, or -1 outside the levels covered.
 int ColumnBit(float level) {
-    int bit = int(level) - ColumnBaseLevel();
-    return bit >= 0 && bit < 32 ? bit : -1;
+    int bit = int(floor(level)) - ColumnBaseLevel();
+    return bit >= 0 && bit < COLUMN_MAP_LEVELS ? bit : -1;
 }
 
 bool InColumnRange(vec2 worldXZ) { return all(lessThan(abs(worldXZ - cameraPosition.xz), vec2(COLUMN_MAP_RANGE))); }
-ivec2 ColumnCell(vec2 worldXZ) { return ivec2(mod(floor(worldXZ), float(COLUMN_MAP_SIZE))); }
+ivec2 ColumnCell(vec2 worldXZ, int word) {
+    return ivec2(mod(floor(worldXZ), float(COLUMN_MAP_SIZE))) + ivec2(0, word * COLUMN_MAP_SIZE);
+}
 
 #ifdef COLUMN_MAP_WRITER
     layout(r32ui) uniform uimage2D ceilingImg;
@@ -47,10 +52,10 @@ ivec2 ColumnCell(vec2 worldXZ) { return ivec2(mod(floor(worldXZ), float(COLUMN_M
 
     // Marks the block space with this centre in one of the maps.
     void MarkColumn(int map, vec3 blockCenter) {
-        int bit = ColumnBit(floor(blockCenter.y));
+        int bit = ColumnBit(blockCenter.y);
         if (bit < 0 || !InColumnRange(blockCenter.xz)) return;
-        ivec2 cell = ColumnCell(blockCenter.xz);
-        uint mask = 1u << uint(bit);
+        ivec2 cell = ColumnCell(blockCenter.xz, bit >> 5);
+        uint mask = 1u << uint(bit & 31);
         if (map == MAP_CEILING) imageAtomicOr(ceilingImg, cell, mask);
         else if (map == MAP_GLASS_CEILING) imageAtomicOr(glassCeilingImg, cell, mask);
         else if (map == MAP_GLASS_CELLS) imageAtomicOr(glassCellsImg, cell, mask);
@@ -64,14 +69,27 @@ ivec2 ColumnCell(vec2 worldXZ) { return ivec2(mod(floor(worldXZ), float(COLUMN_M
     uniform usampler2D waterCellsSampler;
     uniform usampler2D waterSurfacesSampler;
 
-    // All 32 bits of a column (0 when out of range).
-    uint ColumnMask(usampler2D map, vec2 worldXZ) {
-        return InColumnRange(worldXZ) ? texelFetch(map, ColumnCell(worldXZ), 0).r : 0u;
+    uint ColumnWord(usampler2D map, vec2 worldXZ, int word) {
+        return texelFetch(map, ColumnCell(worldXZ, word), 0).r;
     }
 
     bool ColumnHas(usampler2D map, vec3 worldPos) {
-        int bit = ColumnBit(floor(worldPos.y));
-        return bit >= 0 && (ColumnMask(map, worldPos.xz) & (1u << uint(bit))) != 0u;
+        int bit = ColumnBit(worldPos.y);
+        if (bit < 0 || !InColumnRange(worldPos.xz)) return false;
+        return (ColumnWord(map, worldPos.xz, bit >> 5) & (1u << uint(bit & 31))) != 0u;
+    }
+
+    // Lowest level at or above `fromBit` whose bit is set (or, with `inverted`, clear) in
+    // this column; COLUMN_MAP_LEVELS if none.
+    int FirstColumnBit(usampler2D map, vec2 worldXZ, int fromBit, bool inverted) {
+        for (int word = fromBit >> 5; word < COLUMN_MAP_WORDS; word++) {
+            uint bits = ColumnWord(map, worldXZ, word);
+            if (inverted) bits = ~bits;
+            int start = max(fromBit - word * 32, 0);
+            if (start > 0) bits &= ~((1u << uint(start)) - 1u);
+            if (bits != 0u) return word * 32 + findLSB(bits);
+        }
+        return COLUMN_MAP_LEVELS;
     }
 
     // Solid / see-through block underside flush on the bottom of this block space.
@@ -81,12 +99,11 @@ ivec2 ColumnCell(vec2 worldXZ) { return ivec2(mod(floor(worldXZ), float(COLUMN_M
     // Is there water on top of the see-through blocks stacked from this block space up?
     // (glass sunk in water vs glass at the surface with air above it)
     bool WaterAboveGlassStack(vec3 worldPos) {
-        int bit = ColumnBit(floor(worldPos.y));
-        if (bit < 0) return false;
-        uint glass = ColumnMask(glassCellsSampler, worldPos.xz);
-        uint water = ColumnMask(waterCellsSampler, worldPos.xz); // water on top of the stack
-        while (bit < 32 && (glass & (1u << uint(bit))) != 0u) bit++;
-        return bit < 32 && (water & (1u << uint(bit))) != 0u;
+        int bit = ColumnBit(worldPos.y);
+        if (bit < 0 || !InColumnRange(worldPos.xz)) return false;
+        int top = FirstColumnBit(glassCellsSampler, worldPos.xz, bit, true); // first non-glass level
+        if (top >= COLUMN_MAP_LEVELS) return false;
+        return (ColumnWord(waterCellsSampler, worldPos.xz, top >> 5) & (1u << uint(top & 31))) != 0u;
     }
 
     // Height of the water surface above a point, following the column upwards to the first
@@ -94,15 +111,12 @@ ivec2 ColumnCell(vec2 worldXZ) { return ivec2(mod(floor(worldXZ), float(COLUMN_M
     // (The point is assumed to be in water when a surface is found; points in dry caves
     // under a lake are in the shadow of the rock anyway.) A full block's surface sits 8/9 up.
     float ColumnWaterSurface(vec3 worldPos) {
-        int bit = ColumnBit(floor(worldPos.y + 0.01));
-        if (bit < 0) return -1e6;
-        uint surfaces = ColumnMask(waterSurfacesSampler, worldPos.xz);
-        uint ceiling = ColumnMask(ceilingSampler, worldPos.xz);
-        for (int b = bit; b < 32; b++) {
-            if ((surfaces & (1u << uint(b))) != 0u) return float(ColumnBaseLevel() + b) + 8.0 / 9.0;
-            if (b + 1 < 32 && (ceiling & (1u << uint(b + 1))) != 0u) return -1e6;
-        }
-        return -1e6;
+        int bit = ColumnBit(worldPos.y + 0.01);
+        if (bit < 0 || !InColumnRange(worldPos.xz)) return -1e6;
+        int surface = FirstColumnBit(waterSurfacesSampler, worldPos.xz, bit, false);
+        int solid = FirstColumnBit(ceilingSampler, worldPos.xz, bit + 1, false); // block resting on level solid-1
+        if (surface >= COLUMN_MAP_LEVELS || solid <= surface) return -1e6;
+        return float(ColumnBaseLevel() + surface) + 8.0 / 9.0;
     }
 #endif
 

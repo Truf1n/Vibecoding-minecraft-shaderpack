@@ -286,8 +286,11 @@ void main() {
                         float upward = normalize(playerPos).y;
                         transmit = vec3(exp(-length(playerPos) * 0.06) * smoothstep(0.60, 0.72, upward));
                     } else {
+                        // Fades as fast as the water hides the ground behind it (the water's
+                        // brightness transmittance, see ShadeWater).
                         float viewDown = max(-normalize(playerPos).y, 0.05);
-                        transmit = exp(-(surfaceY - inside.y) / viewDown * WaterAbsorption());
+                        vec3 waterT = exp(-(surfaceY - inside.y) / viewDown * WaterAbsorption());
+                        transmit = vec3(Luminance(waterT));
                     }
                     surface.color = vec3(0.0);
                     surface.alpha = 0.0;
