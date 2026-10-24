@@ -35,8 +35,22 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define WATER_WAVE_SIZE 1.00     //[0.50 0.75 1.00 1.25 1.50 2.00]
 #define WATER_FOG_MULT 1.00      //[0.25 0.50 0.75 1.00 1.50 2.00 3.00]
 
-// ---- Fog (placeholder until M2) ---------------------------------------------
+// ---- Sky ----------------------------------------------------------------------
+#define SUN_MOON_STYLE 1        //[1 2]
+#define SUN_MOON_HORIZON
+//#define SUN_MOON_DURING_RAIN
+#define STAR_AMOUNT 2           //[0 1 2 3 4]
+#define MOON_PHASE_LIGHTING
+#define END_STAR_INTENSITY 1.00 //[0.00 0.25 0.50 0.75 1.00 1.50 2.00]
+
+// ---- Fog --------------------------------------------------------------------
 #define BORDER_FOG
+#define ATM_FOG_MULT 0.80       //[0.00 0.25 0.50 0.65 0.80 0.95 1.20 1.50 2.00]
+#define ATM_FOG_DISTANCE 1.00   //[0.25 0.50 0.75 1.00 1.25 1.50 2.00 3.00]
+#define ATM_FOG_ALTITUDE 63     //[0 32 48 56 63 70 80 96 128]
+#define CAVE_FOG
+//#define LESS_LAVA_FOG
+#define NETHER_VIEW_LIMIT 256.0 //[96.0 128.0 160.0 192.0 256.0 320.0 384.0 512.0 99999.0]
 
 // ---- Debug ------------------------------------------------------------------
 // 0 off, 1 albedo, 2 world normal, 3 lightmap, 4 shading model, 5 vanilla AO, 6 emission

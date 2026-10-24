@@ -31,6 +31,8 @@ uniform int isEyeInWater;     // 0 air, 1 water, 2 lava, 3 powder snow
 uniform float nightVision;
 uniform float blindness;
 uniform float darknessFactor;
+uniform int moonPhase;        // 0 full moon ... 4 new moon ... 7
+uniform float caveFactor;     // custom (shaders.properties): 1 when the camera is underground
 uniform int frameCounter;
 uniform float frameTimeCounter;
 

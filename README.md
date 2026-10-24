@@ -8,15 +8,23 @@ choose **OpenGL**; Iris does not run on the Vulkan renderer.
 
 ## Status
 
-Milestone **M1 (core lighting)**: deferred pipeline with shadow-mapped sun/moon (coloured
-shadows through stained glass, leaf translucency), sky-matched ambient light, blocklight,
-handheld light, filmic tonemap, a procedural sky for all three dimensions (sunset glow,
-stars, End sky), and interim water (waves, sky reflection, sun glint, depth tint).
-Not yet: atmospheric fog, clouds, light shafts, materials/PBR, TAA (see docs/PLAN.md).
+Milestone **M2 (atmosphere)** on top of M1 (core lighting):
+
+- Deferred pipeline; shadow-mapped sun/moon with coloured shadows and leaf translucency;
+  sky-matched ambient, blocklight, handheld light; filmic tonemap.
+- Procedural sky for all three dimensions with an Unbound-style sun, a moon with real
+  phases (moonlight follows the phase), adjustable stars.
+- Fog: altitude-based atmospheric haze coloured by the sky, border fog, cave fog,
+  biome-tinted Nether haze with a view limit, End haze.
+- Water: textureless, screen-space reflections, smooth waves, depth-based opacity.
+- Translucents: sorted blending for terrain, clean stained-glass tint (frames from the
+  texture, e.g. Continuity), order-independent layers for translucent mobs.
+
+Not yet: clouds, light shafts, TAA, materials/PBR, bloom (see docs/PLAN.md, M3+).
 
 ## Install / test
 
-1. Build the zip: `python3 tools/package.py M0` → `dist/UntitledShaders-M0.zip`
+1. Build the zip: `python3 tools/package.py <label>` → `dist/UntitledShaders-<label>.zip`
    (or copy the whole repo folder; Iris loads any folder that contains `shaders/`).
 2. Put it in `.minecraft/shaderpacks/` and select it in *Options → Video → Shader Packs*.
 3. In game: **R** reloads shaders, **K** toggles them, **O** opens the pack menu.
@@ -49,8 +57,11 @@ docs/PLAN.md           research, feature list (IDs), milestones
 | Sun / moon | `gbuffers_skytextured` (vanilla sky disc and stars are discarded) | colortex0 |
 | Opaque geometry | `gbuffers_terrain/entities/block/hand` | G-buffer: colortex1 albedo+AO, colortex2 normal+lightmap, colortex3 shading model+emission |
 | Overlays | `gbuffers_clouds/armor_glint/spidereyes/beaconbeam/lightning` | colortex4 (premultiplied) |
-| Deferred | `deferred` | procedural sky behind everything; lights the G-buffer once per pixel → colortex0 |
-| Translucents, particles, weather | `gbuffers_water/hand_water/textured/weather` | colortex0 (forward-lit, blended) |
+| Deferred | `deferred` | procedural sky behind everything; lights the G-buffer once per pixel → colortex0, copy in colortex7 |
+| Translucent terrain | `gbuffers_water/hand_water` | colortex0 (sorted alpha blend, SSR from colortex7) + colortex5 tint |
+| Translucent mobs | `gbuffers_entities_translucent/block_translucent` | colortex5/6 (order-independent) |
+| Particles, weather | `gbuffers_textured/weather` | colortex0 (forward-lit, blended) |
+| Composite | `composite` | colortex0 × colortex5 + colortex6 |
 | Output | `final` | tonemap, sRGB, dither, debug views |
 
 ## Licence

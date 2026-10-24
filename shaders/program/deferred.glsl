@@ -31,7 +31,7 @@ void main() {
     #include "/lib/lighting/shadows.glsl"
 #endif
 #include "/lib/lighting/lighting.glsl"
-#include "/lib/lighting/basicFog.glsl"
+#include "/lib/atmosphere/fog.glsl"
 
 uniform sampler2D colortex0;
 uniform sampler2D colortex1;

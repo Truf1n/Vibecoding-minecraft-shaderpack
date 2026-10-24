@@ -40,18 +40,38 @@ vec3 SkyAmbientColor(float sunUp) {
     return mix(horizon, zenith, 0.55);
 }
 
+// 1 at full moon, 0 at new moon.
+float MoonFullness() { return abs(float(moonPhase) - 4.0) / 4.0; }
+
 vec3 SunLightColor(float sunUp) {
     float day = DayFactor(sunUp);
     float sunset = SunsetFactor(sunUp);
     vec3 sun = mix(vec3(1.00, 0.93, 0.82) * 1.6, vec3(1.00, 0.48, 0.18) * 1.1, sunset);
     vec3 moon = vec3(0.30, 0.40, 0.62) * 0.07;
+    #ifdef MOON_PHASE_LIGHTING
+        moon *= 0.35 + 0.65 * MoonFullness();
+    #endif
     return mix(moon, sun, day) * (1.0 - 0.8 * rainStrength);
+}
+
+float ValueNoise2(vec2 p) {
+    vec2 i = floor(p), f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    float a = Hash13(vec3(i, 0.0)), b = Hash13(vec3(i + vec2(1, 0), 0.0));
+    float c = Hash13(vec3(i + vec2(0, 1), 0.0)), d = Hash13(vec3(i + vec2(1, 1), 0.0));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+// Axis the sun and moon turn around (the sun path is tilted by sunPathRotation).
+vec3 CelestialAxis() {
+    float tilt = radians(sunPathRotation);
+    return vec3(0.0, -sin(tilt), cos(tilt));
 }
 
 // Point stars on a sphere that turns with the sun path.
 vec3 Stars(vec3 dir, vec3 sunDir, float density, float brightness) {
-    float tilt = radians(sunPathRotation);
-    vec3 axis = vec3(0.0, -sin(tilt), cos(tilt));
+    if (density <= 0.0) return vec3(0.0);
+    vec3 axis = CelestialAxis();
     vec3 side = normalize(cross(axis, sunDir));
     vec3 c = vec3(dot(dir, sunDir), dot(dir, side), dot(dir, axis)) * 260.0;
 
@@ -62,6 +82,51 @@ vec3 Stars(vec3 dir, vec3 sunDir, float density, float brightness) {
     float twinkle = 0.75 + 0.25 * sin(frameTimeCounter * (2.0 + 4.0 * h) + h * 50.0);
     vec3 tint = mix(vec3(0.75, 0.85, 1.0), vec3(1.0, 0.85, 0.7), fract(h * 37.0));
     return tint * shape * twinkle * brightness;
+}
+
+float StarDensity() {
+    #if STAR_AMOUNT == 0
+        return 0.0;
+    #elif STAR_AMOUNT == 1
+        return 0.003;
+    #elif STAR_AMOUNT == 2
+        return 0.006;
+    #elif STAR_AMOUNT == 3
+        return 0.010;
+    #else
+        return 0.016;
+    #endif
+}
+
+// Unbound-style sun: a bright disc (the tonemapper turns it white with a warm rim).
+vec3 SunDisc(vec3 dir, vec3 sunDir) {
+    const float radius = 0.030; // radians
+    float d = acos(clamp(dot(dir, sunDir), -1.0, 1.0));
+    float disc = smoothstep(radius, radius * 0.85, d);
+    return SunLightColor(sunDir.y) * disc * 30.0;
+}
+
+// Moon disc with real phases (moonPhase) and darker "seas".
+vec3 MoonDisc(vec3 dir, vec3 moonDir) {
+    const float radius = 0.034;
+    float cosD = dot(dir, moonDir);
+    if (cosD < cos(radius * 1.2)) return vec3(0.0);
+
+    vec3 u = normalize(cross(moonDir, CelestialAxis()));
+    vec3 v = cross(u, moonDir);
+    vec2 p = vec2(dot(dir, u), dot(dir, v)) / radius; // disc coordinates, unit radius
+    float r2 = dot(p, p);
+    if (r2 > 1.0) return vec3(0.0);
+    vec3 n = vec3(p, sqrt(1.0 - r2));
+
+    float phaseAngle = float(moonPhase) / 8.0 * TAU;
+    vec3 L = vec3(sin(phaseAngle), 0.0, cos(phaseAngle));
+    float lit = smoothstep(-0.03, 0.10, dot(n, L));
+
+    float seas = ValueNoise2(p * 2.2 + 3.0) * 0.6 + ValueNoise2(p * 5.0 + 11.0) * 0.4;
+    float albedo = mix(0.55, 1.0, smoothstep(0.35, 0.65, seas));
+    float edge = smoothstep(1.0, 0.92, r2);
+    return vec3(0.75, 0.82, 0.95) * albedo * (lit * 1.6 + 0.02) * edge;
 }
 
 vec3 OverworldSky(vec3 dir, vec3 sunDir, bool withStars) {
@@ -89,9 +154,24 @@ vec3 OverworldSky(vec3 dir, vec3 sunDir, bool withStars) {
     // Below the horizon: fade towards a darker ground colour.
     sky = mix(sky, horizon * 0.35, smoothstep(0.0, -0.25, up));
 
+    // Stars and the sun/moon discs (left out of reflections, where they would sparkle).
     if (withStars) {
         float starVis = (1.0 - day) * clearSky * smoothstep(-0.05, 0.15, up);
-        if (starVis > 0.0) sky += Stars(dir, sunDir, 0.006, 0.6) * starVis;
+        if (starVis > 0.0) sky += Stars(dir, sunDir, StarDensity(), 0.6) * starVis;
+
+        #if SUN_MOON_STYLE == 1
+            float discVis = 1.0;
+            #ifdef SUN_MOON_HORIZON
+                discVis *= smoothstep(-0.01, 0.01, up);
+            #endif
+            #ifndef SUN_MOON_DURING_RAIN
+                discVis *= clearSky;
+            #endif
+            if (discVis > 0.0) {
+                sky += SunDisc(dir, sunDir) * discVis;
+                sky += MoonDisc(dir, -sunDir) * discVis;
+            }
+        #endif
     }
     return sky;
 }
@@ -99,10 +179,11 @@ vec3 OverworldSky(vec3 dir, vec3 sunDir, bool withStars) {
 vec3 EndSky(vec3 dir) {
     float horizon = pow(1.0 - abs(dir.y), 4.0);
     vec3 sky = mix(vec3(0.010, 0.006, 0.020), vec3(0.075, 0.040, 0.110), horizon);
-    sky += Stars(dir, vec3(1.0, 0.0, 0.0), 0.010, 0.9) * vec3(0.9, 0.8, 1.0);
+    sky += Stars(dir, vec3(1.0, 0.0, 0.0), 0.010, 0.9 * END_STAR_INTENSITY) * vec3(0.9, 0.8, 1.0);
     return sky;
 }
 
+// The Nether "sky" is its fog colour, which vanilla already varies per biome.
 vec3 NetherSky() { return SrgbToLinear(fogColor) * 0.6; }
 
 // Sky in a given direction for the current dimension.

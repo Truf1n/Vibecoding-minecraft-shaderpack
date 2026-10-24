@@ -80,7 +80,7 @@ void main() {
     #include "/lib/lighting/shadows.glsl"
 #endif
 #include "/lib/lighting/lighting.glsl"
-#include "/lib/lighting/basicFog.glsl"
+#include "/lib/atmosphere/fog.glsl"
 
 uniform sampler2D gtexture;
 
@@ -141,6 +141,10 @@ void main() {
     #elif defined FWD_SKYTEX
         #ifdef WORLD_END
             discard; // replaced by the procedural End sky
+        #endif
+        #if SUN_MOON_STYLE == 1
+            // The sun and moon are drawn procedurally in the sky (sky.glsl).
+            if (renderStage == MC_RENDER_STAGE_SUN || renderStage == MC_RENDER_STAGE_MOON) discard;
         #endif
         vec4 albedo = texture(gtexture, texCoord) * vertColor;
         outColor = vec4(SrgbToLinear(albedo.rgb) * 2.0 * (1.0 - rainStrength), albedo.a);

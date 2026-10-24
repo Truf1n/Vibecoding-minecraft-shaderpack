@@ -1,6 +1,6 @@
 // Water: textureless, biome-tinted, smooth procedural waves, screen-space reflections of
 // the scene with a sky fallback, a soft sun/moon glint, and depth-based opacity.
-// Needs: sky.glsl, lighting.glsl (+ shadows.glsl outside the Nether), basicFog.glsl,
+// Needs: sky.glsl, lighting.glsl (+ shadows.glsl outside the Nether), fog.glsl,
 // space.glsl, translucent.glsl.
 
 uniform sampler2D noisetex;
