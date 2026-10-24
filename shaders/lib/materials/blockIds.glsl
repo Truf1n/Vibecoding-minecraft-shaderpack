@@ -40,8 +40,6 @@ bool IsGlass(int id) {
     return id == BLOCK_GLASS || id == BLOCK_GLASS_PANE || id == BLOCK_TINTED_GLASS || IsStainedGlass(id) || IsStainedPane(id);
 }
 bool IsPane(int id) { return id == BLOCK_GLASS_PANE || IsStainedPane(id); }
-// Glass ids squeezed into 8 bits for the glass voxel grid (0 = no glass).
-uint GlassVoxelCode(int id) { return IsGlass(id) ? uint(id - 3000) : 0u; }
 
 // Shading models stored in the G-buffer (8 bits). 0 means "not deferred-lit":
 // the deferred pass keeps whatever colortex0 holds (sky, forward-rendered geometry).

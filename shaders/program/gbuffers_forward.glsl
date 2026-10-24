@@ -3,7 +3,8 @@
 //   FWD_SKYTEX    sun / moon / custom sky textures            -> colortex0
 //   FWD_OVERLAY   vanilla clouds, glint, glowing eyes, beams  -> colortex4 (premultiplied overlay)
 //   FWD_UNLIT     leads, debug lines, selection outline       -> colortex0 + shading model "keep"
-//   FWD_LIT       water/translucents, particles, weather      -> colortex0 (forward-lit, blended)
+//   FWD_LIT       particles, weather                         -> colortex0 (forward-lit, blended)
+//                 water/translucents, translucent mobs         -> colortex5/6 (order-independent layers)
 //   FWD_DAMAGE    block-breaking cracks                       -> colortex0 and the G-buffer albedo
 
 #include "/lib/common.glsl"
@@ -30,8 +31,10 @@ void main() {
     lmCoord = (gl_TextureMatrix[1] * gl_MultiTexCoord1).xy;
     vertColor = gl_Color;
 
+    // "Feet" player space: the translation in gbufferModelViewInverse removes view bobbing,
+    // so this matches the deferred pass, the shadow map and world coordinates exactly.
     vec3 viewPos = (gl_ModelViewMatrix * gl_Vertex).xyz;
-    playerPos = mat3(gbufferModelViewInverse) * viewPos;
+    playerPos = mat3(gbufferModelViewInverse) * viewPos + gbufferModelViewInverse[3].xyz;
     sunDir = mat3(gbufferModelViewInverse) * normalize(sunPosition);
     lightDir = mat3(gbufferModelViewInverse) * normalize(shadowLightPosition);
 
@@ -80,15 +83,15 @@ void main() {
 
 uniform sampler2D gtexture;
 
-#if defined PROG_GBUFFERS_WATER || defined PROG_GBUFFERS_HAND_WATER
-    // Terrain translucents and held translucent items use order-independent layers.
+#if defined PROG_GBUFFERS_WATER || defined PROG_GBUFFERS_HAND_WATER || defined PROG_GBUFFERS_ENTITIES_TRANSLUCENT || defined PROG_GBUFFERS_BLOCK_TRANSLUCENT
+    // Translucent terrain, held translucent items and translucent mobs use order-independent
+    // layers: correct whether Iris draws them before or after deferred, in any order.
     #define TRANSLUCENT_OIT
     #include "/lib/materials/translucent.glsl"
-    #include "/lib/voxel/glassVoxels.glsl"
     #include "/lib/materials/glass.glsl"
     #include "/lib/materials/water.glsl"
 #endif
-#if FORWARD_ORDER_SAFE == 1 && (defined PROG_GBUFFERS_TEXTURED || defined PROG_GBUFFERS_ENTITIES_TRANSLUCENT || defined PROG_GBUFFERS_BLOCK_TRANSLUCENT)
+#if FORWARD_ORDER_SAFE == 1 && defined PROG_GBUFFERS_TEXTURED
     // Also write the "keep" shading model, so this survives if Iris draws it before deferred.
     #define ORDER_SAFE_LAYER
 #endif
@@ -202,14 +205,18 @@ void main() {
             if (blockId == BLOCK_WATER) {
                 layer = ShadeWater(vertColor.rgb, playerPos, surf.normal, surf, sunDir, lightDir);
             } else if (IsGlass(blockId)) {
-                // Textureless: only the average colour of the glass texture is used.
+                // The texture (vanilla or Continuity's connected one) supplies the frame; the
+                // see-through part becomes a clean colour tint instead of a hazy overlay.
                 vec4 avgTexel = textureLod(gtexture, texCoord, 4.0) * vertColor;
-                layer = ShadeGlass(blockId, avgTexel, playerPos, surf.normal, surf, sunDir, lightDir);
+                layer = ShadeGlass(blockId, albedo, avgTexel, playerPos, surf.normal, surf, sunDir, lightDir);
             } else if (blockId == BLOCK_NETHER_PORTAL) {
                 // Self-lit: never tinted by the (orange) blocklight around it.
                 layer = AlphaLayer(SrgbToLinear(albedo.rgb) * 2.5, max(albedo.a, 0.6));
             } else {
                 if (albedo.a < alphaTestRef) discard;
+                #if defined PROG_GBUFFERS_ENTITIES_TRANSLUCENT
+                    albedo.rgb = mix(albedo.rgb, entityColor.rgb, entityColor.a); // hurt flash
+                #endif
                 layer = AlphaLayer(SrgbToLinear(albedo.rgb) * GetLighting(surf, sunDir, lightDir), albedo.a);
             }
             layer = FogLayer(layer, BorderFogAmount(length(playerPos)));
@@ -217,9 +224,6 @@ void main() {
             outLight = vec4(layer.light, 1.0);
         #else
             if (albedo.a < alphaTestRef) discard;
-            #if defined PROG_GBUFFERS_ENTITIES_TRANSLUCENT
-                albedo.rgb = mix(albedo.rgb, entityColor.rgb, entityColor.a); // hurt flash
-            #endif
             vec3 color = SrgbToLinear(albedo.rgb) * GetLighting(surf, sunDir, lightDir);
 
             #ifdef PROG_GBUFFERS_WEATHER

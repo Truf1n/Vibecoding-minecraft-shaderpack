@@ -21,10 +21,6 @@ const vec4 colortex4ClearColor = vec4(0.0, 0.0, 0.0, 0.0);
 const vec4 colortex5ClearColor = vec4(1.0, 1.0, 1.0, 1.0);
 const vec4 colortex6ClearColor = vec4(0.0, 0.0, 0.0, 0.0);
 
-// Glass voxel grid (lib/voxel/glassVoxels.glsl) is filled in the shadow pass; keep the
-// shadow pass from culling anything within this radius so off-screen glass is recorded.
-const float voxelDistance = 64.0;
-
 // Vanilla AO is passed through vertex colour alpha (separateAo = true) at full strength;
 // the pack scales it with VANILLA_AO_I.
 const float ambientOcclusionLevel = 1.0;

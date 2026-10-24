@@ -59,9 +59,11 @@ TranslucentOut ShadeWater(vec3 biomeTint, vec3 playerPos, vec3 geoNormal, Surfac
     vec3 scatter = waterColor * GetLighting(surf, sunDir, lightDir);
 
     // Per-channel absorption through the water between this surface and what is behind it.
+    // Both distances come from the depth buffer, so they agree exactly (view bobbing included).
     vec2 uv = gl_FragCoord.xy / vec2(viewWidth, viewHeight);
     float behindDist = length(ScreenToView(uv, texture(depthtex1, uv).r));
-    float thickness = isEyeInWater == 1 ? 0.0 : max(behindDist - dist, 0.0);
+    float surfaceDist = length(ScreenToView(uv, gl_FragCoord.z));
+    float thickness = isEyeInWater == 1 ? 0.0 : max(behindDist - surfaceDist, 0.0);
     vec3 transmit = exp(-thickness * vec3(0.32, 0.10, 0.075));
     float opacity = 1.0 - dot(transmit, vec3(0.333));
 
