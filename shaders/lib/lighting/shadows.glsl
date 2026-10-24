@@ -89,9 +89,12 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
             #endif
             r.light = vec3(allVis) + (opaque - allVis) * tint;
 
-            float surface = ColumnWaterSurface(worldPos);
-            if (surface > worldPos.y) {
-                float path = (surface - worldPos.y) / max(L.y, 0.15);
+            // Looked up a little off the surface, so a block's side face reads the water
+            // column next to it rather than flipping between the two from pixel to pixel.
+            vec3 lookup = worldPos + normal * 0.05;
+            float surface = ColumnWaterSurface(lookup);
+            if (surface > lookup.y) {
+                float path = (surface - lookup.y) / max(L.y, 0.15);
                 float causticStrength = 1.0;
                 #ifdef OPAQUE_BLOCKS_CAUSTICS
                     // Fairly opaque blocks (tinted glass, ...) let no focused light through.

@@ -234,3 +234,10 @@ vec3 GetSkyReflection(vec3 dir, vec3 sunDir, float starFootprint) {
         return OverworldSky(dir, sunDir, starFootprint, false);
     #endif
 }
+
+// Sky seen from under water, through the surface or a gap in it: the sun, moon and stars
+// show, but dimmed, as they would through the water and its ripples.
+vec3 GetSkyFromUnderwater(vec3 dir, vec3 sunDir) {
+    vec3 plain = GetSky(dir, sunDir, -1.0);
+    return plain + (GetSky(dir, sunDir, PixelAngle()) - plain) * 0.35;
+}

@@ -54,8 +54,7 @@ vec2 RefractionOffset(vec3 N, vec3 viewPos, float thickness) {
 // (the vanilla surface is 1/9 block below the top of its block space):
 #define SURFACE_OPEN        0 // open water: the normal surface
 #define SURFACE_FILLED      1 // drawn as if the water filled its block up to the top
-#define SURFACE_FLAT        2 // a calm surface, opaque like open water
-#define SURFACE_UNDER_GLASS 3 // a calm surface under glass with air above it: see-through
+#define SURFACE_FLAT        2 // a calm surface, otherwise like open water
 int UnderBlockState(vec3 worldPos) {
     float cellTop = floor(worldPos.y - 0.5) + 1.0; // surface is at 8/9 (lowered by waving)
     vec3 above = vec3(worldPos.x, cellTop + 0.5, worldPos.z);
@@ -69,8 +68,9 @@ int UnderBlockState(vec3 worldPos) {
     }
     if (HasGlassCeiling(above)) {
         // Glass sunk in water: the water goes on around and above it, so there is no
-        // surface here. Glass at the top of the water: this is the real surface.
-        return WaterAboveGlassStack(above) ? SURFACE_FILLED : SURFACE_UNDER_GLASS;
+        // surface here. Glass at the top of the water: this is the real surface, calm
+        // under the glass (the glass itself shows as a tint, see gbuffers_forward.glsl).
+        return WaterAboveGlassStack(above) ? SURFACE_FILLED : SURFACE_FLAT;
     }
     return SURFACE_OPEN;
 }
@@ -124,14 +124,9 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
         // Snell's window: inside the critical angle the world above is visible (bent).
         vec3 T = refract(-V, N, 1.333);
         if (dot(T, T) < 0.01) return PlainSurface(mirrored, 1.0);
-        if (state == SURFACE_UNDER_GLASS) {
-            // Let the glass (and what is beyond it) show through the window, unbent:
-            // under flat glass there is nothing to bend it.
-            return PlainSurface(mirrored, pow(1.0 - saturate(dot(N, V)), 5.0));
-        }
         vec2 refrUV = clamp(uv + RefractionOffset(N, viewPos, 2.0), vec2(0.001), vec2(0.999));
         vec3 above = texture(colortex7, refrUV).rgb;
-        if (texture(depthtex1, refrUV).r >= 1.0) above = GetSky(normalize(T), sunDir, -1.0);
+        if (texture(depthtex1, refrUV).r >= 1.0) above = GetSkyFromUnderwater(normalize(T), sunDir);
         float transmit = 1.0 - pow(1.0 - saturate(dot(N, V)), 5.0);
         return PlainSurface(mix(mirrored, above, transmit), 1.0);
     }

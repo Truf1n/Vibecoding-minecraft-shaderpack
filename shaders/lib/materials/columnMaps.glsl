@@ -2,7 +2,7 @@
 #define COLUMN_MAPS_GLSL
 
 // Column maps: what occupies the block spaces near the player, as bit masks. Each map is
-// a 256x256 grid of block columns that wraps around the world; each column holds one bit
+// a 512x512 grid of block columns that wraps around the world; each column holds one bit
 // per block level, for the 32 levels around the camera height. The shadow pass sets the
 // bits (atomic OR, so the result does not depend on draw order) and Iris clears the maps
 // at the start of every frame, so they never hold stale data.
@@ -10,14 +10,16 @@
 //   ceiling       block levels whose bottom has a solid block underside flush on it
 //   glassCeiling  the same for see-through blocks (glass, ice, slime, honey)
 //   glassCells    block levels containing a see-through block (any of its faces drawn)
-//   waterUndersides block levels whose water rests on something below it (glass, ...)
-//   waterSurfaces   block levels containing an upward water surface
+//   waterCells    block levels containing water with any face drawn (water in the middle
+//                 of a body of water has no faces, so it is not marked)
+//   waterSurfaces block levels containing an upward water surface
 //
 // Used to decide how a water surface looks from below (water.glsl), where the surface may
-// wave (gbuffers_forward.glsl), and to find the water under glass for caustics (shadows.glsl).
+// wave (gbuffers_forward.glsl), and to find the water under glass for caustics (shadows.glsl) and to tell whether
+// glass is under water (gbuffers_forward.glsl).
 
-const int COLUMN_MAP_SIZE = 256;      // must match the images in shaders.properties
-const float COLUMN_MAP_RANGE = 120.0; // blocks from the camera; stays clear of the wrap-around
+const int COLUMN_MAP_SIZE = 512;      // must match the images in shaders.properties
+const float COLUMN_MAP_RANGE = 250.0; // blocks from the camera; stays clear of the wrap-around
 
 int ColumnBaseLevel() { return int(floor(cameraPosition.y)) - 16; }
 
@@ -34,13 +36,13 @@ ivec2 ColumnCell(vec2 worldXZ) { return ivec2(mod(floor(worldXZ), float(COLUMN_M
     layout(r32ui) uniform uimage2D ceilingImg;
     layout(r32ui) uniform uimage2D glassCeilingImg;
     layout(r32ui) uniform uimage2D glassCellsImg;
-    layout(r32ui) uniform uimage2D waterUndersidesImg;
+    layout(r32ui) uniform uimage2D waterCellsImg;
     layout(r32ui) uniform uimage2D waterSurfacesImg;
 
     #define MAP_CEILING       0
     #define MAP_GLASS_CEILING 1
     #define MAP_GLASS_CELLS   2
-    #define MAP_WATER_UNDERSIDE   3
+    #define MAP_WATER_CELLS   3
     #define MAP_WATER_SURFACE 4
 
     // Marks the block space with this centre in one of the maps.
@@ -52,14 +54,14 @@ ivec2 ColumnCell(vec2 worldXZ) { return ivec2(mod(floor(worldXZ), float(COLUMN_M
         if (map == MAP_CEILING) imageAtomicOr(ceilingImg, cell, mask);
         else if (map == MAP_GLASS_CEILING) imageAtomicOr(glassCeilingImg, cell, mask);
         else if (map == MAP_GLASS_CELLS) imageAtomicOr(glassCellsImg, cell, mask);
-        else if (map == MAP_WATER_UNDERSIDE) imageAtomicOr(waterUndersidesImg, cell, mask);
+        else if (map == MAP_WATER_CELLS) imageAtomicOr(waterCellsImg, cell, mask);
         else imageAtomicOr(waterSurfacesImg, cell, mask);
     }
 #else
     uniform usampler2D ceilingSampler;
     uniform usampler2D glassCeilingSampler;
     uniform usampler2D glassCellsSampler;
-    uniform usampler2D waterUndersidesSampler;
+    uniform usampler2D waterCellsSampler;
     uniform usampler2D waterSurfacesSampler;
 
     // All 32 bits of a column (0 when out of range).
@@ -82,7 +84,7 @@ ivec2 ColumnCell(vec2 worldXZ) { return ivec2(mod(floor(worldXZ), float(COLUMN_M
         int bit = ColumnBit(floor(worldPos.y));
         if (bit < 0) return false;
         uint glass = ColumnMask(glassCellsSampler, worldPos.xz);
-        uint water = ColumnMask(waterUndersidesSampler, worldPos.xz); // water resting on the stack
+        uint water = ColumnMask(waterCellsSampler, worldPos.xz); // water on top of the stack
         while (bit < 32 && (glass & (1u << uint(bit))) != 0u) bit++;
         return bit < 32 && (water & (1u << uint(bit))) != 0u;
     }

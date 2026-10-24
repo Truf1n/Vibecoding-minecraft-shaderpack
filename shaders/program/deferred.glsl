@@ -60,7 +60,7 @@ void main() {
     if (depth == 1.0) {
         // Sky: colortex0 holds only what vanilla drew on top (sun, moon), cleared to black.
         vec3 dir = normalize(playerPos);
-        color += GetSky(dir, sunDir, PixelAngle());
+        color += isEyeInWater == 1 ? GetSkyFromUnderwater(dir, sunDir) : GetSky(dir, sunDir, PixelAngle());
         color = ApplyFog(color, playerPos, sunDir, true);
     } else if (shadingModel != SM_KEEP) {
         vec4 albedoAo = texelFetch(colortex1, pixel, 0);

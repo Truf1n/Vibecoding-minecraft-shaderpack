@@ -27,7 +27,7 @@ void main() {
     vertColor = gl_Color;
     blockId = int(mc_Entity.x + 0.5);
 
-    // Column maps (columnMaps.glsl): water surfaces, water resting on blocks, glass, and
+    // Column maps (columnMaps.glsl): water, water surfaces, glass, and
     // block undersides flush with the bottom of their block space. The shadow pass covers
     // everything around the player every frame, whether or not it is on screen. Partial
     // blocks that could hold water but don't (stairs, slabs, ...) and leaves are not
@@ -35,13 +35,13 @@ void main() {
     bool terrain = renderStage == MC_RENDER_STAGE_TERRAIN_SOLID || renderStage == MC_RENDER_STAGE_TERRAIN_CUTOUT
                 || renderStage == MC_RENDER_STAGE_TERRAIN_CUTOUT_MIPPED || renderStage == MC_RENDER_STAGE_TERRAIN_TRANSLUCENT;
     bool seeThrough = renderStage == MC_RENDER_STAGE_TERRAIN_TRANSLUCENT && !IsWater(blockId);
-    if (terrain && (seeThrough || abs(gl_Normal.y) > 0.5)) {
+    if (terrain && (seeThrough || IsWater(blockId) || gl_Normal.y < -0.5)) {
         vec3 worldPos = (shadowModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz + cameraPosition;
         vec3 blockCenter = worldPos + at_midBlock.xyz / 64.0;
         bool underside = gl_Normal.y < -0.5 && abs(worldPos.y - (blockCenter.y - 0.5)) < 0.01;
         if (IsWater(blockId)) {
+            MarkColumn(MAP_WATER_CELLS, blockCenter);
             if (gl_Normal.y > 0.5) MarkColumn(MAP_WATER_SURFACE, blockCenter);
-            else if (underside) MarkColumn(MAP_WATER_UNDERSIDE, blockCenter);
         } else {
             if (seeThrough) MarkColumn(MAP_GLASS_CELLS, blockCenter);
             if (underside && blockId != BLOCK_DRY_WATERLOGGABLE && blockId != BLOCK_LEAVES && !IsPlant(blockId)) {

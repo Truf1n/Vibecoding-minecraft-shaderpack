@@ -269,6 +269,32 @@ void main() {
                 if (albedo.a < alphaTestRef) discard;
                 surface = PlainSurface(SrgbToLinear(albedo.rgb) * GetLighting(surf, sunDir, lightDir), albedo.a);
             }
+            #ifndef WORLD_NETHER
+            if (!IsWater(blockId)) {
+                // Seen through the water surface - glass sunk in water from above it, or glass
+                // above the water from below: the water draws itself over this as an opaque
+                // surface (it refracts the scene behind it, which cannot include translucent
+                // blocks), so only the tint reaches the image, faded by the water in between.
+                vec3 inside = playerPos + cameraPosition - surf.normal * 0.05;
+                float surfaceY = ColumnWaterSurface(inside);
+                bool underWater = surfaceY > inside.y;
+                if ((isEyeInWater == 1) != underWater) {
+                    vec3 transmit;
+                    if (isEyeInWater == 1) {
+                        // As the underwater fog, and only inside Snell's window: outside it the
+                        // surface mirrors the water below instead (critical angle ~48.6 degrees).
+                        float upward = normalize(playerPos).y;
+                        transmit = vec3(exp(-length(playerPos) * 0.06) * smoothstep(0.60, 0.72, upward));
+                    } else {
+                        float viewDown = max(-normalize(playerPos).y, 0.05);
+                        transmit = exp(-(surfaceY - inside.y) / viewDown * WaterAbsorption());
+                    }
+                    surface.color = vec3(0.0);
+                    surface.alpha = 0.0;
+                    surface.tint = mix(vec3(1.0), surface.tint, transmit);
+                }
+            }
+            #endif
             float fogAmount = BorderFogAmount(length(playerPos));
             outColor = vec4(ApplyFog(surface.color, playerPos, sunDir, false), surface.alpha);
             outTint = vec4(mix(surface.tint, vec3(1.0), fogAmount), 1.0);
