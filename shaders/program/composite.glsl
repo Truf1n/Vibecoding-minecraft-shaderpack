@@ -1,4 +1,4 @@
-// Resolves order-independent translucency: background * transmittance + added light.
+// Applies translucent tints and order-independent layers: scene * colortex5 + colortex6.
 // Later milestones add fog, light shafts and reflections around this pass.
 
 #include "/lib/common.glsl"

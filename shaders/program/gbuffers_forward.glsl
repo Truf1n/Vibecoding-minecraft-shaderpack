@@ -4,7 +4,8 @@
 //   FWD_OVERLAY   vanilla clouds, glint, glowing eyes, beams  -> colortex4 (premultiplied overlay)
 //   FWD_UNLIT     leads, debug lines, selection outline       -> colortex0 + shading model "keep"
 //   FWD_LIT       particles, weather                         -> colortex0 (forward-lit, blended)
-//                 water/translucents, translucent mobs         -> colortex5/6 (order-independent layers)
+//                 water/translucent terrain                    -> colortex0 (sorted) + colortex5 tint
+//                 translucent mobs                             -> colortex5/6 (order-independent layers)
 //   FWD_DAMAGE    block-breaking cracks                       -> colortex0 and the G-buffer albedo
 
 #include "/lib/common.glsl"
@@ -83,13 +84,17 @@ void main() {
 
 uniform sampler2D gtexture;
 
-#if defined PROG_GBUFFERS_WATER || defined PROG_GBUFFERS_HAND_WATER || defined PROG_GBUFFERS_ENTITIES_TRANSLUCENT || defined PROG_GBUFFERS_BLOCK_TRANSLUCENT
-    // Translucent terrain, held translucent items and translucent mobs use order-independent
-    // layers: correct whether Iris draws them before or after deferred, in any order.
-    #define TRANSLUCENT_OIT
+#if defined PROG_GBUFFERS_WATER || defined PROG_GBUFFERS_HAND_WATER
+    // Translucent terrain is sorted back to front by Sodium: plain alpha blending layers it
+    // correctly; stained-glass tint goes to colortex5.
+    #define TRANSLUCENT_SORTED
     #include "/lib/materials/translucent.glsl"
     #include "/lib/materials/glass.glsl"
     #include "/lib/materials/water.glsl"
+#elif defined PROG_GBUFFERS_ENTITIES_TRANSLUCENT || defined PROG_GBUFFERS_BLOCK_TRANSLUCENT
+    // Translucent mobs may be drawn before or after deferred: order-independent layers.
+    #define TRANSLUCENT_OIT
+    #include "/lib/materials/translucent.glsl"
 #endif
 #if FORWARD_ORDER_SAFE == 1 && defined PROG_GBUFFERS_TEXTURED
     // Also write the "keep" shading model, so this survives if Iris draws it before deferred.
@@ -105,7 +110,11 @@ flat in int blockId;
 flat in vec3 sunDir;
 flat in vec3 lightDir;
 
-#if defined TRANSLUCENT_OIT
+#if defined TRANSLUCENT_SORTED
+    /* RENDERTARGETS: 0,5 */
+    layout(location = 0) out vec4 outColor;
+    layout(location = 1) out vec4 outTint;
+#elif defined TRANSLUCENT_OIT
     /* RENDERTARGETS: 5,6 */
     layout(location = 0) out vec4 outTransmit;
     layout(location = 1) out vec4 outLight;
@@ -200,25 +209,29 @@ void main() {
         surf.foliage = false;
         surf.useShadowMap = true;
 
-        #ifdef TRANSLUCENT_OIT
-            TranslucentOut layer;
+        #if defined TRANSLUCENT_SORTED
+            TranslucentSurface surface;
             if (blockId == BLOCK_WATER) {
-                layer = ShadeWater(vertColor.rgb, playerPos, surf.normal, surf, sunDir, lightDir);
+                surface = ShadeWater(vertColor.rgb, playerPos, surf.normal, surf, sunDir, lightDir);
             } else if (IsGlass(blockId)) {
                 // The texture (vanilla or Continuity's connected one) supplies the frame; the
                 // see-through part becomes a clean colour tint instead of a hazy overlay.
                 vec4 avgTexel = textureLod(gtexture, texCoord, 4.0) * vertColor;
-                layer = ShadeGlass(blockId, albedo, avgTexel, playerPos, surf.normal, surf, sunDir, lightDir);
+                surface = ShadeGlass(blockId, albedo, avgTexel, playerPos, surf.normal, surf, sunDir, lightDir);
             } else if (blockId == BLOCK_NETHER_PORTAL) {
                 // Self-lit: never tinted by the (orange) blocklight around it.
-                layer = AlphaLayer(SrgbToLinear(albedo.rgb) * 2.5, max(albedo.a, 0.6));
+                surface = PlainSurface(SrgbToLinear(albedo.rgb) * 2.5, max(albedo.a, 0.6));
             } else {
                 if (albedo.a < alphaTestRef) discard;
-                #if defined PROG_GBUFFERS_ENTITIES_TRANSLUCENT
-                    albedo.rgb = mix(albedo.rgb, entityColor.rgb, entityColor.a); // hurt flash
-                #endif
-                layer = AlphaLayer(SrgbToLinear(albedo.rgb) * GetLighting(surf, sunDir, lightDir), albedo.a);
+                surface = PlainSurface(SrgbToLinear(albedo.rgb) * GetLighting(surf, sunDir, lightDir), albedo.a);
             }
+            float fogAmount = BorderFogAmount(length(playerPos));
+            outColor = vec4(ApplyFog(surface.color, playerPos, sunDir, false), surface.alpha);
+            outTint = vec4(mix(surface.tint, vec3(1.0), fogAmount), 1.0);
+        #elif defined TRANSLUCENT_OIT
+            if (albedo.a < alphaTestRef) discard;
+            albedo.rgb = mix(albedo.rgb, entityColor.rgb, entityColor.a); // hurt flash
+            TranslucentOut layer = AlphaLayer(SrgbToLinear(albedo.rgb) * GetLighting(surf, sunDir, lightDir), albedo.a);
             layer = FogLayer(layer, BorderFogAmount(length(playerPos)));
             outTransmit = vec4(layer.transmit, 1.0);
             outLight = vec4(layer.light, 1.0);

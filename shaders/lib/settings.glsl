@@ -28,6 +28,13 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define BLOCKLIGHT_B 0.32   //[0.10 0.20 0.26 0.32 0.40 0.50 0.70 1.00]
 #define VANILLA_AO_I 1.00   //[0.00 0.25 0.50 0.75 1.00 1.25 1.50]
 
+// ---- Water ------------------------------------------------------------------
+#define WATER_REFLECTIONS 1   //[0 1]
+#define WATER_WAVE_STRENGTH 1.00 //[0.00 0.25 0.50 0.75 1.00 1.25 1.50 2.00]
+#define WATER_WAVE_SPEED 1.00    //[0.25 0.50 0.75 1.00 1.25 1.50 2.00]
+#define WATER_WAVE_SIZE 1.00     //[0.50 0.75 1.00 1.25 1.50 2.00]
+#define WATER_FOG_MULT 1.00      //[0.25 0.50 0.75 1.00 1.50 2.00 3.00]
+
 // ---- Fog (placeholder until M2) ---------------------------------------------
 #define BORDER_FOG
 

@@ -46,8 +46,9 @@ flat in vec3 lightDir;
 
 #define EMISSION_BRIGHTNESS 2.5
 
-/* RENDERTARGETS: 0 */
+/* RENDERTARGETS: 0,7 */
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outSceneCopy; // read by screen-space reflections
 
 void main() {
     ivec2 pixel = ivec2(gl_FragCoord.xy);
@@ -89,6 +90,7 @@ void main() {
     color = color * (1.0 - overlay.a) + overlay.rgb;
 
     outColor = vec4(color, 1.0);
+    outSceneCopy = vec4(color, 1.0);
 }
 
 #endif

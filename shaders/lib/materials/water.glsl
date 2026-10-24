@@ -1,30 +1,44 @@
-// Interim water (pulled forward from M3): textureless, biome-coloured, procedural waves,
-// Fresnel sky reflection with a soft sun/moon glint, and per-channel absorption by depth.
-// Screen-space reflections and refraction come with the full water pass in M3.
-// Output is order-independent (additive light + multiplicative transmittance).
-// Needs: sky.glsl, lighting.glsl (+ shadows.glsl outside the Nether), basicFog.glsl, space.glsl.
+// Water: textureless, biome-tinted, smooth procedural waves, screen-space reflections of
+// the scene with a sky fallback, a soft sun/moon glint, and depth-based opacity.
+// Needs: sky.glsl, lighting.glsl (+ shadows.glsl outside the Nether), basicFog.glsl,
+// space.glsl, translucent.glsl.
 
 uniform sampler2D noisetex;
 uniform sampler2D depthtex1; // opaque depth (without translucents)
 
+#include "/lib/materials/ssr.glsl"
+
 const int noiseTextureResolution = 256;
 
-float WaveNoise(vec2 p) { return texture(noisetex, p / float(noiseTextureResolution)).r; }
+// Smooth value noise from the noise texture (cubic interpolation: no faceted ridges).
+float SmoothNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    ivec2 c = ivec2(mod(i, float(noiseTextureResolution)));
+    ivec2 c1 = ivec2(mod(i + 1.0, float(noiseTextureResolution)));
+    float a = texelFetch(noisetex, c, 0).r;
+    float b = texelFetch(noisetex, ivec2(c1.x, c.y), 0).r;
+    float d = texelFetch(noisetex, ivec2(c.x, c1.y), 0).r;
+    float e = texelFetch(noisetex, c1, 0).r;
+    return mix(mix(a, b, u.x), mix(d, e, u.x), u.y);
+}
 
-// Sum of drifting value-noise octaves, in blocks. `detail` fades the small octaves out
-// with distance, so distant water does not alias into sparkles.
+// Wave height in blocks: a few drifting octaves, large swells first. `detail` fades the
+// small ripples out with distance so far water does not alias.
 float WaveHeight(vec2 p, float detail) {
-    float t = frameTimeCounter;
+    float t = frameTimeCounter * WATER_WAVE_SPEED;
+    vec2 q = p / WATER_WAVE_SIZE;
     float h = 0.0;
-    h += WaveNoise(p * 0.45 + vec2( 0.50,  0.18) * t) * 0.50;
-    h += WaveNoise(p * 0.95 + vec2(-0.32,  0.55) * t) * 0.28;
-    h += WaveNoise(p * 2.10 + vec2( 0.75, -0.40) * t) * 0.12 * detail;
-    h += WaveNoise(p * 4.30 + vec2(-0.85, -0.65) * t) * 0.05 * detail;
+    h += SmoothNoise(q * 0.35 + vec2( 0.42,  0.15) * t) * 0.55;
+    h += SmoothNoise(mat2(0.8, -0.6, 0.6, 0.8) * q * 0.75 + vec2(-0.25,  0.48) * t) * 0.28;
+    h += SmoothNoise(mat2(0.6, 0.8, -0.8, 0.6) * q * 1.6  + vec2( 0.62, -0.31) * t) * 0.12 * detail;
+    h += SmoothNoise(q * 3.3 + vec2(-0.70, -0.55) * t) * 0.05 * detail;
     return h;
 }
 
 vec3 WaveNormal(vec2 p, float strength, float detail) {
-    const float e = 0.05;
+    const float e = 0.06;
     float h0 = WaveHeight(p, detail);
     float hx = WaveHeight(p + vec2(e, 0.0), detail);
     float hz = WaveHeight(p + vec2(0.0, e), detail);
@@ -43,35 +57,32 @@ float GGXSpecular(vec3 N, vec3 V, vec3 L, float roughness) {
     return min(D * F * 0.25, 40.0) * saturate(dot(N, L));
 }
 
-TranslucentOut ShadeWater(vec3 biomeTint, vec3 playerPos, vec3 geoNormal, Surface surf, vec3 sunDir, vec3 lightDir) {
-    TranslucentOut o;
+TranslucentSurface ShadeWater(vec3 biomeTint, vec3 playerPos, vec3 geoNormal, Surface surf, vec3 sunDir, vec3 lightDir) {
     vec3 worldPos = playerPos + cameraPosition;
     float dist = length(playerPos);
     vec3 V = -playerPos / max(dist, 1e-4);
 
-    // Waves only on upward faces; weaker and smoother with distance.
+    // Waves only on upward faces; gentler with distance.
     vec3 N = geoNormal;
-    float detail = 1.0 - smoothstep(16.0, 64.0, dist);
-    if (geoNormal.y > 0.5) N = WaveNormal(worldPos.xz, 0.30 / (1.0 + dist * 0.015), detail);
+    float detail = 1.0 - smoothstep(12.0, 48.0, dist);
+    if (geoNormal.y > 0.5) N = WaveNormal(worldPos.xz, WATER_WAVE_STRENGTH * 0.22 / (1.0 + dist * 0.01), detail);
 
-    // Water colour: biome tint pulled towards Unbound-style teal; lit like everything else.
-    vec3 waterColor = mix(vec3(0.020, 0.110, 0.140), SrgbToLinear(biomeTint) * 0.18, 0.45);
+    // Deep water colour: dark, biome-tinted navy; lit like everything else.
+    vec3 waterColor = mix(vec3(0.006, 0.030, 0.055), SrgbToLinear(biomeTint) * 0.07, 0.4);
     vec3 scatter = waterColor * GetLighting(surf, sunDir, lightDir);
 
-    // Per-channel absorption through the water between this surface and what is behind it.
-    // Both distances come from the depth buffer, so they agree exactly (view bobbing included).
+    // Opacity from the water depth along the view ray (both distances from the depth
+    // buffer, so they agree exactly).
     vec2 uv = gl_FragCoord.xy / vec2(viewWidth, viewHeight);
     float behindDist = length(ScreenToView(uv, texture(depthtex1, uv).r));
     float surfaceDist = length(ScreenToView(uv, gl_FragCoord.z));
-    float thickness = isEyeInWater == 1 ? 0.0 : max(behindDist - surfaceDist, 0.0);
-    vec3 transmit = exp(-thickness * vec3(0.32, 0.10, 0.075));
-    float opacity = 1.0 - dot(transmit, vec3(0.333));
+    float thickness = max(behindDist - surfaceDist, 0.0);
+    float opacity = 1.0 - exp(-thickness * 0.22 * WATER_FOG_MULT);
+    opacity = mix(0.12, 1.0, opacity);
 
     if (isEyeInWater == 1) {
-        // Seen from below: mostly see-through, no sky reflection (M3 adds total internal reflection).
-        o.light = scatter * 0.3;
-        o.transmit = vec3(0.75);
-        return o;
+        // Seen from below: see-through (M3 adds total internal reflection and refraction).
+        return PlainSurface(scatter, 0.25);
     }
 
     float fresnel = 0.02 + 0.98 * pow(1.0 - saturate(dot(N, V)), 5.0);
@@ -81,17 +92,28 @@ TranslucentOut ShadeWater(vec3 biomeTint, vec3 playerPos, vec3 geoNormal, Surfac
     #ifndef WORLD_NETHER
         open = 1.0 - TranslucentCoverAbove(playerPos);
     #endif
+    float skyVis = surf.lm.y * surf.lm.y * open;
 
     vec3 R = reflect(-V, N);
     R.y = max(R.y, 0.02); // never reflect the ground below the horizon
-    float skyVis = surf.lm.y * surf.lm.y * open;
-    vec3 reflection = GetSky(normalize(R), sunDir, true) * skyVis + scatter * (1.0 - skyVis);
+    // No stars: single-pixel stars on moving waves turn into sparkling noise.
+    vec3 reflection = GetSky(normalize(R), sunDir, false) * skyVis + scatter * (1.0 - skyVis);
 
-    float roughness = 0.07 + dist * 0.0015;
+    #if WATER_REFLECTIONS == 1
+        if (geoNormal.y > 0.5 && fresnel > 0.03) {
+            vec3 viewPos = ScreenToView(uv, gl_FragCoord.z);
+            vec3 viewR = normalize(mat3(gbufferModelView) * R);
+            float dither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+            vec4 ssr = TraceSSR(viewPos, viewR, dither);
+            reflection = mix(reflection, ssr.rgb, ssr.a);
+        }
+    #endif
+
+    float roughness = 0.08 + dist * 0.0015;
     reflection += SunLightColor(sunDir.y) * GGXSpecular(N, V, lightDir, roughness) / max(fresnel, 0.02)
                 * skyVis * skyVis * (1.0 - rainStrength);
 
-    o.light = scatter * opacity * (1.0 - fresnel) + reflection * fresnel;
-    o.transmit = transmit * (1.0 - fresnel);
-    return o;
+    float alpha = mix(opacity, 1.0, fresnel);
+    vec3 color = (scatter * opacity * (1.0 - fresnel) + reflection * fresnel) / max(alpha, 1e-4);
+    return PlainSurface(color, alpha);
 }

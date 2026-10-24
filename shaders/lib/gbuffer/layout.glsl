@@ -5,8 +5,9 @@ const int colortex1Format = RGBA8;          // albedo (sRGB) | vanilla AO
 const int colortex2Format = RGBA16;         // world normal (octahedral xy) | blocklight | skylight
 const int colortex3Format = RGBA8;          // shading model | emission | reserved | reserved
 const int colortex4Format = RGBA16F;        // pre-deferred overlay, premultiplied (clouds, glint, glowing eyes, beams)
-const int colortex5Format = RGBA8;          // translucent transmittance (multiplicative, order-independent)
-const int colortex6Format = RGBA16F;        // translucent emitted/reflected light (additive, order-independent)
+const int colortex5Format = RGBA8;          // translucent tint (multiplicative: stained glass, translucent mobs)
+const int colortex6Format = RGBA16F;        // translucent mobs: added light (additive, order-independent)
+const int colortex7Format = R11F_G11F_B10F; // lit opaque scene copy from deferred (read by water reflections)
 */
 
 const bool colortex1Clear = true;
