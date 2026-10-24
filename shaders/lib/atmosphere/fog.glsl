@@ -50,7 +50,12 @@ vec3 ApplyFog(vec3 color, vec3 playerPos, vec3 sunDir, bool isSky) {
     vec3 dir = playerPos / max(dist, 1e-4);
 
     // Inside fluids: only the fluid's own fog.
-    if (isEyeInWater == 1) return mix(color, WaterFogColor(sunDir), 1.0 - exp(-dist * 0.06));
+    if (isEyeInWater == 1) {
+        // The sky can only be seen from under water through the surface, a short way up
+        // (the surface draws itself over it, except under glass lying on the water).
+        float waterDist = isSky ? mix(dist, 6.0, smoothstep(0.05, 0.25, dir.y)) : dist;
+        return mix(color, WaterFogColor(sunDir), 1.0 - exp(-waterDist * 0.06));
+    }
     #ifdef LESS_LAVA_FOG
         const float denseFogRate = 0.15;
     #else

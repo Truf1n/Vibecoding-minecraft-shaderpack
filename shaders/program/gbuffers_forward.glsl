@@ -17,7 +17,7 @@
 
 #ifdef PROG_GBUFFERS_WATER
 in vec2 mc_Entity;
-#include "/lib/materials/waterHeight.glsl"
+#include "/lib/materials/columnMaps.glsl"
 
 // True if any block space touching this surface corner is covered by a block (the corner
 // is shared by up to four water blocks, so they all agree and the surface has no cracks).
@@ -126,7 +126,7 @@ uniform sampler2D gtexture;
     #include "/lib/materials/glass.glsl"
     #include "/lib/materials/ice.glsl"
     #include "/lib/materials/caustics.glsl"
-    #include "/lib/materials/waterHeight.glsl"
+    #include "/lib/materials/columnMaps.glsl"
     #include "/lib/materials/water.glsl"
 #elif defined PROG_GBUFFERS_ENTITIES_TRANSLUCENT || defined PROG_GBUFFERS_BLOCK_TRANSLUCENT
     // Translucent mobs may be drawn before or after deferred: order-independent layers.

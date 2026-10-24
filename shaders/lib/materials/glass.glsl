@@ -4,15 +4,7 @@
 // Needs: blockIds.glsl, translucent.glsl, sky.glsl, lighting.glsl.
 // The tint is multiplied into colortex5 and applied to everything behind in composite.
 
-// Transmittance colour from the average of the glass texture (mip level 4 of a 16px
-// sprite is one texel), so resource-pack colours are respected.
-vec3 GlassTint(int blockId, vec4 avgTexel) {
-    if (blockId == BLOCK_TINTED_GLASS) return vec3(0.16, 0.13, 0.20);
-    if (blockId == BLOCK_GLASS || blockId == BLOCK_GLASS_PANE) return vec3(0.96, 0.98, 0.98);
-    vec3 c = SrgbToLinear(avgTexel.rgb);
-    vec3 hue = c / max(max(c.r, max(c.g, c.b)), 0.6);
-    return mix(vec3(1.0), hue, GLASS_TINT);
-}
+#include "/lib/materials/glassTint.glsl"
 
 TranslucentSurface ShadeGlass(int blockId, vec4 texel, vec4 avgTexel, vec3 playerPos, vec3 normal, Surface surf, vec3 sunDir, vec3 lightDir) {
     // Frame/streak pixels are noticeably more opaque than the glass on average.

@@ -52,19 +52,27 @@ vec2 RefractionOffset(vec3 N, vec3 viewPos, float thickness) {
 
 // Underwater view of a source block's surface sitting in the thin gap right under a block
 // (the vanilla surface is 1/9 block below the top of its block space):
-// 0 = open water, 1 = covered and the view ray ends inside the gap (on the block's
-// underside or on a wall poking into the gap) - drawn as if the water filled the block,
-// 2 = covered but the ray leaves the gap sideways - a flat surface, no waves.
-// Under see-through blocks (glass, ice) there is a real water/air surface to look through:
-// always 2.
+#define SURFACE_OPEN        0 // open water: the normal surface
+#define SURFACE_FILLED      1 // drawn as if the water filled its block up to the top
+#define SURFACE_FLAT        2 // a calm surface, opaque like open water
+#define SURFACE_UNDER_GLASS 3 // a calm surface under glass with air above it: see-through
 int UnderBlockState(vec3 worldPos) {
     float cellTop = floor(worldPos.y - 0.5) + 1.0; // surface is at 8/9 (lowered by waving)
     vec3 above = vec3(worldPos.x, cellTop + 0.5, worldPos.z);
-    if (!HasCeiling(above)) return HasGlassCeiling(above) ? 2 : 0;
-    float depth = texelFetch(depthtex1, ivec2(gl_FragCoord.xy), 0).r;
-    if (depth >= 1.0) return 2;
-    float hitY = ViewToPlayer(ScreenToView(gl_FragCoord.xy / vec2(viewWidth, viewHeight), depth)).y + cameraPosition.y;
-    return hitY < cellTop + 0.03 ? 1 : 2;
+    if (HasCeiling(above)) {
+        // Solid block on top: filled if the view ray ends in the gap (on the block's
+        // underside or a wall poking into the gap), flat where it slips out sideways.
+        float depth = texelFetch(depthtex1, ivec2(gl_FragCoord.xy), 0).r;
+        if (depth >= 1.0) return SURFACE_FLAT;
+        float hitY = ViewToPlayer(ScreenToView(gl_FragCoord.xy / vec2(viewWidth, viewHeight), depth)).y + cameraPosition.y;
+        return hitY < cellTop + 0.03 ? SURFACE_FILLED : SURFACE_FLAT;
+    }
+    if (HasGlassCeiling(above)) {
+        // Glass sunk in water: the water goes on around and above it, so there is no
+        // surface here. Glass at the top of the water: this is the real surface.
+        return WaterAboveGlassStack(above) ? SURFACE_FILLED : SURFACE_UNDER_GLASS;
+    }
+    return SURFACE_OPEN;
 }
 
 // Water is drawn opaque: it samples the opaque scene behind it (colortex7) itself, so it
@@ -101,11 +109,9 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
         // sits partway up its block.
         float yInBlock = fract(worldPos.y + 0.005);
         if (geoNormal.y < -0.5 && yInBlock < 0.02) discard;
-        if (sourceBlock) {
-            int covered = UnderBlockState(worldPos);
-            if (covered == 1) discard;
-            if (covered == 2) N = faceN;
-        }
+        int state = sourceBlock ? UnderBlockState(worldPos) : SURFACE_OPEN;
+        if (state == SURFACE_FILLED) discard;
+        if (state != SURFACE_OPEN) N = faceN;
 
         // Total internal reflection: the surface mirrors the underwater scene.
         vec3 R = reflect(-V, N);
@@ -118,6 +124,11 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
         // Snell's window: inside the critical angle the world above is visible (bent).
         vec3 T = refract(-V, N, 1.333);
         if (dot(T, T) < 0.01) return PlainSurface(mirrored, 1.0);
+        if (state == SURFACE_UNDER_GLASS) {
+            // Let the glass (and what is beyond it) show through the window, unbent:
+            // under flat glass there is nothing to bend it.
+            return PlainSurface(mirrored, pow(1.0 - saturate(dot(N, V)), 5.0));
+        }
         vec2 refrUV = clamp(uv + RefractionOffset(N, viewPos, 2.0), vec2(0.001), vec2(0.999));
         vec3 above = texture(colortex7, refrUV).rgb;
         if (texture(depthtex1, refrUV).r >= 1.0) above = GetSky(normalize(T), sunDir, -1.0);

@@ -49,6 +49,9 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define WATER_REFRACTION 100     //[0 25 50 75 100 150 200]
 #define WATER_FOAM 2             //[0 1 2 3]
 #define WATER_CAUSTICS
+// How lighting finds the water above a point: 0 water layer (shadow-space, sees water
+// under glass), 1 column maps (world-space), 2 shadow map only (glass on water blocks it).
+#define UNDERWATER_LIGHT_METHOD 0 //[0 1 2]
 #define WAVING_WATER_VERTEX
 #define UNDERWATER_DISTORTION
 #define WATER_COLOR_R 1.00       //[0.50 0.75 1.00 1.25 1.50 2.00]
