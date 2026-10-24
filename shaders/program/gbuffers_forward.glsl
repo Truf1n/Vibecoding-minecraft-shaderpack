@@ -11,6 +11,7 @@
 #include "/lib/common.glsl"
 #include "/lib/gbuffer/layout.glsl"
 #include "/lib/materials/blockIds.glsl"
+#include "/lib/util/jitter.glsl"
 
 #ifdef VERTEX_SHADER
 
@@ -49,7 +50,8 @@ void main() {
     #endif
 
     bool wavedWater = false;
-    #if defined PROG_GBUFFERS_WATER && defined WAVING_WATER_VERTEX
+    #ifdef WAVING_WATER_VERTEX
+    #ifdef PROG_GBUFFERS_WATER
         // Gently raise and lower the water surface (plan item W10). Only downwards, so it
         // never pokes above the shore, and only on top faces of water.
         if (blockId == BLOCK_WATER && worldNormal.y > 0.9) {
@@ -59,6 +61,7 @@ void main() {
             playerPos.y -= wave * 0.05;
             wavedWater = true;
         }
+    #endif
     #endif
 
     #ifdef PROG_GBUFFERS_LINE
@@ -81,6 +84,7 @@ void main() {
             ? gl_ProjectionMatrix * (gbufferModelView * vec4(playerPos, 1.0))
             : ftransform();
     #endif
+    gl_Position = ApplyTAAJitter(gl_Position);
 }
 
 #endif

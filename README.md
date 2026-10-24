@@ -8,7 +8,7 @@ choose **OpenGL**; Iris does not run on the Vulkan renderer.
 
 ## Status
 
-Milestone **M3 (water)** on top of M2 (atmosphere) and M1 (core lighting):
+Milestone **M4 (temporal)** on top of M3 (water), M2 (atmosphere) and M1 (core lighting):
 
 - Deferred pipeline; shadow-mapped sun/moon with coloured shadows and leaf translucency;
   sky-matched ambient, blocklight, handheld light; filmic tonemap.
@@ -22,7 +22,10 @@ Milestone **M3 (water)** on top of M2 (atmosphere) and M1 (core lighting):
 - Translucents: sorted blending for terrain, clean stained-glass tint (frames from the
   texture, e.g. Continuity), order-independent layers for translucent mobs.
 
-Not yet: TAA, clouds, light shafts, materials/PBR, bloom (see docs/PLAN.md, M4+).
+- Temporal anti-aliasing (Halton jitter, reprojection, variance clipping, Catmull-Rom
+  history) and contrast-adaptive sharpening.
+
+Not yet: clouds, light shafts (M5), coloured lighting (M6), materials/PBR, bloom (see docs/PLAN.md).
 
 ## Install / test
 
@@ -46,7 +49,8 @@ shaders/
   world0/ world-1/ world1/   GENERATED wrappers (tools/gen_wrappers.py)
 tools/
   gen_wrappers.py      regenerate world*/ wrappers after editing its program table
-  check.py             compile + link every program with glslangValidator, incl. option variants
+  check.py             compile + link every program with glslangValidator, incl. option variants;
+                       also checks every on/off option is detectable by Iris
   package.py           check, then zip into dist/
 docs/PLAN.md           research, feature list (IDs), milestones
 ```
@@ -64,7 +68,8 @@ docs/PLAN.md           research, feature list (IDs), milestones
 | Translucent mobs | `gbuffers_entities_translucent/block_translucent` | colortex5/6 (order-independent) |
 | Particles, weather | `gbuffers_textured/weather` | colortex0 (forward-lit, blended) |
 | Composite | `composite` | colortex0 × colortex5 + colortex6, underwater distortion |
-| Output | `final` | tonemap, sRGB, dither, debug views |
+| TAA | `composite1` | colortex0 + history colortex8 |
+| Output | `final` | tonemap, sharpening, sRGB, dither, debug views |
 
 ## Licence
 

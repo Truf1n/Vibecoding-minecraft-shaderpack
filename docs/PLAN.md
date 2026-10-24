@@ -478,11 +478,12 @@ Each milestone ends with a playable pack you test.
 | **M3 Water** | Unbound water normals, SSR, refraction, water fog, caustics, foam (W1–W11) | |
 | **M4 Temporal base** | TAA + jitter, reduced-res + reprojection infrastructure (T1, +1) | Needed for M5 |
 | **M5 Clouds and light shafts** | Unbound volumetric clouds + shadows, VL (C1–C7, F5, F8) | **"Looks like Unbound" checkpoint, first benchmark against Complementary** |
-| **M6 Materials** | Built-in material library pass 1, glowing ores, generated normals, coated textures, foliage SSS, glass (M1–M7, M10, M11, L19, X1–X4) | |
-| **M7 Post** | Bloom, colour balance / grading, sharpening, FXAA, etc. (K1, K3–K5, K8, K9, T2, H1–H3) | |
-| **M8 Night and weather extras** | Aurora, nebulae, rainbows, puddles, weather styles, End beams, waving (S6–S9, R1–R5, E1–E3, V1–V7, +5) | Feature-complete v1 |
-| **M9 Tuning** | Profiles, performance pass, utilities (U1, U4, U5, U7), docs | **v1 release** |
-| v2 | Coloured lighting A1–A8, Nether storm, lens flare, DOF / motion blur, outlines, DH / Voxy, labPBR, POM, … | |
+| **M6 Coloured lighting** | Voxel floodfill coloured blocklight with amortized updates and compact storage (section 4), coloured light saturation, fire warmth, candle colours (A1–A3, A5); light fog (A4) optional | Moved up from v2 at the user's request |
+| **M7 Materials** | Built-in material library pass 1, glowing ores, generated normals, coated textures, foliage SSS, glass (M1–M7, M10, M11, L19, X1–X4) | |
+| **M8 Post** | Bloom, colour balance / grading, sharpening, FXAA, etc. (K1, K3–K5, K8, K9, T2, H1–H3) | |
+| **M9 Night and weather extras** | Aurora, nebulae, rainbows, puddles, weather styles, End beams, waving (S6–S9, R1–R5, E1–E3, V1–V7, +5) | Feature-complete v1 |
+| **M10 Tuning** | Profiles, performance pass, utilities (U1, U4, U5, U7), docs | **v1 release** |
+| v2 | ACT extras (A6–A8), Nether storm, lens flare, DOF / motion blur, outlines, DH / Voxy, labPBR, POM, … | |
 | Later | WSR, temporal upscaling, Photonics, Aperture port | |
 
 **My suggested v1 scope** (everything marked Core/Yes outside v2/Later):

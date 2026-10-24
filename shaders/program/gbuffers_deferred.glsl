@@ -4,6 +4,7 @@
 
 #include "/lib/common.glsl"
 #include "/lib/materials/blockIds.glsl"
+#include "/lib/util/jitter.glsl"
 
 #ifdef VERTEX_SHADER
 
@@ -31,7 +32,7 @@ void main() {
         blockId = 0;
     #endif
 
-    gl_Position = ftransform();
+    gl_Position = ApplyTAAJitter(ftransform());
 }
 
 #endif

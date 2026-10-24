@@ -74,8 +74,10 @@ vec3 ApplyFog(vec3 color, vec3 playerPos, vec3 sunDir, bool isSky) {
         float border = BorderFogAmount(dist);
         if (border > 0.0) color = mix(color, GetSky(dir, sunDir, -1.0), border);
 
-        #if defined CAVE_FOG && defined WORLD_OVERWORLD
-            if (caveFactor > 0.0) color = mix(color, vec3(0.010, 0.011, 0.014), caveFactor * (1.0 - exp(-dist * 0.03)));
+        #ifdef CAVE_FOG
+            #ifdef WORLD_OVERWORLD
+                if (caveFactor > 0.0) color = mix(color, vec3(0.010, 0.011, 0.014), caveFactor * (1.0 - exp(-dist * 0.03)));
+            #endif
         #endif
     }
 

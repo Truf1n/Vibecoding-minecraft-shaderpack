@@ -43,7 +43,8 @@ for i, name in enumerate(RENDER_STAGES):
     IRIS_MACROS[f"MC_RENDER_STAGE_{name}"] = str(i)
 
 INCLUDE_RE = re.compile(r'^\s*#include\s+"([^"]+)"', re.M)
-OPTION_RE = re.compile(r"^\s*(//)?\s*#define\s+(\w+)(?:\s+(\S+))?\s*(?://\s*\[([^\]]*)\])?", re.M)
+# [ \t] rather than \s: a value must be on the same line as its #define.
+OPTION_RE = re.compile(r"^[ \t]*(//)?[ \t]*#define[ \t]+(\w+)(?:[ \t]+(\S+))?[ \t]*(?://[ \t]*\[([^\]]*)\])?", re.M)
 
 
 def expand(path: Path, stack=()) -> str:
@@ -138,8 +139,22 @@ def run(overrides: dict, label: str, tmp: Path) -> int:
     return failures
 
 
+def check_option_detection() -> int:
+    """Iris only lists a boolean option in the menu if some shader file tests it with a
+    plain `#ifdef NAME` / `#ifndef NAME` (not `#if defined NAME && ...`)."""
+    settings = (SHADERS / "lib" / "settings.glsl").read_text()
+    booleans = [m.group(2) for m in OPTION_RE.finditer(settings) if m.group(3) is None]
+    sources = "\n".join(p.read_text() for p in SHADERS.rglob("*.glsl") if p.name != "settings.glsl")
+    missing = [b for b in booleans if not re.search(rf"^\s*#\s*if(n)?def\s+{b}\b", sources, re.M)]
+    for b in missing:
+        print(f"FAIL option {b}: never tested with a plain #ifdef/#ifndef, so Iris will not list it")
+    return len(missing)
+
+
 def main() -> int:
     quick = "--quick" in sys.argv
+    if check_option_detection():
+        return 1
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)
         failures = run({}, "default", tmp)

@@ -13,6 +13,10 @@ out vec4 vertColor;
 flat out int blockId;
 
 void main() {
+    #ifndef ENTITY_SHADOWS
+        // Entity shadows are switched off in shaders.properties (shadowEntities); this
+        // check also makes Iris list ENTITY_SHADOWS as a menu option.
+    #endif
     texCoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
     vertColor = gl_Color;
     blockId = int(mc_Entity.x + 0.5);

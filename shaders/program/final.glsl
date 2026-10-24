@@ -49,10 +49,26 @@ vec3 Saturation(vec3 c, float s) { return max(mix(vec3(Luminance(c)), c, s), 0.0
 // Interleaved gradient noise (Jimenez 2014): breaks up 8-bit banding in skies.
 float Dither(vec2 pixel) { return fract(52.9829189 * fract(dot(pixel, vec2(0.06711056, 0.00583715)))); }
 
+vec3 ToDisplay(vec3 hdr) { return Saturation(Tonemap(hdr * TM_EXPOSURE), T_SATURATION); }
+
 void main() {
     ivec2 pixel = ivec2(gl_FragCoord.xy);
-    vec3 color = texelFetch(colortex0, pixel, 0).rgb;
-    color = Saturation(Tonemap(color * TM_EXPOSURE), T_SATURATION);
+    vec3 color = ToDisplay(texelFetch(colortex0, pixel, 0).rgb);
+
+    #if IMAGE_SHARPENING > 0
+        // Contrast-adaptive sharpening (after the tonemap): sharpen less where the local
+        // contrast is already high, so edges do not ring.
+        vec3 n = ToDisplay(texelFetch(colortex0, pixel + ivec2(0, 1), 0).rgb);
+        vec3 s = ToDisplay(texelFetch(colortex0, pixel - ivec2(0, 1), 0).rgb);
+        vec3 e = ToDisplay(texelFetch(colortex0, pixel + ivec2(1, 0), 0).rgb);
+        vec3 w = ToDisplay(texelFetch(colortex0, pixel - ivec2(1, 0), 0).rgb);
+        vec3 lo = min(color, min(min(n, s), min(e, w)));
+        vec3 hi = max(color, max(max(n, s), max(e, w)));
+        vec3 amount = sqrt(saturate(min(lo, 1.0 - hi) / max(hi, 1e-4)));
+        vec3 weight = -amount * float(IMAGE_SHARPENING) * 0.025;
+        color = saturate((color + (n + s + e + w) * weight) / (1.0 + 4.0 * weight));
+    #endif
+
     color = LinearToSrgb(color);
     color += (Dither(gl_FragCoord.xy) - 0.5) / 255.0;
 

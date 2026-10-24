@@ -51,10 +51,12 @@ PROGRAMS = {
     # Fullscreen
     "deferred":             ("deferred", []),
     "composite":            ("composite", []),
+    "composite1":           ("taa", []),
     "final":                ("final", []),
 }
 
 # Programs left out of a dimension entirely.
+# (composite1 = TAA is disabled from shaders.properties when the TAA option is off.)
 SKIP = {"world-1": {"shadow"}}
 
 STAGES = {".vsh": "VERTEX_SHADER", ".fsh": "FRAGMENT_SHADER"}

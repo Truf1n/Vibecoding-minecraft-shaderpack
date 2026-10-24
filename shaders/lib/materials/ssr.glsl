@@ -64,4 +64,11 @@ vec4 TraceSSR(vec3 viewPos, vec3 viewDir, vec3 planeNormal, float dither) {
 }
 
 // Per-pixel jitter for the first ray step (interleaved gradient noise).
-float SSRDither() { return fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))); }
+// Varies every frame (golden-ratio offset) so TAA averages the steps away.
+float SSRDither() {
+    float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+    #ifdef TAA
+        ign = fract(ign + float(frameCounter % 64) * 0.618034);
+    #endif
+    return ign;
+}
