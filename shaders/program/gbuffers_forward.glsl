@@ -54,7 +54,7 @@ void main() {
     #ifdef PROG_GBUFFERS_WATER
         // Gently raise and lower the water surface (plan item W10). Only downwards, so it
         // never pokes above the shore, and only on top faces of water.
-        if (blockId == BLOCK_WATER && worldNormal.y > 0.9) {
+        if (IsWater(blockId) && worldNormal.y > 0.9) {
             vec3 wp = playerPos + cameraPosition;
             float t = frameTimeCounter * WATER_WAVE_SPEED;
             float wave = sin(wp.x * 0.65 + t * 1.3) * sin(wp.z * 0.55 + t * 1.1) * 0.5 + 0.5;
@@ -90,10 +90,6 @@ void main() {
 #endif
 
 #ifdef FRAGMENT_SHADER
-
-#ifdef PROG_GBUFFERS_WATER
-    #define WATER_HEIGHT_WRITER // water surfaces record their height (waterHeight.glsl)
-#endif
 
 #include "/lib/util/space.glsl"
 #include "/lib/util/encoding.glsl"
@@ -242,8 +238,8 @@ void main() {
 
         #if defined TRANSLUCENT_SORTED
             TranslucentSurface surface;
-            if (blockId == BLOCK_WATER) {
-                surface = ShadeWater(vertColor.rgb, playerPos, surf.normal, surf, sunDir, lightDir);
+            if (IsWater(blockId)) {
+                surface = ShadeWater(vertColor.rgb, blockId == BLOCK_WATER, playerPos, surf.normal, surf, sunDir, lightDir);
             } else if (IsGlass(blockId)) {
                 // The texture (vanilla or Continuity's connected one) supplies the frame; the
                 // see-through part becomes a clean colour tint instead of a hazy overlay.

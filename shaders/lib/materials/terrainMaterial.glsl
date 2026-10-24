@@ -5,12 +5,14 @@
 struct Material {
     int shadingModel;
     float emission; // 0..1, scaled to HDR in the lighting pass
+    float dryPartial; // 1: partial block that could hold water but doesn't (see water.glsl)
 };
 
 Material GetTerrainMaterial(int blockId, vec3 albedoSrgb) {
     Material m;
     m.shadingModel = SM_DEFAULT;
     m.emission = 0.0;
+    m.dryPartial = blockId == BLOCK_DRY_WATERLOGGABLE || blockId == BLOCK_LEAVES ? 1.0 : 0.0;
 
     if (IsPlant(blockId)) {
         m.shadingModel = blockId == BLOCK_LEAVES ? SM_LEAVES : SM_FOLIAGE;

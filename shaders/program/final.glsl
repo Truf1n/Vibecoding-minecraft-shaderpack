@@ -18,7 +18,13 @@ void main() {
 #include "/lib/gbuffer/layout.glsl"
 #include "/lib/util/encoding.glsl"
 
-uniform sampler2D colortex0;
+#ifdef TAA
+    uniform sampler2D colortex8; // the TAA pass leaves the finished image only in its history
+    #define sceneTex colortex8
+#else
+    uniform sampler2D colortex0;
+    #define sceneTex colortex0
+#endif
 #if DEBUG_VIEW > 0
 uniform sampler2D colortex1;
 uniform sampler2D colortex2;
@@ -53,15 +59,15 @@ vec3 ToDisplay(vec3 hdr) { return Saturation(Tonemap(hdr * TM_EXPOSURE), T_SATUR
 
 void main() {
     ivec2 pixel = ivec2(gl_FragCoord.xy);
-    vec3 color = ToDisplay(texelFetch(colortex0, pixel, 0).rgb);
+    vec3 color = ToDisplay(texelFetch(sceneTex, pixel, 0).rgb);
 
     #if IMAGE_SHARPENING > 0
         // Contrast-adaptive sharpening (after the tonemap): sharpen less where the local
         // contrast is already high, so edges do not ring.
-        vec3 n = ToDisplay(texelFetch(colortex0, pixel + ivec2(0, 1), 0).rgb);
-        vec3 s = ToDisplay(texelFetch(colortex0, pixel - ivec2(0, 1), 0).rgb);
-        vec3 e = ToDisplay(texelFetch(colortex0, pixel + ivec2(1, 0), 0).rgb);
-        vec3 w = ToDisplay(texelFetch(colortex0, pixel - ivec2(1, 0), 0).rgb);
+        vec3 n = ToDisplay(texelFetch(sceneTex, pixel + ivec2(0, 1), 0).rgb);
+        vec3 s = ToDisplay(texelFetch(sceneTex, pixel - ivec2(0, 1), 0).rgb);
+        vec3 e = ToDisplay(texelFetch(sceneTex, pixel + ivec2(1, 0), 0).rgb);
+        vec3 w = ToDisplay(texelFetch(sceneTex, pixel - ivec2(1, 0), 0).rgb);
         vec3 lo = min(color, min(min(n, s), min(e, w)));
         vec3 hi = max(color, max(max(n, s), max(e, w)));
         vec3 amount = sqrt(saturate(min(lo, 1.0 - hi) / max(hi, 1e-4)));

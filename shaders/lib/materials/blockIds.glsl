@@ -20,7 +20,8 @@
 #define BLOCK_LIGHT_LICHEN      2009
 #define BLOCK_LIGHT_CRYING      2010
 
-#define BLOCK_WATER             3001
+#define BLOCK_WATER             3001 // source block (full-height surface)
+#define BLOCK_WATER_FLOWING     3002
 #define BLOCK_GLASS             3003
 #define BLOCK_ICE               3004
 #define BLOCK_SLIME_HONEY       3005
@@ -30,10 +31,13 @@
 #define BLOCK_STAINED_GLASS     3100 // + colour index 0..15
 #define BLOCK_STAINED_PANE      3200 // + colour index 0..15
 
+#define BLOCK_DRY_WATERLOGGABLE 4001 // stairs, slabs, ... with waterlogged=false
+
 #define BLOCK_END_PORTAL        9001
 
 bool IsPlant(int id)       { return id >= 1001 && id <= 1008; }
 bool IsLightSource(int id) { return id >= 2001 && id <= 2010; }
+bool IsWater(int id)       { return id == BLOCK_WATER || id == BLOCK_WATER_FLOWING; }
 bool IsStainedGlass(int id) { return id >= 3100 && id <= 3115; }
 bool IsStainedPane(int id)  { return id >= 3200 && id <= 3215; }
 bool IsGlass(int id) {

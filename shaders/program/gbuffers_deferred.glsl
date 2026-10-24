@@ -74,6 +74,7 @@ void main() {
     #endif
 
     Material mat;
+    mat.dryPartial = 0.0;
     #if defined PROG_GBUFFERS_TERRAIN
         mat = GetTerrainMaterial(blockId, albedo.rgb);
     #elif defined PROG_GBUFFERS_BLOCK
@@ -89,7 +90,7 @@ void main() {
 
     outAlbedo = vec4(albedo.rgb, saturate(ao));
     outNormalLight = vec4(EncodeNormal(normalize(worldNormal)), RemapLightmap(lmCoord));
-    outMaterial = vec4(EncodeId(mat.shadingModel), mat.emission, 0.0, 1.0);
+    outMaterial = vec4(EncodeId(mat.shadingModel), mat.emission, mat.dryPartial, 1.0);
 }
 
 #endif

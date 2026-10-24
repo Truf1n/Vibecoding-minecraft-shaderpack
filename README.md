@@ -59,17 +59,17 @@ docs/PLAN.md           research, feature list (IDs), milestones
 
 | Stage | Programs | Writes |
 |---|---|---|
-| Shadow map | `shadow` (not in the Nether) | shadowtex0/1, shadowcolor0 (glass tint), shadowcolor1 (water mask) |
+| Shadow map | `shadow` (not in the Nether) | shadowtex0/1, shadowcolor0 (glass tint), shadowcolor1 (water mask), water height map image (top of every water surface nearby) |
 | Sun / moon | `gbuffers_skytextured` (vanilla sky disc and stars are discarded) | colortex0 |
-| Opaque geometry | `gbuffers_terrain/entities/block/hand` | G-buffer: colortex1 albedo+AO, colortex2 normal+lightmap, colortex3 shading model+emission |
+| Opaque geometry | `gbuffers_terrain/entities/block/hand` | G-buffer: colortex1 albedo+AO, colortex2 normal+lightmap, colortex3 shading model+emission+dry-waterloggable flag |
 | Overlays | `gbuffers_clouds/armor_glint/spidereyes/beaconbeam/lightning` | colortex4 (premultiplied) |
 | Deferred | `deferred` | procedural sky behind everything; lights the G-buffer once per pixel → colortex0, copy in colortex7 |
 | Translucent terrain | `gbuffers_water/hand_water` | colortex0 (sorted alpha blend; water opaque, refracting colortex7) + colortex5 tint |
 | Translucent mobs | `gbuffers_entities_translucent/block_translucent` | colortex5/6 (order-independent) |
 | Particles, weather | `gbuffers_textured/weather` | colortex0 (forward-lit, blended) |
 | Composite | `composite` | colortex0 × colortex5 + colortex6, underwater distortion |
-| TAA | `composite1` | colortex0 + history colortex8 |
-| Output | `final` | tonemap, sharpening, sRGB, dither, debug views |
+| TAA | `composite1` | history colortex8 (final reads it from there) |
+| Output | `final` | reads colortex8 (TAA on) or colortex0; tonemap, sharpening, sRGB, dither, debug views |
 
 ## Licence
 

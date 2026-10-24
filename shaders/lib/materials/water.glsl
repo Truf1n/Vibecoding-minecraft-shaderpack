@@ -50,19 +50,34 @@ vec2 RefractionOffset(vec3 N, vec3 viewPos, float thickness) {
     return vec2(offView.x * gbufferProjection[0][0], offView.y * gbufferProjection[1][1]) * 0.5 * amount / max(-viewPos.z, 1.0);
 }
 
+uniform sampler2D colortex2; // G-buffer normals of the opaque scene
+uniform sampler2D colortex3; // G-buffer material: b = dry waterloggable block
+
+// Seen from below: does the view ray through this surface point hit the underside of a
+// block flush with the top of the water's block space (the vanilla water surface sits
+// 1/9 block lower, leaving a gap)? Rays that leave the gap sideways, or that hit the
+// side of a block poking out of the water, see a real water/air surface instead.
+// Partial blocks that could be waterlogged but aren't (stairs, slabs, ...) keep the air gap.
+bool IsUnderBlock(vec3 worldPos) {
+    ivec2 pixel = ivec2(gl_FragCoord.xy);
+    float depth = texelFetch(depthtex1, pixel, 0).r;
+    if (depth >= 1.0) return false;
+    vec3 hitPos = ViewToPlayer(ScreenToView(gl_FragCoord.xy / vec2(viewWidth, viewHeight), depth)) + cameraPosition;
+    vec3 hitNormal = DecodeNormal(texelFetch(colortex2, pixel, 0).xy);
+    float cellTop = floor(worldPos.y - 0.5) + 1.0; // surface is at 8/9 (lowered by waving)
+    return hitNormal.y < -0.5 && abs(hitPos.y - cellTop) < 0.03
+        && texelFetch(colortex3, pixel, 0).b < 0.5;
+}
+
 // Water is drawn opaque: it samples the opaque scene behind it (colortex7) itself, so it
 // can refract it and absorb light per colour channel.
-TranslucentSurface ShadeWater(vec3 biomeTint, vec3 playerPos, vec3 geoNormal, Surface surf, vec3 sunDir, vec3 lightDir) {
+TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, vec3 geoNormal, Surface surf, vec3 sunDir, vec3 lightDir) {
     vec3 worldPos = playerPos + cameraPosition;
     float dist = length(playerPos);
     vec3 V = -playerPos / max(dist, 1e-4);
     vec2 uv = gl_FragCoord.xy / vec2(viewWidth, viewHeight);
     vec3 viewPos = ScreenToView(uv, gl_FragCoord.z);
     float surfaceDist = length(viewPos);
-
-    #ifdef WATER_HEIGHT_WRITER
-        if (abs(geoNormal.y) > 0.5) WriteWaterHeight(worldPos); // for underwater lighting
-    #endif
 
     // Normal of the face towards the camera (the surface can be seen from either side),
     // with waves on horizontal faces; gentler with distance.
@@ -79,11 +94,11 @@ TranslucentSurface ShadeWater(vec3 biomeTint, vec3 playerPos, vec3 geoNormal, Su
     // ---- Seen from below -------------------------------------------------------------
     if (isEyeInWater == 1) {
         // From inside the water only the real water/air surface is drawn: vertical faces
-        // (water against glass and the like) and surfaces pressed right under a block are
-        // skipped, so whatever is behind them shows directly.
+        // (water against glass and the like) are skipped, and so is a source block's
+        // surface sitting in the thin gap right under a block, which is treated as if the
+        // water filled the block up to the top.
         if (abs(geoNormal.y) < 0.5) discard;
-        float behindDist = length(ScreenToView(uv, texture(depthtex1, uv).r));
-        if ((behindDist - surfaceDist) * abs(V.y) < 0.25) discard;
+        if (sourceBlock && IsUnderBlock(worldPos)) discard;
 
         // Total internal reflection: the surface mirrors the underwater scene.
         vec3 R = reflect(-V, N);

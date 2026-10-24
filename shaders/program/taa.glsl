@@ -22,9 +22,10 @@ uniform sampler2D colortex0;
 uniform sampler2D colortex8; // TAA history (not cleared between frames)
 uniform sampler2D depthtex0;
 
-/* RENDERTARGETS: 0,8 */
-layout(location = 0) out vec4 outColor;
-layout(location = 1) out vec4 outHistory;
+// The result goes only into the history; the final pass reads it from there (saves a
+// full-screen write).
+/* RENDERTARGETS: 8 */
+layout(location = 0) out vec4 outHistory;
 
 // Work in a compressed range so a few very bright pixels do not dominate the blend.
 vec3 Compress(vec3 c) { return c / (1.0 + Luminance(c)); }
@@ -97,7 +98,6 @@ void main() {
     }
 
     result = Expand(max(result, 0.0));
-    outColor = vec4(result, 1.0);
     outHistory = vec4(result, 1.0);
 }
 
