@@ -3,7 +3,6 @@
 
 #include "/lib/materials/caustics.glsl"
 #include "/lib/materials/columnMaps.glsl"
-#include "/lib/lighting/waterLayer.glsl"
 
 uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
@@ -12,7 +11,7 @@ uniform sampler2DShadow shadowtex1HW; // opaque only, hardware depth compare
 uniform sampler2D shadowtex0;         // all geometry, raw depth
 uniform sampler2D shadowtex1;         // opaque only, raw depth (for foliage thickness)
 uniform sampler2D shadowcolor0;       // tint of translucent casters (glass, ice)
-uniform sampler2D shadowcolor1;       // r = 1 where the nearest caster is water
+uniform sampler2D shadowcolor1;       // r: nearest caster is water; g: opacity of a see-through caster
 
 // Direction towards the sun/moon in world space (+z of shadow view space).
 vec3 ShadowLightDir() { return vec3(shadowModelView[0][2], shadowModelView[1][2], shadowModelView[2][2]); }
@@ -68,45 +67,39 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
     opaque /= 9.0;
     r.light = vec3(opaque);
 
-    // Translucent casters. Glass or ice nearest to the sun tints the light. Water absorbs
-    // it per colour and focuses it into caustics; how far the light travelled through water
-    // comes from the method picked in the menu (see UNDERWATER_LIGHT_METHOD). Under glass
-    // lying on water the caustics are fainter: the flat glass calms the surface.
-    vec3 worldPos = playerPos + cameraPosition;
-    vec3 L = ShadowLightDir();
-    ivec2 texel = ivec2(coord.xy * float(shadowMapResolution));
+    // Translucent casters nearest to the sun. Water absorbs the light per colour and
+    // focuses it into caustics, over the distance the light travelled through it (from
+    // the shadow map, as for any caster). Glass or ice: the caustics are worked out as if
+    // it were not there - the water under it comes from the column maps, since the shadow
+    // map only sees the glass - and its tint goes on top.
     float allVis = texture(shadowtex0HW, coord);
-    bool translucentAbove = allVis < opaque - 0.01;
-    bool nearestIsWater = texelFetch(shadowcolor1, texel, 0).r > 0.5;
-
-    float waterPath = -1.0; // blocks of water the light crossed to get here
-    #if UNDERWATER_LIGHT_METHOD == 0
-        float waterDepth = WaterLayerDepth(coord.xy);
-        if (waterDepth >= 0.0 && waterDepth < coord.z) waterPath = ShadowDepthToBlocks(coord.z - waterDepth);
-    #elif UNDERWATER_LIGHT_METHOD == 1
-        float surface = ColumnWaterSurface(worldPos);
-        if (surface > worldPos.y) waterPath = (surface - worldPos.y) / max(L.y, 0.15);
-    #else
-        if (translucentAbove && nearestIsWater) waterPath = ShadowDepthToBlocks(coord.z - texelFetch(shadowtex0, texel, 0).r);
-    #endif
-
-    if (translucentAbove || waterPath > 0.0) {
-        vec3 light = vec3(opaque);
-        bool glassAbove = translucentAbove && !nearestIsWater;
-        if (glassAbove) {
+    if (allVis < opaque - 0.01) {
+        vec3 worldPos = playerPos + cameraPosition;
+        vec3 L = ShadowLightDir();
+        vec4 caster = texelFetch(shadowcolor1, ivec2(coord.xy * float(shadowMapResolution)), 0);
+        if (caster.r > 0.5) {
+            float path = max(ShadowDepthToBlocks(coord.z - texture(shadowtex0, coord.xy).r), 0.0);
+            r.light = vec3(opaque) * UnderwaterLight(path, worldPos.xz + L.xz * path, 1.0);
+        } else {
             #ifdef COLORED_SHADOWS
-                vec4 glass = texelFetch(shadowcolor0, texel, 0);
+                vec4 glass = texelFetch(shadowcolor0, ivec2(coord.xy * float(shadowMapResolution)), 0);
                 vec3 tint = mix(vec3(1.0), SrgbToLinear(glass.rgb), glass.a);
             #else
                 vec3 tint = vec3(0.0);
             #endif
-            light = vec3(allVis) + (opaque - allVis) * tint;
+            r.light = vec3(allVis) + (opaque - allVis) * tint;
+
+            float surface = ColumnWaterSurface(worldPos);
+            if (surface > worldPos.y) {
+                float path = (surface - worldPos.y) / max(L.y, 0.15);
+                float causticStrength = 1.0;
+                #ifdef OPAQUE_BLOCKS_CAUSTICS
+                    // Fairly opaque blocks (tinted glass, ...) let no focused light through.
+                    if (caster.g > CAUSTICS_OPACITY_LIMIT) causticStrength = 0.0;
+                #endif
+                r.light *= UnderwaterLight(path, worldPos.xz + L.xz * path, causticStrength);
+            }
         }
-        if (waterPath > 0.0) {
-            vec2 entry = worldPos.xz + L.xz * waterPath; // where the light entered the water
-            light *= UnderwaterLight(waterPath, entry, glassAbove ? 0.4 : 1.0);
-        }
-        r.light = light;
     }
 
     // Depth of opaque material in front of this point (light travelling through leaves).

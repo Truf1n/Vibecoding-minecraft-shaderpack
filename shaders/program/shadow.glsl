@@ -1,5 +1,4 @@
-// Shadow pass: depth from the sun/moon, the tint of translucent casters, the water layer
-// (nearest water as seen from the sun, even behind glass) and the column maps.
+// Shadow pass: depth from the sun/moon, the tint of translucent casters, and the column maps.
 
 #include "/lib/common.glsl"
 #include "/lib/materials/blockIds.glsl"
@@ -28,24 +27,26 @@ void main() {
     vertColor = gl_Color;
     blockId = int(mc_Entity.x + 0.5);
 
-    // Column maps (columnMaps.glsl): which block spaces hold water, water surfaces, glass,
-    // and block undersides flush with the bottom of their block space. The shadow pass
-    // covers everything around the player every frame, whether or not it is on screen.
-    // Partial blocks that could hold water but don't (stairs, slabs, ...) and leaves are
-    // not undersides: they keep the air gap above the water.
-    vec3 worldPos = (shadowModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz + cameraPosition;
-    vec3 blockCenter = worldPos + at_midBlock.xyz / 64.0;
-    bool seeThrough = IsGlass(blockId) || blockId == BLOCK_ICE || blockId == BLOCK_SLIME_HONEY;
-    if (IsWater(blockId)) {
-        MarkColumn(MAP_WATER_CELLS, blockCenter);
-        if (gl_Normal.y > 0.5) MarkColumn(MAP_WATER_SURFACE, blockCenter);
-    } else if (renderStage == MC_RENDER_STAGE_TERRAIN_SOLID || renderStage == MC_RENDER_STAGE_TERRAIN_CUTOUT
-               || renderStage == MC_RENDER_STAGE_TERRAIN_CUTOUT_MIPPED || renderStage == MC_RENDER_STAGE_TERRAIN_TRANSLUCENT) {
-        seeThrough = seeThrough || renderStage == MC_RENDER_STAGE_TERRAIN_TRANSLUCENT;
-        if (seeThrough) MarkColumn(MAP_GLASS_CELLS, blockCenter);
-        if (gl_Normal.y < -0.5 && abs(worldPos.y - (blockCenter.y - 0.5)) < 0.01
-            && blockId != BLOCK_DRY_WATERLOGGABLE && blockId != BLOCK_LEAVES && !IsPlant(blockId)) {
-            MarkColumn(seeThrough ? MAP_GLASS_CEILING : MAP_CEILING, blockCenter);
+    // Column maps (columnMaps.glsl): water surfaces, water resting on blocks, glass, and
+    // block undersides flush with the bottom of their block space. The shadow pass covers
+    // everything around the player every frame, whether or not it is on screen. Partial
+    // blocks that could hold water but don't (stairs, slabs, ...) and leaves are not
+    // undersides: they keep the air gap above the water.
+    bool terrain = renderStage == MC_RENDER_STAGE_TERRAIN_SOLID || renderStage == MC_RENDER_STAGE_TERRAIN_CUTOUT
+                || renderStage == MC_RENDER_STAGE_TERRAIN_CUTOUT_MIPPED || renderStage == MC_RENDER_STAGE_TERRAIN_TRANSLUCENT;
+    bool seeThrough = renderStage == MC_RENDER_STAGE_TERRAIN_TRANSLUCENT && !IsWater(blockId);
+    if (terrain && (seeThrough || abs(gl_Normal.y) > 0.5)) {
+        vec3 worldPos = (shadowModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz + cameraPosition;
+        vec3 blockCenter = worldPos + at_midBlock.xyz / 64.0;
+        bool underside = gl_Normal.y < -0.5 && abs(worldPos.y - (blockCenter.y - 0.5)) < 0.01;
+        if (IsWater(blockId)) {
+            if (gl_Normal.y > 0.5) MarkColumn(MAP_WATER_SURFACE, blockCenter);
+            else if (underside) MarkColumn(MAP_WATER_UNDERSIDE, blockCenter);
+        } else {
+            if (seeThrough) MarkColumn(MAP_GLASS_CELLS, blockCenter);
+            if (underside && blockId != BLOCK_DRY_WATERLOGGABLE && blockId != BLOCK_LEAVES && !IsPlant(blockId)) {
+                MarkColumn(seeThrough ? MAP_GLASS_CEILING : MAP_CEILING, blockCenter);
+            }
         }
     }
 
@@ -58,7 +59,6 @@ void main() {
 #ifdef FRAGMENT_SHADER
 
 #include "/lib/materials/glassTint.glsl"
-#include "/lib/lighting/waterLayer.glsl"
 
 uniform sampler2D gtexture;
 
@@ -68,17 +68,15 @@ flat in int blockId;
 
 /* RENDERTARGETS: 0,1 */
 layout(location = 0) out vec4 outShadowColor; // tint of translucent casters
-layout(location = 1) out vec4 outShadowWater; // r = 1 where the nearest caster is water
+layout(location = 1) out vec4 outShadowCaster; // r: water, g: opacity of a see-through block
 
 // Blending is off for the shadow pass (shaders.properties): whichever caster is nearest
 // to the sun decides these values, whatever order things are drawn in.
 void main() {
     if (IsWater(blockId)) {
-        // Water: no tint, marked in shadowcolor1, and recorded in the water layer even
-        // where glass or ice in front of it wins the depth test.
-        WriteWaterLayer(gl_FragCoord.xy, gl_FragCoord.z);
+        // Water: no tint, marked in shadowcolor1.
         outShadowColor = vec4(1.0, 1.0, 1.0, 0.0);
-        outShadowWater = vec4(1.0, 0.0, 0.0, 1.0);
+        outShadowCaster = vec4(1.0, 0.0, 0.0, 1.0);
         return;
     }
 
@@ -92,14 +90,14 @@ void main() {
             if (avgTexel.a < 0.02) discard;
             outShadowColor = avgTexel;
         }
-        outShadowWater = vec4(0.0);
+        outShadowCaster = vec4(0.0, avgTexel.a, 0.0, 1.0);
         return;
     }
 
     vec4 albedo = texture(gtexture, texCoord);
     if (albedo.a < 0.1) discard;
     outShadowColor = albedo;
-    outShadowWater = vec4(0.0);
+    outShadowCaster = vec4(0.0);
 }
 
 #endif

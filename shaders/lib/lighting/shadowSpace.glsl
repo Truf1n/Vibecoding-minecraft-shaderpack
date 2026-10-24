@@ -20,6 +20,6 @@ const float entityShadowDistanceMul = 0.25; // entities only cast shadows within
 
 /*
 const int shadowcolor0Format = RGBA8;
-const int shadowcolor1Format = R8;
+const int shadowcolor1Format = RG8; // r: water, g: opacity of a see-through caster
 */
 const vec4 shadowcolor1ClearColor = vec4(0.0, 0.0, 0.0, 0.0); // no water
