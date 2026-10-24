@@ -72,10 +72,13 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 // ---- Clouds -----------------------------------------------------------------
 // 0 off, 1 Unbound-style volumetric, 2 vanilla
 #define CLOUD_STYLE 1           //[0 1 2]
+// Cloud look (Debug menu while the styles are compared): 0 cumulus, 1 stratocumulus,
+// 2 layered (cumulus + altocumulus + cirrus), 3 overcast, 4 fair weather
+#define CLOUD_PRESET 0          //[0 1 2 3 4]
 // Samples per pixel: 1 low, 2 medium, 3 high
 #define CLOUD_QUALITY 2         //[1 2 3]
 // Clouds are rendered at 1/N of the screen size and smoothed over time.
-#define CLOUD_RES_DIV 2         //[2 4]
+#define CLOUD_RES_DIV 2         //[1 2 4]
 #define CLOUD_ALTITUDE 192      //[128 160 192 224 256 320]
 #define CLOUD_THICKNESS 48.0    //[24.0 32.0 48.0 64.0 96.0]
 #define CLOUD_AMOUNT 0.45       //[0.20 0.30 0.40 0.45 0.50 0.60 0.70 0.85]
