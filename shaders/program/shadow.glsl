@@ -29,9 +29,18 @@ void main() {
 
     // Record water surfaces for underwater lighting. The shadow pass covers all water
     // around the player every frame, whether or not it is on screen.
-    if (IsWater(blockId) && gl_Normal.y > 0.5) {
+    // Also record block undersides flush with the bottom of their block space, so water
+    // right under a block can be told apart from water open to the air. Partial blocks
+    // that could hold water but don't (stairs, slabs, ...) and leaves keep the air gap.
+    if (abs(gl_Normal.y) > 0.5) {
         vec3 worldPos = (shadowModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz + cameraPosition;
-        WriteWaterHeight(worldPos, worldPos + at_midBlock.xyz / 64.0);
+        vec3 blockCenter = worldPos + at_midBlock.xyz / 64.0;
+        if (IsWater(blockId)) {
+            if (gl_Normal.y > 0.5) WriteWaterHeight(worldPos, blockCenter);
+        } else if (gl_Normal.y < -0.5 && abs(worldPos.y - (blockCenter.y - 0.5)) < 0.01
+                   && blockId != BLOCK_DRY_WATERLOGGABLE && blockId != BLOCK_LEAVES && !IsPlant(blockId)) {
+            WriteCeiling(blockCenter);
+        }
     }
 
     vec4 clip = ftransform(); // orthographic: w == 1

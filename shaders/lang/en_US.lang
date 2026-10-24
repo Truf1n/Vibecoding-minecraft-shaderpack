@@ -41,6 +41,10 @@ option.DEBUG_PARTICLES=Debug Particles
 option.DEBUG_PARTICLES.comment=Draws all particles flat magenta. Used to diagnose missing particles.
 value.DEBUG_PARTICLES.0=Off
 value.DEBUG_PARTICLES.1=On
+option.DEBUG_UNDERWATER_LIGHT=Underwater Light Source
+option.DEBUG_UNDERWATER_LIGHT.comment=Where underwater lighting and caustics get the water depth from. Height Map: current method. Shadow Map: the older M3 method, for comparison.
+value.DEBUG_UNDERWATER_LIGHT.0=Height Map
+value.DEBUG_UNDERWATER_LIGHT.1=Shadow Map
 
 screen.SHADOWS=Shadows
 screen.SHADOWS.comment=Sun and moon shadows. Shadow Distance has the biggest performance impact (it re-renders the world from the sun).

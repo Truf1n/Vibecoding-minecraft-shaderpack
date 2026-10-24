@@ -50,23 +50,18 @@ vec2 RefractionOffset(vec3 N, vec3 viewPos, float thickness) {
     return vec2(offView.x * gbufferProjection[0][0], offView.y * gbufferProjection[1][1]) * 0.5 * amount / max(-viewPos.z, 1.0);
 }
 
-uniform sampler2D colortex2; // G-buffer normals of the opaque scene
-uniform sampler2D colortex3; // G-buffer material: b = dry waterloggable block
-
-// Seen from below: does the view ray through this surface point hit the underside of a
-// block flush with the top of the water's block space (the vanilla water surface sits
-// 1/9 block lower, leaving a gap)? Rays that leave the gap sideways, or that hit the
-// side of a block poking out of the water, see a real water/air surface instead.
-// Partial blocks that could be waterlogged but aren't (stairs, slabs, ...) keep the air gap.
-bool IsUnderBlock(vec3 worldPos) {
-    ivec2 pixel = ivec2(gl_FragCoord.xy);
-    float depth = texelFetch(depthtex1, pixel, 0).r;
-    if (depth >= 1.0) return false;
-    vec3 hitPos = ViewToPlayer(ScreenToView(gl_FragCoord.xy / vec2(viewWidth, viewHeight), depth)) + cameraPosition;
-    vec3 hitNormal = DecodeNormal(texelFetch(colortex2, pixel, 0).xy);
+// Underwater view of a source block's surface sitting in the thin gap right under a block
+// (the vanilla surface is 1/9 block below the top of its block space):
+// 0 = open water, 1 = covered and the view ray ends inside the gap (on the block's
+// underside or on a wall poking into the gap) - drawn as if the water filled the block,
+// 2 = covered but the ray leaves the gap sideways - a flat surface, no waves.
+int UnderBlockState(vec3 worldPos) {
     float cellTop = floor(worldPos.y - 0.5) + 1.0; // surface is at 8/9 (lowered by waving)
-    return hitNormal.y < -0.5 && abs(hitPos.y - cellTop) < 0.03
-        && texelFetch(colortex3, pixel, 0).b < 0.5;
+    if (!HasCeiling(vec3(worldPos.x, cellTop + 0.5, worldPos.z))) return 0;
+    float depth = texelFetch(depthtex1, ivec2(gl_FragCoord.xy), 0).r;
+    if (depth >= 1.0) return 2;
+    float hitY = ViewToPlayer(ScreenToView(gl_FragCoord.xy / vec2(viewWidth, viewHeight), depth)).y + cameraPosition.y;
+    return hitY < cellTop + 0.03 ? 1 : 2;
 }
 
 // Water is drawn opaque: it samples the opaque scene behind it (colortex7) itself, so it
@@ -98,7 +93,11 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
         // surface sitting in the thin gap right under a block, which is treated as if the
         // water filled the block up to the top.
         if (abs(geoNormal.y) < 0.5) discard;
-        if (sourceBlock && IsUnderBlock(worldPos)) discard;
+        if (sourceBlock) {
+            int covered = UnderBlockState(worldPos);
+            if (covered == 1) discard;
+            if (covered == 2) N = faceN;
+        }
 
         // Total internal reflection: the surface mirrors the underwater scene.
         vec3 R = reflect(-V, N);

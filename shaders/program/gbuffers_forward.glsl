@@ -17,6 +17,18 @@
 
 #ifdef PROG_GBUFFERS_WATER
 in vec2 mc_Entity;
+#include "/lib/materials/waterHeight.glsl"
+
+// True if any block space touching this surface corner is covered by a block (the corner
+// is shared by up to four water blocks, so they all agree and the surface has no cracks).
+bool CornerUnderBlock(vec3 wp) {
+    float level = floor(wp.y - 0.5) + 1.5;
+    for (int i = 0; i < 4; i++) {
+        vec2 o = vec2(i & 1, i >> 1) - 0.5;
+        if (HasCeiling(vec3(wp.x + o.x * 0.98, level, wp.z + o.y * 0.98))) return true;
+    }
+    return false;
+}
 #endif
 
 out vec2 texCoord;
@@ -54,8 +66,9 @@ void main() {
     #ifdef PROG_GBUFFERS_WATER
         // Gently raise and lower the water surface (plan item W10). Only downwards, so it
         // never pokes above the shore, and only on top faces of water.
-        if (IsWater(blockId) && worldNormal.y > 0.9) {
-            vec3 wp = playerPos + cameraPosition;
+        // Not where the water is pressed right under a block.
+        vec3 wp = playerPos + cameraPosition;
+        if (IsWater(blockId) && worldNormal.y > 0.9 && !CornerUnderBlock(wp)) {
             float t = frameTimeCounter * WATER_WAVE_SPEED;
             float wave = sin(wp.x * 0.65 + t * 1.3) * sin(wp.z * 0.55 + t * 1.1) * 0.5 + 0.5;
             playerPos.y -= wave * 0.05;

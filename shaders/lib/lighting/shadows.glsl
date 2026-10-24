@@ -71,7 +71,11 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
     // handled below from the water height map (glass on the water cannot hide it); the
     // shadow-map water mask is only a fallback for water not seen yet.
     vec3 worldPos = playerPos + cameraPosition;
-    float waterHeight = WaterSurfaceHeight(worldPos);
+    #if DEBUG_UNDERWATER_LIGHT == 1
+        float waterHeight = -1e6; // shadow-map path only (M3 behaviour)
+    #else
+        float waterHeight = WaterSurfaceHeight(worldPos);
+    #endif
     bool underwater = waterHeight > worldPos.y;
     bool coveredByGlass = false;
     float allVis = texture(shadowtex0HW, coord);

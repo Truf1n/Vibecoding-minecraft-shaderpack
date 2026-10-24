@@ -18,8 +18,25 @@ ivec2 WaterHeightCell(vec2 blockXZ) { return ivec2(mod(blockXZ, float(WATER_HEIG
 uint EncodeWaterHeight(float y) { return uint(clamp((y + 1024.0) * 64.0, 1.0, 4.0e9)); }
 float DecodeWaterHeight(uint v) { return float(v) / 64.0 - 1024.0; }
 
+// Ceiling map: for each column, one bit per block level within 16 blocks of the camera
+// height, set where a block's underside sits flush on the bottom of its block space.
+// Underwater, a water surface right under such a block is treated as covered.
+const int CEILING_SIZE = 512; // must match image.ceilingImg in shaders.properties
+const float CEILING_RANGE = 250.0;
+int CeilingBaseY() { return int(floor(cameraPosition.y)) - 16; }
+
 #ifdef WATER_HEIGHT_WRITER
     layout(r32ui) uniform uimage2D waterHeightImg;
+    layout(r32ui) uniform uimage2D ceilingImg;
+
+    // Called per vertex of a downward face that is flush with the bottom of its block.
+    void WriteCeiling(vec3 blockCenter) {
+        int bit = int(floor(blockCenter.y)) - CeilingBaseY();
+        if (bit < 0 || bit > 31) return;
+        if (any(greaterThan(abs(blockCenter.xz - cameraPosition.xz), vec2(CEILING_RANGE)))) return;
+        ivec2 cell = ivec2(mod(floor(blockCenter.xz), float(CEILING_SIZE)));
+        imageAtomicOr(ceilingImg, cell, 1u << uint(bit));
+    }
 
     // Called per vertex of an upward water face; blockCenter is from at_midBlock.
     void WriteWaterHeight(vec3 worldPos, vec3 blockCenter) {
@@ -34,6 +51,18 @@ float DecodeWaterHeight(uint v) { return float(v) / 64.0 - 1024.0; }
         if (any(greaterThan(abs(worldPos.xz - cameraPosition.xz), vec2(WATER_HEIGHT_RANGE)))) return -1e6;
         uint v = texelFetch(waterHeightSampler, WaterHeightCell(floor(worldPos.xz)), 0).r;
         return v == 0u ? -1e6 : DecodeWaterHeight(v);
+    }
+
+    uniform usampler2D ceilingSampler;
+
+    // True if the block space at this world position has a block underside flush on its
+    // bottom (unknown far away or more than 16 blocks above/below the camera: false).
+    bool HasCeiling(vec3 worldPos) {
+        int bit = int(floor(worldPos.y)) - CeilingBaseY();
+        if (bit < 0 || bit > 31) return false;
+        if (any(greaterThan(abs(worldPos.xz - cameraPosition.xz), vec2(CEILING_RANGE)))) return false;
+        uint v = texelFetch(ceilingSampler, ivec2(mod(floor(worldPos.xz), float(CEILING_SIZE))), 0).r;
+        return (v & (1u << uint(bit))) != 0u;
     }
 #endif
 

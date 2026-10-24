@@ -80,6 +80,9 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define DEBUG_VIEW 0 //[0 1 2 3 4 5 6]
 // Draws every particle flat magenta, to tell "not drawn" apart from "drawn but hidden".
 #define DEBUG_PARTICLES 0 //[0 1]
+// Where underwater lighting gets the water depth: 0 the water height map, 1 the shadow
+// map only (the M3 method; glass on water then blocks caustics again). For A/B tests.
+#define DEBUG_UNDERWATER_LIGHT 0 //[0 1]
 
 // ---- Internal (not menu options) --------------------------------------------
 // Particles also write the "keep" shading model, so they survive if Iris draws them
