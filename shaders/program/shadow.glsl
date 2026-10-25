@@ -13,7 +13,7 @@
     layout(r32ui) uniform uimage3D voxelImg;
 
     // Records what fills this block space for the coloured-light floodfill (voxels.glsl).
-    void WriteVoxel(vec3 blockCenter, int id, int emission) {
+    void WriteVoxel(vec3 worldPos, vec3 blockCenter, int id, int emission) {
         uint priority;
         if (emission > 0) priority = VOXEL_PRIORITY_SOURCE;
         else if (IsWater(id)) priority = VOXEL_PRIORITY_WATER;
@@ -22,7 +22,16 @@
         else return; // plants, rails, doors...: light passes freely
         ivec3 coord = ivec3(floor(blockCenter)) - VoxelOrigin();
         if (any(lessThan(coord, ivec3(0))) || any(greaterThanEqual(coord, VOXEL_SIZE))) return;
-        imageAtomicMax(voxelImg, coord, EncodeVoxel(priority, id, emission));
+        uint flags = 0u;
+        if (IsPane(id)) {
+            // A broad face sits 1/16 off the middle of the block space; edges and ends sit
+            // on its sides.
+            vec3 local = worldPos - floor(blockCenter);
+            if (abs(gl_Normal.z) > 0.9 && abs(local.z - 0.5) < 0.2) flags |= VOXEL_PANE_X;
+            if (abs(gl_Normal.x) > 0.9 && abs(local.x - 0.5) < 0.2) flags |= VOXEL_PANE_Z;
+        }
+        imageAtomicMax(voxelImg, coord, EncodeVoxel(priority, id, emission) | flags);
+        if (flags != 0u) imageAtomicOr(voxelImg, coord, flags);
     }
 #endif
 
@@ -64,7 +73,7 @@ void main() {
         vec3 worldPos = (shadowModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz + cameraPosition;
         vec3 blockCenter = worldPos + at_midBlock.xyz / 64.0;
         #ifdef COLORED_LIGHTING
-            if (voxel) WriteVoxel(blockCenter, blockId, int(at_midBlock.w + 0.5));
+            if (voxel) WriteVoxel(worldPos, blockCenter, blockId, int(at_midBlock.w + 0.5));
         #endif
         bool underside = gl_Normal.y < -0.5 && abs(worldPos.y - (blockCenter.y - 0.5)) < 0.01;
         if (IsWater(blockId)) {

@@ -42,7 +42,7 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define COLORED_LIGHT_RANGE 2           //[1 2]
 #define COLORED_LIGHT_SATURATION 1.35   //[0.00 0.25 0.50 0.75 1.00 1.15 1.35 1.50 1.75 2.00]
 // How strongly stained glass colours the light shining through it.
-#define GLASS_LIGHT_TINT 0.60           //[0.00 0.20 0.40 0.60 0.80 1.00]
+#define GLASS_LIGHT_TINT 0.80           //[0.00 0.20 0.40 0.60 0.80 1.00]
 // Torch and fire colour, from warm white (0) to deep orange (1).
 #define FIRE_WARMTH 0.70                //[0.00 0.25 0.50 0.70 0.85 1.00]
 #define COLORED_CANDLES
