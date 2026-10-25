@@ -35,6 +35,16 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define BLOCKLIGHT_B 0.32   //[0.10 0.20 0.26 0.32 0.40 0.50 0.70 1.00]
 #define VANILLA_AO_I 1.00   //[0.00 0.25 0.50 0.75 1.00 1.25 1.50]
 
+// ---- Coloured lighting --------------------------------------------------------
+// Block light takes the colour of its source (floodfill through a voxel volume).
+#define COLORED_LIGHTING
+// Volume around the player: 1 = 128x64x128 blocks, 2 = 256x128x256 blocks
+#define COLORED_LIGHT_RANGE 2           //[1 2]
+#define COLORED_LIGHT_SATURATION 1.00   //[0.00 0.25 0.50 0.75 1.00 1.25 1.50]
+// Torch and fire colour, from warm white (0) to deep orange (1).
+#define FIRE_WARMTH 0.70                //[0.00 0.25 0.50 0.70 0.85 1.00]
+#define COLORED_CANDLES
+
 // ---- Glass / ice --------------------------------------------------------------
 #define GLASS_TINT 0.45        //[0.15 0.25 0.35 0.45 0.55 0.65 0.75 0.85 1.00]
 #define ICE_OPACITY 0.60       //[0.30 0.40 0.50 0.60 0.70 0.80 1.00]

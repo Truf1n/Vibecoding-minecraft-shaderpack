@@ -8,8 +8,8 @@ choose **OpenGL**; Iris does not run on the Vulkan renderer.
 
 ## Status
 
-Milestone **M5 (clouds and light shafts)** on top of M4 (temporal), M3 (water), M2
-(atmosphere) and M1 (core lighting):
+Milestone **M6 (coloured lighting)** on top of M5 (clouds and light shafts), M4
+(temporal), M3 (water), M2 (atmosphere) and M1 (core lighting):
 
 - Deferred pipeline; shadow-mapped sun/moon with coloured shadows and leaf translucency;
   sky-matched ambient, blocklight, handheld light; filmic tonemap.
@@ -29,7 +29,12 @@ Milestone **M5 (clouds and light shafts)** on top of M4 (temporal), M3 (water), 
   shadows, reflections in water, and visibility from under water. Light shafts at half
   resolution (shadow map, coloured glass, clouds; under water with caustics).
 
-Not yet: coloured lighting (M6), materials/PBR (M7), bloom (M8) (see docs/PLAN.md).
+- Coloured block light: the shadow pass voxelizes the blocks around the player, a
+  compute pass floodfills light colours through them (tinted by stained glass), and
+  lighting takes the hue from it while the brightness follows vanilla light levels.
+  Per-source colours, coloured candles, coloured held lights.
+
+Not yet: materials/PBR (M7), bloom (M8) (see docs/PLAN.md).
 
 ## Install / test
 
@@ -63,7 +68,8 @@ docs/PLAN.md           research, feature list (IDs), milestones
 
 | Stage | Programs | Writes |
 |---|---|---|
-| Shadow map | `shadow` (not in the Nether) | shadowtex0/1, shadowcolor0 (glass tint), shadowcolor1 (water mask), column bit maps (water, glass, block undersides near the player) |
+| Shadow map | `shadow` (in the Nether only for the voxels) | shadowtex0/1, shadowcolor0 (glass tint), shadowcolor1 (water mask), column bit maps (water, glass, block undersides near the player) |
+| Coloured light | `shadowcomp` (compute) | floodfill of the voxel volume → floodImgA/B (alternating) |
 | Sun / moon | `gbuffers_skytextured` (vanilla sky disc and stars are discarded) | colortex0 |
 | Opaque geometry | `gbuffers_terrain/entities/block/hand` | G-buffer: colortex1 albedo+AO, colortex2 normal+lightmap, colortex3 shading model+emission+dry-waterloggable flag |
 | Overlays | `gbuffers_clouds/armor_glint/spidereyes/beaconbeam/lightning` | colortex4 (premultiplied) |

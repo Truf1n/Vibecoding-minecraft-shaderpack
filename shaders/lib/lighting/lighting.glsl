@@ -7,7 +7,7 @@
     #include "/lib/atmosphere/clouds.glsl"
 #endif
 
-vec3 BlocklightColor() { return vec3(BLOCKLIGHT_R, BLOCKLIGHT_G, BLOCKLIGHT_B) * BLOCKLIGHT_I; }
+#include "/lib/lighting/coloredLight.glsl"
 
 // Dynamic handheld light (plan item L14): vanilla light level minus distance, like vanilla falloff.
 float HeldLight(float distToCamera) {
@@ -32,7 +32,11 @@ struct Surface {
 
 // Returns the light arriving at the surface; multiply by albedo.
 vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir) {
-    vec3 light = BlocklightColor() * BlocklightFalloff(s.lm.x);
+    // Block light: brightness from the light level, colour from coloredLight.glsl. A held
+    // light that outshines the world's light takes over the colour.
+    float held = HeldLight(length(s.playerPos));
+    vec3 blockColor = BlocklightColorAt(s.playerPos, s.normal, held >= s.lm.x - 0.001 ? 0.0 : s.lm.x, held);
+    vec3 light = blockColor * BLOCKLIGHT_I * BlocklightFalloff(s.lm.x);
 
     bool hasNormal = dot(s.normal, s.normal) > 0.5;
     float NdotL = hasNormal ? dot(s.normal, lightDir) : 0.45;

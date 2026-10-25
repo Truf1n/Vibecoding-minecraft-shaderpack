@@ -19,6 +19,16 @@
 #define BLOCK_LIGHT_AMETHYST    2008
 #define BLOCK_LIGHT_LICHEN      2009
 #define BLOCK_LIGHT_CRYING      2010
+#define BLOCK_LIGHT_FROG_OCHRE  2011
+#define BLOCK_LIGHT_FROG_VERDANT 2012
+#define BLOCK_LIGHT_FROG_PEARL  2013
+#define BLOCK_LIGHT_SEA_PICKLE  2014
+#define BLOCK_LIGHT_SCULK       2015
+#define BLOCK_LIGHT_ENCHANT     2016
+#define BLOCK_LIGHT_TRIAL       2017
+#define BLOCK_LIGHT_OMINOUS     2018
+#define BLOCK_LIGHT_COPPER_BULB 2019
+#define BLOCK_LIGHT_CANDLE      2100 // + 1 + colour index 0..15 for coloured candles
 
 #define BLOCK_WATER             3001 // source block (full-height surface)
 #define BLOCK_WATER_FLOWING     3002
@@ -36,7 +46,7 @@
 #define BLOCK_END_PORTAL        9001
 
 bool IsPlant(int id)       { return id >= 1001 && id <= 1008; }
-bool IsLightSource(int id) { return id >= 2001 && id <= 2010; }
+bool IsLightSource(int id) { return (id >= 2001 && id <= 2019) || (id >= 2100 && id <= 2116); }
 bool IsWater(int id)       { return id == BLOCK_WATER || id == BLOCK_WATER_FLOWING; }
 bool IsStainedGlass(int id) { return id >= 3100 && id <= 3115; }
 bool IsStainedPane(int id)  { return id >= 3200 && id <= 3215; }
