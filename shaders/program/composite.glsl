@@ -1,5 +1,6 @@
-// Applies translucent tints and order-independent layers: scene * colortex5 + colortex6.
-// Later milestones add fog, light shafts and reflections around this pass.
+// Applies translucent tints and order-independent layers: scene * colortex5 + colortex6,
+// then the volumetric clouds in front of anything farther away than them - terrain, water,
+// glass, particles - e.g. when flying through a cloud. (The sky already has its clouds.)
 
 #include "/lib/common.glsl"
 
@@ -14,6 +15,12 @@ void main() {
 #ifdef FRAGMENT_SHADER
 
 #include "/lib/gbuffer/layout.glsl"
+#include "/lib/util/space.glsl"
+#if defined WORLD_OVERWORLD && CLOUD_STYLE == 1
+    #define VOLUMETRIC_CLOUDS
+    #include "/lib/atmosphere/cloudBuffer.glsl"
+    uniform sampler2D depthtex0;
+#endif
 
 uniform sampler2D colortex0;
 uniform sampler2D colortex5;
@@ -38,6 +45,15 @@ void main() {
 
     vec3 color = texture(colortex0, uv).rgb;
     color = color * texelFetch(colortex5, pixel, 0).rgb + texelFetch(colortex6, pixel, 0).rgb;
+
+    #ifdef VOLUMETRIC_CLOUDS
+        float depth = texelFetch(depthtex0, ivec2(gl_FragCoord.xy), 0).r;
+        vec2 screenUV = gl_FragCoord.xy / vec2(viewWidth, viewHeight);
+        if (depth < 1.0 && length(ScreenToView(screenUV, depth)) > SampleCloudDistance(screenUV)) {
+            vec4 clouds = SampleClouds(screenUV);
+            color = color * clouds.a + clouds.rgb;
+        }
+    #endif
     outColor = vec4(color, 1.0);
 }
 

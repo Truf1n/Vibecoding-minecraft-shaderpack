@@ -1,6 +1,6 @@
 // Deferred resolve (deferred1, after the cloud pass): draws the sky behind everything,
-// lights every opaque G-buffer pixel once, adds the volumetric clouds in front of whatever
-// is farther away than them, then composites the pre-deferred overlay (vanilla clouds,
+// lights every opaque G-buffer pixel once, adds the volumetric clouds to the sky (so water
+// reflects and refracts them), then composites the pre-deferred overlay (vanilla clouds,
 // glint, glowing eyes, beacon beams).
 
 #include "/lib/common.glsl"
@@ -95,13 +95,8 @@ void main() {
         color = ApplyFog(color, playerPos, sunDir, false);
     }
 
-    #ifdef VOLUMETRIC_CLOUDS
-        // Clouds in front of terrain that is farther away than them (mountain tops).
-        if (depth < 1.0 && length(playerPos) > SampleCloudDistance(texCoord)) {
-            vec4 clouds = SampleClouds(texCoord);
-            color = color * clouds.a + clouds.rgb;
-        }
-    #endif
+    // (Clouds in front of terrain, water and everything else are added in composite, after
+    // the translucent pass.)
 
     vec4 overlay = texelFetch(colortex4, pixel, 0);
     color = color * (1.0 - overlay.a) + overlay.rgb;
