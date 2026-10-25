@@ -55,36 +55,52 @@ vec3 GradeLightColor(vec3 hue) {
         return mix(mix(c00, c10, f.y), mix(c01, c11, f.y), f.z);
     }
 
-    // Colour picked up along the straight line from a point to the block holding its
-    // brightest light (volume coordinates): the product of the tints of the see-through
-    // blocks crossed. A solid block in the way means the light came around it, so the line
-    // says nothing: no tint.
+    // Colour picked up along a straight line from a point to a point inside the block
+    // holding its light (volume coordinates): the product of the tints of the see-through
+    // blocks crossed, counting the block the point sits in. A solid block in the way means
+    // the light came around it, so the line says nothing: no tint.
+    vec3 TintAlongLine(vec3 from, vec3 to, ivec3 target) {
+        ivec3 cell = ivec3(floor(from));
+        vec3 tint = vec3(1.0);
+        uint voxel = texelFetch(voxelSampler, cell, 0).r;
+        uint priority = VoxelPriority(voxel);
+        if (priority == VOXEL_PRIORITY_TINT || priority == VOXEL_PRIORITY_WATER) tint = VoxelTint(priority, VoxelBlockId(voxel));
+
+        // Walk the blocks along the line (3D DDA), stopping at the light's own block.
+        vec3 dir = to - from;
+        vec3 stepSign = sign(dir);
+        vec3 invDir = 1.0 / max(abs(dir), vec3(1e-5));
+        vec3 tMax = (stepSign * (vec3(cell) - from) + max(stepSign, 0.0)) * invDir;
+        tMax = mix(vec3(1e9), tMax, abs(stepSign)); // never step along an axis the line doesn't move in
+        ivec3 cellStep = ivec3(stepSign);
+        for (int i = 0; i < 48; i++) {
+            if (tMax.x < tMax.y && tMax.x < tMax.z) { cell.x += cellStep.x; tMax.x += invDir.x; }
+            else if (tMax.y < tMax.z) { cell.y += cellStep.y; tMax.y += invDir.y; }
+            else { cell.z += cellStep.z; tMax.z += invDir.z; }
+            if (cell == target || !InVoxelVolume(cell)) break;
+            voxel = texelFetch(voxelSampler, cell, 0).r;
+            priority = VoxelPriority(voxel);
+            if (priority == VOXEL_PRIORITY_SOLID) return vec3(1.0);
+            if (priority == VOXEL_PRIORITY_TINT || priority == VOXEL_PRIORITY_WATER) tint *= VoxelTint(priority, VoxelBlockId(voxel));
+        }
+        return tint;
+    }
+
+    // Colour picked up on the way from the brightest light to a point (volume coordinates).
+    // Four lines to spots spread over the light's block, averaged, so the coloured light
+    // cast through glass has soft edges instead of sharp block outlines.
     vec3 TintTowardsSource(vec3 from) {
         ivec3 cell = ivec3(floor(from));
         uint src = FloodSource(cell);
         if (!HasSourceOffset(src)) return vec3(1.0);
         ivec3 target = cell + DecodeSourceOffset(src);
         if (target == cell) return vec3(1.0);
-
-        // Walk the blocks along the line (3D DDA), stopping before the light's own block.
-        vec3 dir = vec3(target) + 0.5 - from;
-        vec3 stepSign = sign(dir);
-        vec3 invDir = 1.0 / max(abs(dir), vec3(1e-5));
-        vec3 tMax = (stepSign * (vec3(cell) - from) + max(stepSign, 0.0)) * invDir;
-        tMax = mix(vec3(1e9), tMax, abs(stepSign)); // never step along an axis the line doesn't move in
-        ivec3 cellStep = ivec3(stepSign);
-        vec3 tint = vec3(1.0);
-        for (int i = 0; i < 48; i++) {
-            if (tMax.x < tMax.y && tMax.x < tMax.z) { cell.x += cellStep.x; tMax.x += invDir.x; }
-            else if (tMax.y < tMax.z) { cell.y += cellStep.y; tMax.y += invDir.y; }
-            else { cell.z += cellStep.z; tMax.z += invDir.z; }
-            if (cell == target || !InVoxelVolume(cell)) break;
-            uint voxel = texelFetch(voxelSampler, cell, 0).r;
-            uint priority = VoxelPriority(voxel);
-            if (priority == VOXEL_PRIORITY_SOLID) return vec3(1.0);
-            if (priority == VOXEL_PRIORITY_TINT || priority == VOXEL_PRIORITY_WATER) tint *= VoxelTint(priority, VoxelBlockId(voxel));
-        }
-        return tint;
+        vec3 center = vec3(target) + 0.5;
+        const float r = 0.35;
+        return 0.25 * (TintAlongLine(from, center + vec3( r,  r,  r), target)
+                     + TintAlongLine(from, center + vec3( r, -r, -r), target)
+                     + TintAlongLine(from, center + vec3(-r,  r, -r), target)
+                     + TintAlongLine(from, center + vec3(-r, -r,  r), target));
     }
 
     // Colour of light from a held item (torch, soul lantern, coloured candle, ...).
@@ -104,10 +120,12 @@ vec3 GradeLightColor(vec3 hue) {
 
         vec3 tint = TintTowardsSource(playerPos + cameraPosition + normal * 0.05 - vec3(VoxelOrigin()));
         float tintPeak = max(tint.r, max(tint.g, tint.b));
-        hue *= tint / max(tintPeak, 1e-3);
-        float hp = max(hue.r, max(hue.g, hue.b));
-        // Coloured glass changes the colour only; dark (tinted) glass also dims the light.
-        return GradeLightColor(hp > 1e-3 ? hue / hp : FireColor()) * tintPeak;
+        // Glass shifts the colour part of the way to its own and takes some brightness with
+        // what it filters out; dark (tinted) glass also dims the light.
+        vec3 filtered = hue * mix(vec3(1.0), tint / max(tintPeak, 1e-3), GLASS_LIGHT_TINT);
+        float keep = mix(1.0, Luminance(filtered) / max(Luminance(hue), 1e-3), 0.5);
+        float fp = max(filtered.r, max(filtered.g, filtered.b));
+        return GradeLightColor(fp > 1e-3 ? filtered / fp : FireColor()) * keep * tintPeak;
     }
 #else
     vec3 HeldLightColor() { return DefaultBlocklightColor(); }

@@ -101,9 +101,11 @@ void main() {
         float roughness = RoughnessFromSmoothness(smoothness);
         vec3 f0 = SpecularF0(albedo, metalness);
         vec3 F = FresnelRoughness(dot(normal, V), f0, roughness);
-        float diffuseScale = 1.0 - metalness * 0.8;
+        // (Without the reflection passes nothing would give metals their light back, so
+        // they stay fully diffuse.)
+        float diffuseScale = 1.0;
         #if BLOCK_REFLECTIONS == 2
-            diffuseScale *= 1.0 - Luminance(F) * smoothness;
+            diffuseScale = (1.0 - metalness * 0.8) * (1.0 - Luminance(F) * smoothness);
         #endif
         color = albedo * light * diffuseScale;
         #if BLOCK_REFLECTIONS >= 1

@@ -35,7 +35,7 @@ shafts), M4 (temporal), M3 (water), M2 (atmosphere) and M1 (core lighting):
   Per-source colours, coloured candles, coloured held lights.
 
 - Materials: built-in smoothness/metalness per block family, sun/moon highlights,
-  screen-space block reflections (half or full resolution) with sky/cloud fallback,
+  screen-space block reflections (off by default; half or full resolution) with sky/cloud fallback,
   generated normals and coated textures, glowing ores (per type), amethyst, lichen,
   armour trims, lava particles, animated portals.
 
