@@ -92,6 +92,10 @@ void main() {
         color = vec3(texelFetch(colortex1, pixel, 0).a);
     #elif DEBUG_VIEW == 6
         color = vec3(texelFetch(colortex3, pixel, 0).g);
+    #elif DEBUG_VIEW == 7
+        color = vec3(texelFetch(colortex3, pixel, 0).b);
+    #elif DEBUG_VIEW == 8
+        color = vec3(texelFetch(colortex3, pixel, 0).a);
     #endif
 
     outColor = vec4(color, 1.0);

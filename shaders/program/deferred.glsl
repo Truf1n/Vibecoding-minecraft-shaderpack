@@ -32,6 +32,7 @@ void main() {
     #include "/lib/lighting/shadows.glsl"
 #endif
 #include "/lib/lighting/lighting.glsl"
+#include "/lib/lighting/specular.glsl"
 #include "/lib/atmosphere/fog.glsl"
 #if defined WORLD_OVERWORLD && CLOUD_STYLE == 1
     #define VOLUMETRIC_CLOUDS
@@ -89,7 +90,25 @@ void main() {
         surf.foliage = shadingModel == SM_FOLIAGE || shadingModel == SM_LEAVES;
         surf.useShadowMap = shadingModel != SM_HAND; // hand depth uses its own projection
 
-        color = albedo * GetLighting(surf, sunDir, lightDir);
+        vec3 sunLight;
+        vec3 light = GetLighting(surf, sunDir, lightDir, sunLight);
+
+        // Specular (X1): metals give most of their light back as reflection, so they keep
+        // only a little diffuse light; what the surface reflects is added by the reflection
+        // passes (deferred2/3), the sun/moon highlight here.
+        float smoothness = material.b, metalness = material.a;
+        vec3 V = -normalize(playerPos);
+        float roughness = RoughnessFromSmoothness(smoothness);
+        vec3 f0 = SpecularF0(albedo, metalness);
+        vec3 F = FresnelRoughness(dot(normal, V), f0, roughness);
+        float diffuseScale = 1.0 - metalness * 0.8;
+        #if BLOCK_REFLECTIONS == 2
+            diffuseScale *= 1.0 - Luminance(F) * smoothness;
+        #endif
+        color = albedo * light * diffuseScale;
+        #if BLOCK_REFLECTIONS >= 1
+            if (smoothness > 0.05) color += sunLight * SpecularHighlight(normal, V, lightDir, roughness, f0) * smoothness;
+        #endif
         color += albedo * material.g * EMISSION_BRIGHTNESS;
         color = ApplyFog(color, playerPos, sunDir, false);
     }

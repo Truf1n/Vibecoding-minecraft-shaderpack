@@ -43,11 +43,48 @@
 
 #define BLOCK_DRY_WATERLOGGABLE 4001 // stairs, slabs, ... with waterlogged=false
 
+// Materials (smoothness / metalness / emission in terrainMaterial.glsl)
+#define MAT_IRON            5001
+#define MAT_GOLD            5002
+#define MAT_COPPER          5003
+#define MAT_COPPER_OXIDIZED 5004
+#define MAT_NETHERITE       5005
+#define MAT_RAW_METAL       5006
+#define MAT_GEM             5010
+#define MAT_LAPIS_BLOCK     5011
+#define MAT_REDSTONE_BLOCK  5012
+#define MAT_AMETHYST_BLOCK  5013
+#define MAT_POLISHED_STONE  5020
+#define MAT_QUARTZ          5021
+#define MAT_CONCRETE        5022
+#define MAT_GLAZED          5023
+#define MAT_PRISMARINE      5024
+#define MAT_TERRACOTTA      5025
+#define MAT_OBSIDIAN        5026
+#define MAT_PACKED_ICE      5027
+#define MAT_SNOW            5028
+#define MAT_PURPUR          5029
+#define MAT_PLANKS          5030
+#define MAT_LOGS            5031
+#define ORE_COAL            5100
+#define ORE_IRON            5101
+#define ORE_GOLD            5102
+#define ORE_COPPER          5103
+#define ORE_REDSTONE        5104
+#define ORE_LAPIS           5105
+#define ORE_EMERALD         5106
+#define ORE_DIAMOND         5107
+#define ORE_NETHER_QUARTZ   5108
+#define ORE_NETHER_GOLD     5109
+#define ORE_GILDED          5110
+#define ORE_ANCIENT_DEBRIS  5111
+
 #define BLOCK_END_PORTAL        9001
 
 bool IsPlant(int id)       { return id >= 1001 && id <= 1008; }
 bool IsLightSource(int id) { return (id >= 2001 && id <= 2019) || (id >= 2100 && id <= 2116); }
 bool IsWater(int id)       { return id == BLOCK_WATER || id == BLOCK_WATER_FLOWING; }
+bool IsOre(int id)         { return id >= 5100 && id <= 5111; }
 bool IsStainedGlass(int id) { return id >= 3100 && id <= 3115; }
 bool IsStainedPane(int id)  { return id >= 3200 && id <= 3215; }
 bool IsGlass(int id) {

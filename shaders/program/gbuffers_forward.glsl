@@ -124,6 +124,7 @@ uniform sampler2D gtexture;
     #include "/lib/materials/translucent.glsl"
     #include "/lib/materials/ssr.glsl"
     #include "/lib/materials/glass.glsl"
+    #include "/lib/materials/portals.glsl"
     #include "/lib/materials/ice.glsl"
     #include "/lib/materials/caustics.glsl"
     #include "/lib/materials/columnMaps.glsl"
@@ -269,7 +270,11 @@ void main() {
                 surface = ShadeIce(albedo, playerPos, surf.normal, surf, sunDir, lightDir);
             } else if (blockId == BLOCK_NETHER_PORTAL) {
                 // Self-lit: never tinted by the (orange) blocklight around it.
-                surface = PlainSurface(SrgbToLinear(albedo.rgb) * 2.5, max(albedo.a, 0.6));
+                float portalLight = 2.5;
+                #ifdef PORTAL_EFFECTS
+                    portalLight *= NetherPortalSwirl(playerPos + cameraPosition);
+                #endif
+                surface = PlainSurface(SrgbToLinear(albedo.rgb) * portalLight, max(albedo.a, 0.6));
             } else {
                 if (albedo.a < alphaTestRef) discard;
                 surface = PlainSurface(SrgbToLinear(albedo.rgb) * GetLighting(surf, sunDir, lightDir), albedo.a);
@@ -319,6 +324,12 @@ void main() {
 
             #ifdef PROG_GBUFFERS_WEATHER
                 albedo.a *= 0.6;
+            #endif
+            #ifdef GLOWING_LAVA_PARTICLES
+            #ifdef PROG_GBUFFERS_TEXTURED
+                // Lava pops, embers and flames glow (M10): bright orange particles.
+                if (albedo.r > 0.6 && albedo.g < albedo.r * 0.8 && albedo.b < 0.35) color += SrgbToLinear(albedo.rgb) * 3.0;
+            #endif
             #endif
             outColor = vec4(ApplyFog(color, playerPos, sunDir, false), albedo.a);
             #ifdef ORDER_SAFE_LAYER

@@ -45,7 +45,42 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define FIRE_WARMTH 0.70                //[0.00 0.25 0.50 0.70 0.85 1.00]
 #define COLORED_CANDLES
 
+// ---- Materials ------------------------------------------------------------------
+// 0 off, 1 sun/moon highlights only, 2 full reflections of the surroundings
+#define BLOCK_REFLECTIONS 2             //[0 1 2]
+// Reflections are traced at 1/N of the screen size.
+#define REFLECTION_RES 2                //[1 2]
+#define GENERATED_NORMALS
+#define NORMAL_STRENGTH 1.00            //[0.25 0.50 0.75 1.00 1.25 1.50 2.00]
+// Coated textures: per-texel dusting, percent
+#define COATED_TEXTURES 50              //[0 25 50 75 100]
+// Generated normals and coated textures on mobs and block entities too.
+#define ENTITY_MATERIALS
+#define GLOWING_ORES
+#define GLOWING_ORES_STRENGTH 1.00      //[0.25 0.50 0.75 1.00 1.50 2.00]
+#define GLOW_ORE_IRON
+#define GLOW_ORE_GOLD
+#define GLOW_ORE_COPPER
+#define GLOW_ORE_REDSTONE
+#define GLOW_ORE_LAPIS
+#define GLOW_ORE_EMERALD
+#define GLOW_ORE_DIAMOND
+#define GLOW_ORE_NETHER_QUARTZ
+#define GLOW_ORE_NETHER_GOLD
+#define GLOW_ORE_ANCIENT_DEBRIS
+// 0 off, 1 amethyst crystals, 2 crystals and amethyst blocks
+#define GLOWING_AMETHYST 1              //[0 1 2]
+// 0 off, 1 only where the sky doesn't reach, 2 always
+#define GLOW_LICHEN 1                   //[0 1 2]
+//#define EMISSIVE_REDSTONE_BLOCK
+//#define EMISSIVE_LAPIS_BLOCK
+#define GLOWING_TRIMS
+#define GLOWING_LAVA_PARTICLES
+#define PORTAL_EFFECTS
+
 // ---- Glass / ice --------------------------------------------------------------
+// Glass reflects more far away, where you see it at a glancing angle.
+#define DISTANT_GLASS_REFLECTIONS
 #define GLASS_TINT 0.45        //[0.15 0.25 0.35 0.45 0.55 0.65 0.75 0.85 1.00]
 #define ICE_OPACITY 0.60       //[0.30 0.40 0.50 0.60 0.70 0.80 1.00]
 #define ICE_REFLECTIVITY 1.00  //[0.00 0.50 0.75 1.00 1.25 1.50 2.00]
@@ -119,8 +154,9 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define NETHER_VIEW_LIMIT 256.0 //[96.0 128.0 160.0 192.0 256.0 320.0 384.0 512.0 99999.0]
 
 // ---- Debug ------------------------------------------------------------------
-// 0 off, 1 albedo, 2 world normal, 3 lightmap, 4 shading model, 5 vanilla AO, 6 emission
-#define DEBUG_VIEW 0 //[0 1 2 3 4 5 6]
+// 0 off, 1 albedo, 2 world normal, 3 lightmap, 4 shading model, 5 vanilla AO, 6 emission,
+// 7 smoothness, 8 metalness
+#define DEBUG_VIEW 0 //[0 1 2 3 4 5 6 7 8]
 // Draws every particle flat magenta, to tell "not drawn" apart from "drawn but hidden".
 #define DEBUG_PARTICLES 0 //[0 1]
 

@@ -12,6 +12,10 @@ TranslucentSurface ShadeGlass(int blockId, vec4 texel, vec4 avgTexel, vec3 playe
 
     vec3 V = -normalize(playerPos);
     float fresnel = 0.04 + 0.96 * pow(1.0 - saturate(abs(dot(normal, V))), 5.0);
+    #ifdef DISTANT_GLASS_REFLECTIONS
+        // Far-away glass reads as reflective windows rather than holes (X4).
+        fresnel = max(fresnel, 0.3 * smoothstep(24.0, 128.0, length(playerPos)));
+    #endif
     vec3 R = reflect(-V, normal);
     R.y = abs(R.y);
     vec3 reflection = GetSky(R, sunDir, -1.0) * surf.lm.y * surf.lm.y;

@@ -8,8 +8,8 @@ choose **OpenGL**; Iris does not run on the Vulkan renderer.
 
 ## Status
 
-Milestone **M6 (coloured lighting)** on top of M5 (clouds and light shafts), M4
-(temporal), M3 (water), M2 (atmosphere) and M1 (core lighting):
+Milestone **M7 (materials)** on top of M6 (coloured lighting), M5 (clouds and light
+shafts), M4 (temporal), M3 (water), M2 (atmosphere) and M1 (core lighting):
 
 - Deferred pipeline; shadow-mapped sun/moon with coloured shadows and leaf translucency;
   sky-matched ambient, blocklight, handheld light; filmic tonemap.
@@ -34,7 +34,12 @@ Milestone **M6 (coloured lighting)** on top of M5 (clouds and light shafts), M4
   lighting takes the hue from it while the brightness follows vanilla light levels.
   Per-source colours, coloured candles, coloured held lights.
 
-Not yet: materials/PBR (M7), bloom (M8) (see docs/PLAN.md).
+- Materials: built-in smoothness/metalness per block family, sun/moon highlights,
+  screen-space block reflections (half or full resolution) with sky/cloud fallback,
+  generated normals and coated textures, glowing ores (per type), amethyst, lichen,
+  armour trims, lava particles, animated portals.
+
+Not yet: bloom and post (M8), night/weather extras (M9) (see docs/PLAN.md).
 
 ## Install / test
 
@@ -71,10 +76,11 @@ docs/PLAN.md           research, feature list (IDs), milestones
 | Shadow map | `shadow` (in the Nether only for the voxels) | shadowtex0/1, shadowcolor0 (glass tint), shadowcolor1 (water mask), column bit maps (water, glass, block undersides near the player) |
 | Coloured light | `shadowcomp` (compute) | floodfill of the voxel volume → floodImgA/B (alternating) |
 | Sun / moon | `gbuffers_skytextured` (vanilla sky disc and stars are discarded) | colortex0 |
-| Opaque geometry | `gbuffers_terrain/entities/block/hand` | G-buffer: colortex1 albedo+AO, colortex2 normal+lightmap, colortex3 shading model+emission+dry-waterloggable flag |
+| Opaque geometry | `gbuffers_terrain/entities/block/hand` | G-buffer: colortex1 albedo+AO, colortex2 normal+lightmap, colortex3 shading model+emission+smoothness+metalness |
 | Overlays | `gbuffers_clouds/armor_glint/spidereyes/beaconbeam/lightning` | colortex4 (premultiplied) |
 | Clouds | `deferred` (half/quarter size, Overworld) | ray-marched clouds blended with the previous frames → colortex9 (light, transmittance), colortex10 (distance) |
-| Deferred | `deferred1` | procedural sky + clouds behind everything; lights the G-buffer once per pixel → colortex0, copy in colortex7 |
+| Deferred | `deferred1` | procedural sky + clouds behind everything; lights the G-buffer once per pixel (diffuse + highlights) → colortex0, copy in colortex7 |
+| Block reflections | `deferred2` (half/full size), `deferred3` | trace → colortex12; depth-aware upsample × Fresnel added to colortex0/7 |
 | Translucent terrain | `gbuffers_water/hand_water` | colortex0 (sorted alpha blend; water opaque, refracting colortex7) + colortex5 tint |
 | Translucent mobs | `gbuffers_entities_translucent/block_translucent` | colortex5/6 (order-independent) |
 | Particles, weather | `gbuffers_textured/weather` | colortex0 (forward-lit, blended) |

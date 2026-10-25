@@ -30,8 +30,10 @@ struct Surface {
     bool useShadowMap;
 };
 
-// Returns the light arriving at the surface; multiply by albedo.
-vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir) {
+// Returns the light arriving at the surface; multiply by albedo. sunLight: the sun/moon
+// light reaching the surface (shadows and clouds applied, before the angle), for highlights.
+vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
+    sunLight = vec3(0.0);
     // Block light: the brighter of the world's light level and a held light sets the
     // brightness; the colour is a blend of the two weighted by how strong each is here
     // (colours from coloredLight.glsl).
@@ -78,6 +80,7 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir) {
             // Cloud shadows (only where the sun reaches at all).
             if (skyGate > 0.0 && dot(sunVis, vec3(1.0)) > 0.0) sunVis *= CloudShadow(s.playerPos + cameraPosition, lightDir);
         #endif
+        sunLight = directColor * sunVis * skyGate * s.ao;
         light += directColor * diffuse * sunVis * skyGate;
         light += ambientColor * upFacing * AMBIENT_MULT;
 
@@ -92,4 +95,9 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir) {
 
     light += vec3(0.0035 * CAVE_LIGHTING) + vec3(0.25 * nightVision);
     return light * s.ao;
+}
+
+vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir) {
+    vec3 sunLight;
+    return GetLighting(s, sunDir, lightDir, sunLight);
 }
