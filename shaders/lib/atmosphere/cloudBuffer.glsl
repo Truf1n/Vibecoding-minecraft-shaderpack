@@ -1,8 +1,8 @@
 #ifndef CLOUD_BUFFER_GLSL
 #define CLOUD_BUFFER_GLSL
 
-// Reading the cloud pass results (deferred_clouds.glsl). The clouds are rendered at
-// 1/CLOUD_RES_DIV of the screen size into the lower-left corner of colortex9/10:
+// Reading the cloud pass results (program/clouds.glsl). colortex9/10 are allocated at
+// 1/CLOUD_RES_DIV of the screen size (size.buffer in shaders.properties):
 //   colortex9  rgb light scattered by the clouds, a transmittance (1 = no cloud)
 //   colortex10 r   typical distance of the cloud along the view ray
 // Needs: common.glsl.
@@ -10,13 +10,12 @@
 uniform sampler2D colortex9;
 uniform sampler2D colortex10;
 
-const float CLOUD_RENDER_SCALE = 1.0 / float(CLOUD_RES_DIV);
 
-// Screen uv -> where that pixel's clouds are in the reduced-size corner (clamped half a
-// texel inside it, so bilinear filtering never reads past its edge).
+// Screen uv -> cloud buffer uv (kept half a texel inside, so bilinear filtering never
+// wraps around the edge).
 vec2 CloudBufferUV(vec2 uv) {
-    vec2 limit = vec2(CLOUD_RENDER_SCALE) - 0.5 / vec2(viewWidth, viewHeight);
-    return min(uv * CLOUD_RENDER_SCALE, limit);
+    vec2 halfTexel = 0.5 / vec2(textureSize(colortex9, 0));
+    return clamp(uv, halfTexel, 1.0 - halfTexel);
 }
 
 vec4 SampleClouds(vec2 uv) { return texture(colortex9, CloudBufferUV(uv)); }

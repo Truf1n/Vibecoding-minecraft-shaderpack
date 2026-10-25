@@ -1,5 +1,5 @@
-// Cloud pass (first deferred pass, at 1/CLOUD_RES_DIV resolution, see scale.deferred in
-// shaders.properties): ray marches the cloud layer for every reduced-size pixel and blends
+// Cloud pass (first deferred pass, into buffers at 1/CLOUD_RES_DIV of the screen size, see
+// size.buffer in shaders.properties): ray marches the cloud layer for every reduced-size pixel and blends
 // the result with the previous frames, re-projected to where the clouds were. Independent
 // of the terrain, so the history stays valid when things move in front of the clouds;
 // the lighting pass hides clouds behind terrain per full-size pixel.
@@ -37,9 +37,8 @@ layout(location = 0) out vec4 outClouds;
 layout(location = 1) out vec4 outCloudDistance;
 
 void main() {
-    // This pass covers the lower-left 1/CLOUD_RES_DIV of the screen.
-    vec2 uv = gl_FragCoord.xy / (vec2(viewWidth, viewHeight) * CLOUD_RENDER_SCALE);
-    if (any(greaterThan(uv, vec2(1.0)))) discard;
+    vec2 bufferSize = vec2(textureSize(colortex9, 0));
+    vec2 uv = gl_FragCoord.xy / bufferSize;
 
     vec3 dir = normalize(ViewToPlayerDir(ScreenToView(uv, 1.0)));
     float dither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + float(frameCounter % 64) * 0.618034);
@@ -53,7 +52,7 @@ void main() {
     vec4 result = vec4(c.scatter, c.transmittance);
     if (prevClip.w > 0.0 && all(greaterThan(prevUV, vec2(0.0))) && all(lessThan(prevUV, vec2(1.0)))) {
         vec4 history = SampleClouds(prevUV);
-        float motion = length((prevUV - uv) * vec2(viewWidth, viewHeight) * CLOUD_RENDER_SCALE);
+        float motion = length((prevUV - uv) * bufferSize);
         float blend = 0.88 * (1.0 - smoothstep(2.0, 12.0, motion) * 0.5);
         result = mix(result, history, blend);
     }

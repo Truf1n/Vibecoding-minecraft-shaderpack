@@ -59,21 +59,13 @@ CloudLayer MakeLayer(float bottom, float thickness, float scale, float amount, f
 float CloudAmount() { return CLOUD_AMOUNT + rainStrength * 0.25; }
 
 #if CLOUD_PRESET == 1
-    // Stratocumulus: a wide, flat-topped deck broken into lumpy cells, with high cirrus.
+    // Stratocumulus: a wide, flat-topped deck broken into lumpy cells, with fibrous cirrus
+    // streaks high above.
     const int CLOUD_LAYERS = 2;
     CloudLayer GetCloudLayer(int i) {
         float a = float(CLOUD_ALTITUDE), amount = CloudAmount();
         if (i == 0) return MakeLayer(a - 16.0, CLOUD_THICKNESS * 0.55, 120.0, amount + 0.18, 0.40, 0.25, 0.32, 13.0, 0.075, vec2(1.6, 1.0), 1.0, false);
-        return MakeLayer(a + 300.0, 6.0, 260.0, amount * 0.8, 0.55, 0.0, 0.0, 0.0, 0.022, vec2(5.0, 1.0), 2.4, true);
-    }
-#elif CLOUD_PRESET == 2
-    // Layered: cumulus low down, a band of small altocumulus puffs above, cirrus on top.
-    const int CLOUD_LAYERS = 3;
-    CloudLayer GetCloudLayer(int i) {
-        float a = float(CLOUD_ALTITUDE), amount = CloudAmount();
-        if (i == 0) return MakeLayer(a, CLOUD_THICKNESS * 0.8, 72.0, amount * 0.85, 0.28, 1.0, 0.42, 9.0, 0.09, vec2(1.0), 1.0, false);
-        if (i == 1) return MakeLayer(a + 125.0, 16.0, 26.0, amount * 0.95, 0.30, 0.5, 0.55, 5.0, 0.06, vec2(1.4, 1.0), 1.7, false);
-        return MakeLayer(a + 320.0, 6.0, 240.0, amount * 0.85, 0.55, 0.0, 0.0, 0.0, 0.022, vec2(5.0, 1.0), 2.6, true);
+        return MakeLayer(a + 220.0, 8.0, 150.0, CIRRUS_AMOUNT, 0.45, 0.0, 0.0, 0.0, 0.05, vec2(6.0, 1.0), 2.4, true);
     }
 #elif CLOUD_PRESET == 3
     // Overcast: a thick, nearly unbroken stratus deck under a high grey altostratus sheet.
@@ -82,14 +74,6 @@ float CloudAmount() { return CLOUD_AMOUNT + rainStrength * 0.25; }
         float a = float(CLOUD_ALTITUDE), amount = CloudAmount();
         if (i == 0) return MakeLayer(a - 24.0, CLOUD_THICKNESS * 0.7, 150.0, 0.62 + amount * 0.4, 0.45, 0.0, 0.18, 20.0, 0.06, vec2(1.3, 1.0), 0.8, false);
         return MakeLayer(a + 210.0, 10.0, 320.0, 0.55 + amount * 0.3, 0.6, 0.0, 0.0, 0.0, 0.03, vec2(2.0, 1.0), 1.5, true);
-    }
-#elif CLOUD_PRESET == 4
-    // Fair weather: scattered small cumulus and long streaks of cirrus.
-    const int CLOUD_LAYERS = 2;
-    CloudLayer GetCloudLayer(int i) {
-        float a = float(CLOUD_ALTITUDE), amount = CloudAmount();
-        if (i == 0) return MakeLayer(a, CLOUD_THICKNESS * 0.7, 36.0, amount * 0.65, 0.22, 1.0, 0.45, 6.0, 0.10, vec2(1.0), 1.0, false);
-        return MakeLayer(a + 280.0, 6.0, 200.0, amount * 1.1, 0.5, 0.0, 0.0, 0.0, 0.028, vec2(7.0, 1.0), 2.8, true);
     }
 #else
     // Cumulus (M5): one layer of soft puffy clouds with flat bottoms.
@@ -139,7 +123,13 @@ float LayerCoverage(CloudLayer l, int index, vec2 xz) {
     float n = CloudNoise(p) * 0.52
             + CloudNoise(p * 2.13 + vec2(17.3, 5.1)) * 0.29
             + CloudNoise(p * 4.41 + vec2(-3.7, 11.9)) * 0.19;
-    return smoothstep(1.0 - l.amount, 1.0 - l.amount + l.softness, n);
+    float cov = smoothstep(1.0 - l.amount, 1.0 - l.amount + l.softness, n);
+    if (l.sheet && cov > 0.0) {
+        // Thin sheets are fibrous: fine lines along the stretch direction (cirrus).
+        float fibres = CloudNoise(p * vec2(1.5, 14.0) + 7.3) * 0.6 + CloudNoise(p * vec2(3.0, 31.0) + 2.9) * 0.4;
+        cov *= smoothstep(0.25, 0.75, fibres);
+    }
+    return cov;
 }
 
 // Extinction per block at a point of a volumetric layer. `detail` adds the small-scale
@@ -206,9 +196,11 @@ float CloudFade(float t) {
 }
 
 // Adds the light a slab of cloud scatters towards the camera.
-void AccumulateCloud(inout CloudAccum a, vec3 light, float sampleT, float t) {
+// t: distance along the ray; horizontal: share of it that is horizontal (clouds right
+// overhead never fade, however high they are).
+void AccumulateCloud(inout CloudAccum a, vec3 light, float sampleT, float t, float horizontal) {
     float absorbed = a.transmittance * (1.0 - sampleT);
-    float shown = absorbed * (1.0 - CloudFade(t));
+    float shown = absorbed * (1.0 - CloudFade(t * horizontal));
     a.scatter += light * shown;
     a.opacity += shown;
     a.weight += absorbed;
@@ -226,8 +218,9 @@ void MarchLayer(CloudLayer l, int index, vec3 dir, float tNear, float tFar, int 
         float cov = LayerCoverage(l, index, pos.xz);
         if (cov <= 0.0) return;
         float od = min(cov * l.density * (tFar - tNear), 3.0);
-        vec3 light = sunColor * phase * 0.75 + ambient * 0.9;
-        AccumulateCloud(a, light, exp(-od), t);
+        // Thin ice clouds: bright, lit straight through.
+        vec3 light = sunColor * (0.55 + phase * 0.5) + ambient * 1.1;
+        AccumulateCloud(a, light, exp(-od), t, length(dir.xz));
         return;
     }
 
@@ -253,7 +246,7 @@ void MarchLayer(CloudLayer l, int index, vec3 dir, float tNear, float tFar, int 
         float h = (pos.y - l.bottom) / l.thickness;
 
         vec3 light = sunColor * sunT * phase * mix(0.6, 1.0, powder) + ambient * (0.45 + 0.55 * h);
-        AccumulateCloud(a, light, exp(-density * stepLen), t);
+        AccumulateCloud(a, light, exp(-density * stepLen), t, length(dir.xz));
         if (a.transmittance < 0.02) break;
     }
 }

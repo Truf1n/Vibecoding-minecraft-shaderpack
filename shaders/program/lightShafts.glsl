@@ -1,5 +1,5 @@
 // Light shafts, two passes:
-//   LS_MARCH (composite1, half resolution via scale.composite1): marches the view ray of
+//   LS_MARCH (composite1, into the half-size colortex11, see size.buffer): marches the view ray of
 //            each half-size pixel; rgb = scattered light, a = linear depth of that pixel.
 //   LS_APPLY (composite2, full resolution): adds it to the scene, upsampled with weights
 //            that follow the depth, so shafts don't bleed across object edges.
@@ -24,7 +24,7 @@ void main() {
 #include "/lib/gbuffer/layout.glsl"
 #include "/lib/util/space.glsl"
 
-const float LS_SCALE = 0.5; // must match scale.composite1 in shaders.properties
+const float LS_SCALE = 0.5; // must match size.buffer.colortex11 in shaders.properties
 
 uniform sampler2D depthtex0;
 uniform sampler2D colortex11; // shafts at half resolution: rgb light, a linear depth
@@ -51,7 +51,6 @@ layout(location = 0) out vec4 outShafts;
 
 void main() {
     vec2 uv = gl_FragCoord.xy / (vec2(viewWidth, viewHeight) * LS_SCALE);
-    if (any(greaterThan(uv, vec2(1.0)))) discard;
 
     // Farthest depth of the four full-size pixels under this one, so shafts reach past
     // thin things (the upsample picks the matching samples back out).
@@ -86,7 +85,7 @@ void main() {
     vec2 halfPos = gl_FragCoord.xy * LS_SCALE - 0.5;
     ivec2 base = ivec2(floor(halfPos));
     vec2 f = halfPos - vec2(base);
-    ivec2 maxTexel = ivec2(vec2(viewWidth, viewHeight) * LS_SCALE) - 1;
+    ivec2 maxTexel = textureSize(colortex11, 0) - 1;
     vec3 sum = vec3(0.0);
     float wsum = 0.0;
     for (int i = 0; i < 4; i++) {
