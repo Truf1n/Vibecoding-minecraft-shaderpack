@@ -20,6 +20,12 @@ Material GetTerrainMaterial(int blockId, vec3 albedoSrgb) {
         // Only the bright texels of a light block glow (the flame, not the stick).
         float lum = Luminance(albedoSrgb);
         m.emission = blockId == BLOCK_LIGHT_LAVA ? 1.0 : smoothstep(0.55, 0.95, lum);
+        // Whole glowing blocks (froglights, sea lanterns, glowstone, ...) glow over their
+        // full face: keep them from blowing out to white.
+        bool fullBlock = blockId == BLOCK_LIGHT_GLOWSTONE || blockId == BLOCK_LIGHT_SEA_LANTERN
+                      || blockId == BLOCK_LIGHT_CRYING || blockId == BLOCK_LIGHT_COPPER_BULB
+                      || (blockId >= BLOCK_LIGHT_FROG_OCHRE && blockId <= BLOCK_LIGHT_FROG_PEARL);
+        if (fullBlock) m.emission *= 0.4;
     }
     return m;
 }

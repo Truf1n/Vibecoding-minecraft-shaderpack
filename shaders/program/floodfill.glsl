@@ -23,24 +23,21 @@ uniform vec3 previousCameraPosition;
 layout(r32ui) uniform readonly uimage3D voxelImg;
 layout(r11f_g11f_b10f) uniform image3D floodImgA;
 layout(r11f_g11f_b10f) uniform image3D floodImgB;
+layout(r16ui) uniform uimage3D floodSrcImgA; // offset to the source of the brightest light
+layout(r16ui) uniform uimage3D floodSrcImgB;
 
 const float LIGHT_STEP = 0.86; // light kept per block travelled
 
-// How light passing through a block space is coloured / dimmed.
-vec3 VoxelTint(uint priority, int id) {
-    if (priority == VOXEL_PRIORITY_WATER) return vec3(0.80, 0.90, 0.95);
-    if (IsStainedGlass(id)) return mix(vec3(1.0), DyeColor(id - BLOCK_STAINED_GLASS), 0.85);
-    if (IsStainedPane(id)) return mix(vec3(1.0), DyeColor(id - BLOCK_STAINED_PANE), 0.85);
-    if (id == BLOCK_TINTED_GLASS) return vec3(0.15);
-    if (id == BLOCK_GLASS || id == BLOCK_GLASS_PANE) return vec3(0.97);
-    if (id == BLOCK_ICE) return vec3(0.85, 0.92, 1.00);
-    if (id == BLOCK_LEAVES) return vec3(0.60, 0.70, 0.55);
-    return vec3(0.75);
-}
+bool InVolume(ivec3 p) { return all(greaterThanEqual(p, ivec3(0))) && all(lessThan(p, VOXEL_SIZE)); }
 
 vec3 PreviousLight(ivec3 p, bool fromA) {
-    if (any(lessThan(p, ivec3(0))) || any(greaterThanEqual(p, VOXEL_SIZE))) return vec3(0.0);
+    if (!InVolume(p)) return vec3(0.0);
     return fromA ? imageLoad(floodImgA, p).rgb : imageLoad(floodImgB, p).rgb;
+}
+
+uint PreviousSource(ivec3 p, bool fromA) {
+    if (!InVolume(p)) return 0u;
+    return fromA ? imageLoad(floodSrcImgA, p).r : imageLoad(floodSrcImgB, p).r;
 }
 
 void main() {
@@ -58,19 +55,43 @@ void main() {
     int id = VoxelBlockId(voxel);
 
     vec3 light = vec3(0.0);
+    uint source = 0u;
     if (priority != VOXEL_PRIORITY_SOLID) {
-        vec3 brightest = PreviousLight(prev + ivec3(1, 0, 0), fromA);
-        brightest = max(brightest, PreviousLight(prev - ivec3(1, 0, 0), fromA));
-        brightest = max(brightest, PreviousLight(prev + ivec3(0, 1, 0), fromA));
-        brightest = max(brightest, PreviousLight(prev - ivec3(0, 1, 0), fromA));
-        brightest = max(brightest, PreviousLight(prev + ivec3(0, 0, 1), fromA));
-        brightest = max(brightest, PreviousLight(prev - ivec3(0, 0, 1), fromA));
-        light = brightest * LIGHT_STEP;
+        // Brightest of the six neighbours (per colour channel, so different lights mix),
+        // and where the single brightest one's light comes from.
+        const ivec3 dirs[6] = ivec3[6](ivec3(1, 0, 0), ivec3(-1, 0, 0), ivec3(0, 1, 0),
+                                       ivec3(0, -1, 0), ivec3(0, 0, 1), ivec3(0, 0, -1));
+        float bestPeak = 0.0;
+        for (int i = 0; i < 6; i++) {
+            vec3 n = PreviousLight(prev + dirs[i], fromA);
+            light = max(light, n);
+            float peak = max(n.r, max(n.g, n.b));
+            if (peak > bestPeak) {
+                uint s = PreviousSource(prev + dirs[i], fromA);
+                if (HasSourceOffset(s)) {
+                    ivec3 o = DecodeSourceOffset(s) + dirs[i];
+                    if (all(lessThanEqual(abs(o), ivec3(VOXEL_MAX_OFFSET)))) {
+                        bestPeak = peak;
+                        source = EncodeSourceOffset(o);
+                    }
+                }
+            }
+        }
+        light *= LIGHT_STEP;
         if (priority == VOXEL_PRIORITY_TINT || priority == VOXEL_PRIORITY_WATER) light *= VoxelTint(priority, id);
     }
     int emission = VoxelEmission(voxel);
-    if (emission > 0) light = max(light, LightSourceColor(id) * (float(emission) / 15.0));
+    if (emission > 0) {
+        vec3 own = LightSourceColor(id) * (float(emission) / 15.0);
+        if (max(own.r, max(own.g, own.b)) >= max(light.r, max(light.g, light.b))) source = EncodeSourceOffset(ivec3(0));
+        light = max(light, own);
+    }
 
-    if (fromA) imageStore(floodImgB, v, vec4(light, 1.0));
-    else imageStore(floodImgA, v, vec4(light, 1.0));
+    if (fromA) {
+        imageStore(floodImgB, v, vec4(light, 1.0));
+        imageStore(floodSrcImgB, v, uvec4(source));
+    } else {
+        imageStore(floodImgA, v, vec4(light, 1.0));
+        imageStore(floodSrcImgA, v, uvec4(source));
+    }
 }

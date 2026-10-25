@@ -40,7 +40,7 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define COLORED_LIGHTING
 // Volume around the player: 1 = 128x64x128 blocks, 2 = 256x128x256 blocks
 #define COLORED_LIGHT_RANGE 2           //[1 2]
-#define COLORED_LIGHT_SATURATION 1.00   //[0.00 0.25 0.50 0.75 1.00 1.25 1.50]
+#define COLORED_LIGHT_SATURATION 1.35   //[0.00 0.25 0.50 0.75 1.00 1.15 1.35 1.50 1.75 2.00]
 // Torch and fire colour, from warm white (0) to deep orange (1).
 #define FIRE_WARMTH 0.70                //[0.00 0.25 0.50 0.70 0.85 1.00]
 #define COLORED_CANDLES

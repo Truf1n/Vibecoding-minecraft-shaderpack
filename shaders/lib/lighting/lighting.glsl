@@ -32,11 +32,16 @@ struct Surface {
 
 // Returns the light arriving at the surface; multiply by albedo.
 vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir) {
-    // Block light: brightness from the light level, colour from coloredLight.glsl. A held
-    // light that outshines the world's light takes over the colour.
+    // Block light: the brighter of the world's light level and a held light sets the
+    // brightness; the colour is a blend of the two weighted by how strong each is here
+    // (colours from coloredLight.glsl).
     float held = HeldLight(length(s.playerPos));
-    vec3 blockColor = BlocklightColorAt(s.playerPos, s.normal, held >= s.lm.x - 0.001 ? 0.0 : s.lm.x, held);
-    vec3 light = blockColor * BLOCKLIGHT_I * BlocklightFalloff(s.lm.x);
+    float worldPart = BlocklightFalloff(s.lm.x), heldPart = BlocklightFalloff(held);
+    vec3 light = vec3(0.0);
+    if (worldPart + heldPart > 1e-4) {
+        vec3 color = WorldBlocklightColor(s.playerPos, s.normal) * worldPart + HeldLightColor() * heldPart;
+        light = color / (worldPart + heldPart) * BlocklightFalloff(max(s.lm.x, held)) * BLOCKLIGHT_I;
+    }
 
     bool hasNormal = dot(s.normal, s.normal) > 0.5;
     float NdotL = hasNormal ? dot(s.normal, lightDir) : 0.45;

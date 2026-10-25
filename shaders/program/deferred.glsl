@@ -80,7 +80,6 @@ void main() {
         vec3 normal = DecodeNormal(normalLight.xy);
 
         vec2 lm = normalLight.zw;
-        lm.x = max(lm.x, HeldLight(length(playerPos)));
 
         Surface surf;
         surf.playerPos = playerPos;

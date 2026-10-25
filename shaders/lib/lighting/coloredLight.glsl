@@ -2,31 +2,50 @@
 #define COLORED_LIGHT_GLSL
 
 // Colour of block light at a point (plan items A1-A3, A5). With Coloured Lighting on, the
-// hue comes from the floodfilled voxel volume (program/floodfill.glsl) and light held in
-// the hand from the held item; the brightness always comes from Minecraft's light level.
+// hue comes from the floodfilled voxel volume (program/floodfill.glsl), sharpened by a
+// straight line traced back to the brightest light through the volume, which picks up the
+// colour of any glass on the way; light held in the hand takes the held item's colour.
+// The brightness always comes from Minecraft's light level.
 // Needs: common.glsl, blockIds.glsl.
 
 #include "/lib/lighting/lightColors.glsl"
 
 vec3 DefaultBlocklightColor() { return vec3(BLOCKLIGHT_R, BLOCKLIGHT_G, BLOCKLIGHT_B); }
 
+// Saturation setting, and part of the brightness that deep colours (red, blue) lose given
+// back, so they do not read as much dimmer than torchlight.
+vec3 GradeLightColor(vec3 hue) {
+    hue = max(mix(vec3(Luminance(hue)), hue, COLORED_LIGHT_SATURATION), 0.0);
+    return hue * sqrt(Luminance(DefaultBlocklightColor()) / max(Luminance(hue), 0.08));
+}
+
 #ifdef COLORED_LIGHTING
     #include "/lib/lighting/voxels.glsl"
 
     uniform sampler3D floodSamplerA;
     uniform sampler3D floodSamplerB;
+    uniform usampler3D floodSrcSamplerA;
+    uniform usampler3D floodSrcSamplerB;
+    uniform usampler3D voxelSampler;
     uniform int heldItemId;
     uniform int heldItemId2;
 
+    bool InVoxelVolume(ivec3 p) { return all(greaterThanEqual(p, ivec3(0))) && all(lessThan(p, VOXEL_SIZE)); }
+
+    // The floodfill wrote B on even frames and A on odd ones.
     vec3 FloodLight(ivec3 p) {
-        if (any(lessThan(p, ivec3(0))) || any(greaterThanEqual(p, VOXEL_SIZE))) return vec3(0.0);
-        // The floodfill wrote B on even frames and A on odd ones.
+        if (!InVoxelVolume(p)) return vec3(0.0);
         return (frameCounter & 1) == 0 ? texelFetch(floodSamplerB, p, 0).rgb : texelFetch(floodSamplerA, p, 0).rgb;
     }
+    uint FloodSource(ivec3 p) {
+        if (!InVoxelVolume(p)) return 0u;
+        return (frameCounter & 1) == 0 ? texelFetch(floodSrcSamplerB, p, 0).r : texelFetch(floodSrcSamplerA, p, 0).r;
+    }
 
-    // Light in the volume at a world position, blended between the eight nearest blocks.
-    vec3 VoxelLight(vec3 worldPos) {
-        vec3 p = worldPos - vec3(VoxelOrigin()) - 0.5;
+    // Light in the volume at a position (volume coordinates), blended between the eight
+    // nearest blocks.
+    vec3 VoxelLight(vec3 p) {
+        p -= 0.5;
         ivec3 base = ivec3(floor(p));
         vec3 f = p - vec3(base);
         vec3 c00 = mix(FloodLight(base), FloodLight(base + ivec3(1, 0, 0)), f.x);
@@ -36,32 +55,63 @@ vec3 DefaultBlocklightColor() { return vec3(BLOCKLIGHT_R, BLOCKLIGHT_G, BLOCKLIG
         return mix(mix(c00, c10, f.y), mix(c01, c11, f.y), f.z);
     }
 
+    // Colour picked up along the straight line from a point to the block holding its
+    // brightest light (volume coordinates): the product of the tints of the see-through
+    // blocks crossed. A solid block in the way means the light came around it, so the line
+    // says nothing: no tint.
+    vec3 TintTowardsSource(vec3 from) {
+        ivec3 cell = ivec3(floor(from));
+        uint src = FloodSource(cell);
+        if (!HasSourceOffset(src)) return vec3(1.0);
+        ivec3 target = cell + DecodeSourceOffset(src);
+        if (target == cell) return vec3(1.0);
+
+        // Walk the blocks along the line (3D DDA), stopping before the light's own block.
+        vec3 dir = vec3(target) + 0.5 - from;
+        vec3 stepSign = sign(dir);
+        vec3 invDir = 1.0 / max(abs(dir), vec3(1e-5));
+        vec3 tMax = (stepSign * (vec3(cell) - from) + max(stepSign, 0.0)) * invDir;
+        tMax = mix(vec3(1e9), tMax, abs(stepSign)); // never step along an axis the line doesn't move in
+        ivec3 cellStep = ivec3(stepSign);
+        vec3 tint = vec3(1.0);
+        for (int i = 0; i < 48; i++) {
+            if (tMax.x < tMax.y && tMax.x < tMax.z) { cell.x += cellStep.x; tMax.x += invDir.x; }
+            else if (tMax.y < tMax.z) { cell.y += cellStep.y; tMax.y += invDir.y; }
+            else { cell.z += cellStep.z; tMax.z += invDir.z; }
+            if (cell == target || !InVoxelVolume(cell)) break;
+            uint voxel = texelFetch(voxelSampler, cell, 0).r;
+            uint priority = VoxelPriority(voxel);
+            if (priority == VOXEL_PRIORITY_SOLID) return vec3(1.0);
+            if (priority == VOXEL_PRIORITY_TINT || priority == VOXEL_PRIORITY_WATER) tint *= VoxelTint(priority, VoxelBlockId(voxel));
+        }
+        return tint;
+    }
+
     // Colour of light from a held item (torch, soul lantern, coloured candle, ...).
     vec3 HeldLightColor() {
         int id = heldBlockLightValue >= heldBlockLightValue2 ? heldItemId : heldItemId2;
-        return IsLightSource(id) ? LightSourceColor(id) : FireColor();
+        return GradeLightColor(IsLightSource(id) ? LightSourceColor(id) : FireColor());
     }
-#endif
 
-// Colour of the block light reaching a surface; its brightness is applied by the caller.
-// playerPos: camera-relative position; normal: zero for sprites; lmBlock: block light
-// level 0..1 before any held light; held: light level from a held item 0..1.
-vec3 BlocklightColorAt(vec3 playerPos, vec3 normal, float lmBlock, float held) {
-    #ifdef COLORED_LIGHTING
+    // Colour (and, through tinted glass, dimming) of the world's block light reaching a
+    // surface. playerPos: camera-relative position; normal: zero for sprites.
+    vec3 WorldBlocklightColor(vec3 playerPos, vec3 normal) {
         // Look half a block off the surface, into the space the light arrives through.
-        vec3 light = VoxelLight(playerPos + cameraPosition + normal * 0.5);
+        vec3 p = playerPos + cameraPosition + normal * 0.5 - vec3(VoxelOrigin());
+        vec3 light = VoxelLight(p);
         float peak = max(light.r, max(light.g, light.b));
         vec3 hue = peak > 0.003 ? light / peak : FireColor();
-        if (held > lmBlock) hue = mix(hue, HeldLightColor(), saturate((held - lmBlock) * 4.0));
 
-        hue = max(mix(vec3(Luminance(hue)), hue, COLORED_LIGHT_SATURATION), 0.0);
-        // Deep colours (red, blue) carry less brightness; give part of it back so they do
-        // not read as much dimmer than torchlight.
-        hue *= sqrt(Luminance(DefaultBlocklightColor()) / max(Luminance(hue), 0.08));
-        return hue;
-    #else
-        return DefaultBlocklightColor();
-    #endif
-}
+        vec3 tint = TintTowardsSource(playerPos + cameraPosition + normal * 0.05 - vec3(VoxelOrigin()));
+        float tintPeak = max(tint.r, max(tint.g, tint.b));
+        hue *= tint / max(tintPeak, 1e-3);
+        float hp = max(hue.r, max(hue.g, hue.b));
+        // Coloured glass changes the colour only; dark (tinted) glass also dims the light.
+        return GradeLightColor(hp > 1e-3 ? hue / hp : FireColor()) * tintPeak;
+    }
+#else
+    vec3 HeldLightColor() { return DefaultBlocklightColor(); }
+    vec3 WorldBlocklightColor(vec3 playerPos, vec3 normal) { return DefaultBlocklightColor(); }
+#endif
 
 #endif

@@ -243,7 +243,6 @@ void main() {
         #endif
 
         vec2 lm = RemapLightmap(lmCoord);
-        lm.x = max(lm.x, HeldLight(length(playerPos)));
         Surface surf;
         surf.playerPos = playerPos;
         #if defined PROG_GBUFFERS_TEXTURED || defined PROG_GBUFFERS_WEATHER
