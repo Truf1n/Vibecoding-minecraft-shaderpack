@@ -21,6 +21,7 @@ void main() {
 uniform sampler2D colortex0;
 uniform sampler2D colortex8; // TAA history (not cleared between frames)
 uniform sampler2D depthtex0;
+uniform sampler2D depthtex1; // without translucents
 
 // The result goes only into the history; the final pass reads it from there (saves a
 // full-screen write).
@@ -35,6 +36,12 @@ vec3 RgbToYCoCg(vec3 c) {
     return vec3(0.25 * c.r + 0.5 * c.g + 0.25 * c.b, 0.5 * c.r - 0.5 * c.b, -0.25 * c.r + 0.5 * c.g - 0.25 * c.b);
 }
 vec3 YCoCgToRgb(vec3 c) { return vec3(c.x + c.y - c.z, c.x + c.z, c.x - c.y - c.z); }
+
+// How far a history colour lies outside the neighbourhood box (<= 1: inside).
+float BoxDistance(vec3 history, vec3 mean, vec3 extent) {
+    vec3 d = abs(history - mean) / extent;
+    return max(d.x, max(d.y, d.z));
+}
 
 // Catmull-Rom history sample from 5 bilinear taps: sharper than bilinear when moving.
 vec3 SampleHistory(vec2 uv) {
@@ -76,19 +83,35 @@ void main() {
     }
     vec3 mean = m1 / 9.0;
     vec3 sigma = sqrt(max(m2 / 9.0 - mean * mean, 0.0));
-    vec3 boxMin = mean - sigma * 1.25;
     vec3 boxMax = mean + sigma * 1.25;
 
     float depth = texelFetch(depthtex0, pixel, 0).r;
     vec2 prevUV = ReprojectToPreviousFrame(uv, depth);
+    bool onScreen = all(greaterThanEqual(prevUV, vec2(0.0))) && all(lessThanEqual(prevUV, vec2(1.0)));
+    vec3 extent = max(boxMax - mean, vec3(1e-5));
+    vec3 history = onScreen ? RgbToYCoCg(Compress(SampleHistory(prevUV))) : vec3(0.0);
+
+    // Through glass (or water) the pixel shows both the pane and what lies behind it, which
+    // move differently: also follow what is behind, and keep whichever history matches
+    // the pixel now better (otherwise the view behind the glass smears and lags).
+    float depthBehind = texelFetch(depthtex1, pixel, 0).r;
+    if (depthBehind > depth + 1e-6 && depth >= HAND_DEPTH_LIMIT) {
+        vec2 behindUV = ReprojectToPreviousFrame(uv, depthBehind);
+        if (all(greaterThanEqual(behindUV, vec2(0.0))) && all(lessThanEqual(behindUV, vec2(1.0)))) {
+            vec3 behind = RgbToYCoCg(Compress(SampleHistory(behindUV)));
+            if (!onScreen || BoxDistance(behind, mean, extent) < BoxDistance(history, mean, extent)) {
+                history = behind;
+                prevUV = behindUV;
+                onScreen = true;
+            }
+        }
+    }
 
     vec3 result = current;
-    if (all(greaterThanEqual(prevUV, vec2(0.0))) && all(lessThanEqual(prevUV, vec2(1.0)))) {
-        vec3 history = RgbToYCoCg(Compress(SampleHistory(prevUV)));
+    if (onScreen) {
         // Clip the history towards the mean until it fits inside the neighbourhood box.
         vec3 dir = history - mean;
-        vec3 extent = max(boxMax - mean, vec3(1e-5));
-        float t = max(max(abs(dir.x) / extent.x, abs(dir.y) / extent.y), abs(dir.z) / extent.z);
+        float t = BoxDistance(history, mean, extent);
         if (t > 1.0) history = mean + dir / t;
 
         // Trust the history less when the camera moved a lot (fast turns blur otherwise).

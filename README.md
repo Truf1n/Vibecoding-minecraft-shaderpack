@@ -30,9 +30,9 @@ shafts), M4 (temporal), M3 (water), M2 (atmosphere) and M1 (core lighting):
   resolution (shadow map, coloured glass, clouds; under water with caustics).
 
 - Coloured block light: the shadow pass voxelizes the blocks around the player, a
-  compute pass floodfills light colours through them, and lighting takes the hue from
-  it while the brightness follows vanilla light levels. Near coloured glass, each lit
-  spot traces straight lines to the nearby lights, so glass casts clean coloured shapes.
+  compute pass floodfills light colours through them (stained glass passes its own
+  colour), and lighting takes the hue from it while the brightness follows vanilla
+  light levels.
   Per-source colours, coloured candles, coloured held lights.
 
 - Materials: built-in smoothness/metalness per block family, sun/moon highlights,
@@ -75,8 +75,7 @@ docs/PLAN.md           research, feature list (IDs), milestones
 | Stage | Programs | Writes |
 |---|---|---|
 | Shadow map | `shadow` (in the Nether only for the voxels) | shadowtex0/1, shadowcolor0 (glass tint), shadowcolor1 (water mask), column bit maps (water, glass, block undersides near the player) |
-| Coloured light | `shadowcomp` (compute) | floodfill of the voxel volume → floodImgA/B (alternating), closeness to coloured glass → glassNearImgA/B, lights near glass → lightListImg |
-| Glass light clusters | `shadowcomp1` (compute) | strongest lights per 8×8×8 cluster near coloured glass → lightClusterImg |
+| Coloured light | `shadowcomp` (compute) | floodfill of the voxel volume → floodImgA/B (alternating) |
 | Sun / moon | `gbuffers_skytextured` (vanilla sky disc and stars are discarded) | colortex0 |
 | Opaque geometry | `gbuffers_terrain/entities/block/hand` | G-buffer: colortex1 albedo+AO, colortex2 normal+lightmap, colortex3 shading model+emission+smoothness+metalness |
 | Overlays | `gbuffers_clouds/armor_glint/spidereyes/beaconbeam/lightning` | colortex4 (premultiplied) |
