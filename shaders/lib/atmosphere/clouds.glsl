@@ -55,10 +55,10 @@ CloudLayer MakeLayer(float bottom, float thickness, float scale, float amount, f
 }
 
 // ---- Styles -------------------------------------------------------------------------
-// Rain adds cover to every style, and turns every style into an overcast sky over half a
-// minute or so (stormRain, a slowly smoothed rain strength); thunderstorms make the deck
+// Rain adds cover to every style, and turns every style into an overcast sky over a minute
+// or two (stormRain, a slowly smoothed rain strength); thunderstorms make the deck
 // thicker and darker still (stormThunder).
-float CloudAmount() { return CLOUD_AMOUNT + rainStrength * 0.25; }
+float CloudAmount() { return CLOUD_AMOUNT + stormRain * 0.25; }
 
 // Overcast: a thick, nearly unbroken stratus deck under a high grey altostratus sheet.
 CloudLayer OvercastLayer(int i) {

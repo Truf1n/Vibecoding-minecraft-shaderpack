@@ -54,17 +54,23 @@ vec3 GradeLightColor(vec3 hue) {
     }
 
     // Colour of the world's block light reaching a surface. playerPos: camera-relative
-    // position; normal: zero for sprites.
-    vec3 WorldBlocklightColor(vec3 playerPos, vec3 normal) {
+    // position; normal: zero for sprites; lmBlock: Minecraft's block light there, 0..1.
+    vec3 WorldBlocklightColor(vec3 playerPos, vec3 normal, float lmBlock) {
         // Look half a block off the surface, into the space the light arrives through.
         vec3 p = playerPos + cameraPosition + normal * 0.5 - vec3(VoxelOrigin());
         vec3 light = VoxelLight(p);
         float peak = max(light.r, max(light.g, light.b));
-        return GradeLightColor(peak > 0.003 ? light / peak : FireColor());
+        // Where the volume holds much less light than Minecraft's light level says is here
+        // (light that came a way the volume does not know, or from outside it), its colour
+        // is not trusted: fade smoothly to the default instead of switching at a hard edge.
+        float expected = pow(0.86, 15.0 * (1.0 - lmBlock));
+        float trust = smoothstep(0.08, 0.45, peak / expected);
+        vec3 hue = peak > 1e-4 ? light / peak : FireColor();
+        return GradeLightColor(mix(FireColor(), hue, trust));
     }
 #else
     vec3 HeldLightColor() { return DefaultBlocklightColor(); }
-    vec3 WorldBlocklightColor(vec3 playerPos, vec3 normal) { return DefaultBlocklightColor(); }
+    vec3 WorldBlocklightColor(vec3 playerPos, vec3 normal, float lmBlock) { return DefaultBlocklightColor(); }
 #endif
 
 #endif

@@ -20,6 +20,7 @@
         if (emission > 0) priority = VOXEL_PRIORITY_SOURCE;
         else if (IsWater(id)) priority = VOXEL_PRIORITY_WATER;
         else if (renderStage == MC_RENDER_STAGE_TERRAIN_TRANSLUCENT || id == BLOCK_LEAVES) priority = VOXEL_PRIORITY_TINT;
+        else if (id == BLOCK_DRY_WATERLOGGABLE || id == BLOCK_THIN_SOLID) return; // slabs, stairs, carpets, snow layers...: light gets past
         else if (renderStage == MC_RENDER_STAGE_TERRAIN_SOLID) priority = VOXEL_PRIORITY_SOLID;
         else return; // plants, rails, doors...: light passes freely
         ivec3 coord = ivec3(floor(blockCenter)) - VoxelOrigin();

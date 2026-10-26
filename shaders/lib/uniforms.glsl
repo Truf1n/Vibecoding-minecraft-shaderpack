@@ -28,6 +28,7 @@ uniform float rainStrength;
 uniform float wetness;        // rain strength smoothed: rises over ~30 s, dries over ~90 s
 uniform float thunderStrength;
 uniform float stormRain, stormThunder; // custom (shaders.properties): slowly smoothed rain / thunder
+uniform float afterRain;      // custom: rain strength that lingers for minutes (rainbows)
 uniform float inSnowyBiome, inSandyBiome; // custom, 0..1
 uniform vec4 lightningBoltPosition; // camera-relative position of a lightning bolt; w = 1 while one exists
 uniform float endFlashIntensity;

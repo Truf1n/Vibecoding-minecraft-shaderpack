@@ -106,23 +106,18 @@ void main() {
         #define LAVA_FLOW
     #endif
     #endif
+    vec4 tex = texture(gtexture, texCoord);
     #ifdef LAVA_FLOW
-        // Lava's surface slowly flows and churns (plan item V3): the texture is bent by a
-        // gentle swirl, wrapped inside its own sprite.
-        vec4 tex;
+        // Lava's surface slowly churns (plan item V3): brighter and darker patches drift
+        // over it. (Only the brightness changes: bending the texture tears it apart where
+        // the flowing-lava sprite is rotated and stretched.)
         if (blockId == BLOCK_LIGHT_LAVA) {
-            vec2 size = spriteBounds.zw - spriteBounds.xy;
             vec3 wp = playerPos + cameraPosition;
-            vec2 p = (abs(worldNormal.y) > 0.5 ? wp.xz : vec2(wp.x + wp.z, wp.y)) * 0.6;
-            float t = frameTimeCounter * 0.35 * WAVING_SPEED;
-            vec2 swirl = vec2(sin(p.y * 2.1 + t) + sin(p.x * 1.3 - t * 0.7), cos(p.x * 1.9 + t * 0.8) + sin(p.y * 1.1 + t * 0.6)) * 0.035;
-            vec2 local = fract((texCoord - spriteBounds.xy) / size + swirl);
-            tex = textureGrad(gtexture, spriteBounds.xy + local * size, dFdx(texCoord), dFdy(texCoord));
-        } else {
-            tex = texture(gtexture, texCoord);
+            float t = frameTimeCounter * 0.3 * WAVING_SPEED;
+            vec2 q = wp.xz * 0.45 + vec2(wp.y * 0.3, -wp.y * 0.2);
+            float churn = sin(q.x * 1.7 + t + sin(q.y * 1.3 - t * 0.7) * 1.5) * sin(q.y * 1.9 - t * 0.8 + sin(q.x * 1.1 + t * 0.5) * 1.5);
+            tex.rgb *= 0.88 + 0.22 * churn;
         }
-    #else
-        vec4 tex = texture(gtexture, texCoord);
     #endif
 
     #ifdef PROG_GBUFFERS_TERRAIN
@@ -172,7 +167,16 @@ void main() {
     #ifdef SURFACE_DETAIL
         float detailFade = 1.0 - smoothstep(24.0, 64.0, length(playerPos));
         #ifdef GENERATED_NORMALS
+            vec3 geoNormal = normal;
             normal = GeneratedNormal(texCoord, spriteBounds, normal, playerPos, NORMAL_STRENGTH * 1.5 * detailFade);
+            // A face turned away from the sun must stay out of its light: bumps may not tilt
+            // towards the sun more than the face itself does (otherwise single texels light
+            // up on the shaded side).
+            vec3 L = mat3(gbufferModelViewInverse) * normalize(shadowLightPosition);
+            float faceNdotL = dot(geoNormal, L);
+            float limit = max(faceNdotL, 0.0) + 0.35 * smoothstep(0.0, 0.3, faceNdotL);
+            float over = dot(normal, L) - limit;
+            if (over > 0.0) normal = normalize(normal - L * over);
         #endif
         #if COATED_TEXTURES > 0
             albedo.rgb = CoatTexture(albedo.rgb, texCoord, floor(playerPos + cameraPosition - worldNormal * 0.01),

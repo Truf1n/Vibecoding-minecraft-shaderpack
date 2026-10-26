@@ -349,6 +349,11 @@ void main() {
                 // Rain and snow: see-through streaks, lit like the air around them (cooler
                 // and heavier or warmer and lighter by Rain Style); snow stays bright.
                 bool snow = albedo.b > 0.0 && abs(albedo.r - albedo.b) < 0.08 && Luminance(albedo.rgb) > 0.6;
+                #ifdef REALISTIC_RAIN
+                #ifdef WORLD_OVERWORLD
+                    if (!snow) discard; // the pack draws its own rain (composite, rain.glsl)
+                #endif
+                #endif
                 #if RAIN_STYLE == 1
                     if (!snow) color *= vec3(0.80, 0.92, 1.10);
                     albedo.a *= WEATHER_OPACITY * 1.25;

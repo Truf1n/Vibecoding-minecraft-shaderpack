@@ -97,7 +97,7 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define SHADOW_SOFTNESS 1.5 //[0.5 1.0 1.5 2.0 3.0 4.0]
 // How fast shadow resolution drops with distance: low = even detail everywhere,
 // high = very sharp under you and blocky far away.
-#define SHADOW_FALLOFF 0.60 //[0.40 0.50 0.60 0.70 0.80 0.85 0.90]
+#define SHADOW_FALLOFF 0.75 //[0.40 0.50 0.60 0.70 0.75 0.80 0.85 0.90]
 #define ENTITY_SHADOWS
 #define COLORED_SHADOWS
 #define FOLIAGE_SSS 1.00 //[0.00 0.50 0.75 1.00 1.25 1.50 2.00]
@@ -212,6 +212,9 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 // 0 light & warmer, 1 heavy & colder
 #define RAIN_STYLE 0            //[0 1]
 #define WEATHER_OPACITY 0.60    //[0.20 0.30 0.40 0.50 0.60 0.70 0.80 1.00]
+// Rain drawn by the pack: thin falling streaks that also show behind glass (instead of
+// the vanilla rain texture).
+#define REALISTIC_RAIN
 // Snowstorms in snowy biomes and sandstorms in deserts and badlands while it rains.
 #define WEATHER_STORMS
 // 0 off, 1 puddles in rain, 2 full coverage in rain, 3 puddles always

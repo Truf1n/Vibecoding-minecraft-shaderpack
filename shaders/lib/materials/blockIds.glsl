@@ -42,6 +42,7 @@
 #define BLOCK_STAINED_PANE      3200 // + colour index 0..15
 
 #define BLOCK_DRY_WATERLOGGABLE 4001 // stairs, slabs, ... with waterlogged=false
+#define BLOCK_THIN_SOLID        4002 // carpets, snow layers 1-7: solid but let light past
 
 // Materials (smoothness / metalness / emission in terrainMaterial.glsl)
 #define MAT_IRON            5001

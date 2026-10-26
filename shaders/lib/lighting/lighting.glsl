@@ -41,7 +41,7 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
     float worldPart = BlocklightFalloff(s.lm.x), heldPart = BlocklightFalloff(held);
     vec3 light = vec3(0.0);
     if (worldPart + heldPart > 1e-4) {
-        vec3 color = WorldBlocklightColor(s.playerPos, s.normal) * worldPart + HeldLightColor() * heldPart;
+        vec3 color = WorldBlocklightColor(s.playerPos, s.normal, s.lm.x) * worldPart + HeldLightColor() * heldPart;
         light = color / (worldPart + heldPart) * BlocklightFalloff(max(s.lm.x, held)) * BLOCKLIGHT_I;
     }
 

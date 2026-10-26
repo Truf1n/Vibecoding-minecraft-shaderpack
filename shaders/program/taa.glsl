@@ -92,17 +92,25 @@ void main() {
     vec3 history = onScreen ? RgbToYCoCg(Compress(SampleHistory(prevUV))) : vec3(0.0);
 
     // Through glass (or water) the pixel shows both the pane and what lies behind it, which
-    // move differently: also follow what is behind, and keep whichever history matches
-    // the pixel now better (otherwise the view behind the glass smears and lags).
+    // move differently: also follow what is behind, and blend the two histories by how
+    // well each matches the pixel now (otherwise the view behind the glass smears and
+    // lags; picking just one flickers on reflections, which match neither exactly).
     float depthBehind = texelFetch(depthtex1, pixel, 0).r;
     if (depthBehind > depth + 1e-6 && depth >= HAND_DEPTH_LIMIT) {
         vec2 behindUV = ReprojectToPreviousFrame(uv, depthBehind);
         if (all(greaterThanEqual(behindUV, vec2(0.0))) && all(lessThanEqual(behindUV, vec2(1.0)))) {
             vec3 behind = RgbToYCoCg(Compress(SampleHistory(behindUV)));
-            if (!onScreen || BoxDistance(behind, mean, extent) < BoxDistance(history, mean, extent)) {
+            if (!onScreen) {
                 history = behind;
                 prevUV = behindUV;
                 onScreen = true;
+            } else {
+                float dFront = BoxDistance(history, mean, extent), dBehind = BoxDistance(behind, mean, extent);
+                float wBehind = 1.0 / (0.25 + dBehind * dBehind);
+                float wFront = 1.0 / (0.25 + dFront * dFront);
+                float w = wBehind / (wBehind + wFront);
+                history = mix(history, behind, w);
+                prevUV = mix(prevUV, behindUV, w);
             }
         }
     }

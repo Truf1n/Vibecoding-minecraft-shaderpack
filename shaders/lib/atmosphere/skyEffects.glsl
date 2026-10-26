@@ -75,48 +75,62 @@ float AuroraAmount(vec3 sunDir) {
 }
 
 // Glowing curtains high in the sky: the view ray crosses a stack of thin horizontal slices
-// of the curtain layer; each slice adds light where the curtain pattern runs.
+// of the curtain layer; each slice adds light where the curtain pattern runs. The slices
+// start at a random offset per pixel and frame (TAA blends them into one smooth glow), and
+// the pattern shifts and changes with height, so the curtains bend and fray instead of
+// looking extruded straight up.
 vec3 Aurora(vec3 dir, vec3 sunDir) {
     float amount = AuroraAmount(sunDir);
     if (amount <= 0.0 || dir.y <= 0.02) return vec3(0.0);
     float t = frameTimeCounter * 0.025;
+    const int slices = 20;
+    float jitter = Hash13(vec3(dir.xz * 4000.0, float(frameCounter % 64)));
     vec3 sum = vec3(0.0);
-    const int slices = 14;
     for (int i = 0; i < slices; i++) {
-        float h = float(i) / float(slices);
-        float height = 1.0 + h * 0.9;                // the curtain's lower edge is at 1, top at 1.9
-        vec2 p = dir.xz / dir.y * height * 0.9;       // where the ray crosses this slice
+        float h = (float(i) + jitter) / float(slices);
+        float height = 1.0 + h * 1.1;                  // lower edge at 1, top at 2.1
+        vec2 p = dir.xz / dir.y * height * 0.9;         // where the ray crosses this slice
+        p += vec2(0.35, -0.2) * h;                      // curtains lean and drift with height
+        // Colour: shades from blue-green through green to yellow-green, with pink notes in
+        // places (mostly near the top, sometimes along the lower edge).
+        float shade = SkyNoise3D(vec3(p * 0.18, t * 0.7 + 4.0));
+        vec3 green = mix(vec3(0.05, 0.95, 0.55), vec3(0.30, 1.00, 0.20), smoothstep(0.25, 0.75, shade));
+        green = mix(green, vec3(0.10, 0.75, 0.70), smoothstep(0.65, 0.9, SkyNoise3D(vec3(p * 0.3 + 13.0, t))));
+        float pinkPatch = smoothstep(0.55, 0.85, SkyNoise3D(vec3(p * 0.22 + 31.0, t * 0.6)));
+        float pink = saturate(smoothstep(0.35, 1.0, h) * (0.5 + pinkPatch) + pinkPatch * 0.35 * (1.0 - h));
         #if AURORA == 1
-            // Curtains: bright folded lines, green below and pink-purple at the top.
-            vec2 w = p + vec2(SkyNoise3D(vec3(p * 0.6, t * 2.0)), SkyNoise3D(vec3(p * 0.6 + 5.0, t * 2.0))) * 1.2;
-            float line = 1.0 - abs(SkyNoise3D(vec3(w * vec2(0.9, 2.4), t)) * 2.0 - 1.0);
-            float curtain = pow(line, 10.0) * smoothstep(0.35, 0.6, SkyNoise3D(vec3(w * 0.35, t * 0.5)));
-            vec3 color = mix(vec3(0.15, 1.00, 0.45), vec3(0.75, 0.25, 0.90), smoothstep(0.35, 1.0, h));
+            // Curtains: bright folded lines.
+            vec2 w = p + vec2(SkyNoise3D(vec3(p * 0.6, t * 2.0 + h * 0.6)), SkyNoise3D(vec3(p * 0.6 + 5.0, t * 2.0 + h * 0.6))) * 1.2;
+            float line = 1.0 - abs(SkyNoise3D(vec3(w * vec2(0.9, 2.4), t + h * 0.45)) * 2.0 - 1.0);
+            float curtain = pow(line, 8.0) * smoothstep(0.3, 0.6, SkyNoise3D(vec3(w * 0.35, t * 0.5 + h * 0.3)));
+            vec3 color = mix(green, vec3(0.85, 0.25, 0.75), pink);
         #else
-            // Bands: wide, soft arcs shifting through teal, blue and violet.
-            float arc = sin(p.y * 2.2 + SkyNoise3D(vec3(p * 0.5, t)) * 4.0 + t * 3.0) * 0.5 + 0.5;
-            float curtain = pow(arc, 6.0) * smoothstep(0.3, 0.7, SkyNoise3D(vec3(p * 0.3, t * 0.4)));
-            vec3 color = mix(vec3(0.10, 0.90, 0.80), vec3(0.45, 0.35, 1.00), SkyNoise3D(vec3(p * 0.2, 3.0)));
-            color = mix(color, vec3(0.85, 0.30, 0.80), h * 0.6);
+            // Bands: wide, soft arcs.
+            float arc = sin(p.y * 2.2 + SkyNoise3D(vec3(p * 0.5, t + h * 0.4)) * 4.0 + t * 3.0) * 0.5 + 0.5;
+            float curtain = pow(arc, 5.0) * smoothstep(0.3, 0.7, SkyNoise3D(vec3(p * 0.3, t * 0.4 + h * 0.3)));
+            vec3 color = mix(mix(green, vec3(0.45, 0.35, 1.00), 0.35), vec3(0.85, 0.30, 0.80), pink * 0.8);
         #endif
-        sum += color * curtain * (1.0 - h) * (1.0 - h);
+        // Brightest just above the lower edge, fading out smoothly towards the top.
+        float profile = smoothstep(0.0, 0.08, h) * pow(1.0 - h, 1.6);
+        sum += color * curtain * profile;
     }
     float horizonFade = smoothstep(0.02, 0.25, dir.y);
-    return sum / float(slices) * amount * horizonFade * 0.35;
+    return sum / float(slices) * amount * horizonFade * 0.45;
 }
 
 // ---- Rainbows --------------------------------------------------------------------------
 
-// A rainbow around the point opposite the sun (42 degrees out), after rain (while the
-// ground is still wet but the rain has stopped) or always, when the sun is low enough.
+// A rainbow around the point opposite the sun (42 degrees out), for a couple of minutes
+// after rain or always, when the sun is low enough (below about 40 degrees) for the bow
+// to rise above the horizon.
 vec3 Rainbow(vec3 dir, vec3 sunDir) {
     #if RAINBOWS == 0 || !defined WORLD_OVERWORLD
         return vec3(0.0);
     #else
         #if RAINBOWS == 1
-            float amount = saturate((wetness - rainStrength) * 3.0);
+            float amount = saturate((afterRain - rainStrength) * 2.5);
         #else
-            float amount = 0.5 + 0.5 * saturate((wetness - rainStrength) * 3.0);
+            float amount = 0.5 + 0.5 * saturate((afterRain - rainStrength) * 2.5);
         #endif
         amount *= DayFactor(sunDir.y) * (1.0 - smoothstep(0.35, 0.7, sunDir.y)) * smoothstep(-0.05, 0.05, dir.y);
         if (amount <= 0.0) return vec3(0.0);
@@ -128,7 +142,9 @@ vec3 Rainbow(vec3 dir, vec3 sunDir) {
             1.0 - abs(x - 0.55) * 3.0,
             1.0 - abs(x - 0.15) * 3.0)) + vec3(0.35, 0.0, 0.45) * smoothstep(0.2, -0.2, x);
         float edge = smoothstep(-0.2, 0.05, x) * smoothstep(1.2, 0.95, x);
-        return spectrum * edge * amount * SunLightColor(sunDir.y) * 0.06;
+        // Brightest against the darker sky low down, fading towards its top.
+        float height = 1.0 - smoothstep(0.2, 0.7, dir.y) * 0.5;
+        return spectrum * edge * amount * height * SunLightColor(sunDir.y) * 0.16;
     #endif
 }
 

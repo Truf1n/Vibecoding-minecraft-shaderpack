@@ -40,20 +40,23 @@ vec3 LightningLight(vec3 playerPos, vec3 normal, float skylight) {
 
 // ---- Storms ----------------------------------------------------------------------------
 
+// Rain as seen falling: follows the rain, but builds up only as fast as the clouds set in.
+float VisibleRain() { return min(rainStrength, stormRain); }
+
 // How much a thunderstorm darkens the sky and its light (1 = no change).
 float StormDim() { return 1.0 - 0.55 * stormThunder * STORM_DARKNESS; }
 
 // Snowstorm / sandstorm strength in the current biome (0 outside one).
 float SnowStorm() {
     #ifdef WEATHER_STORMS
-        return rainStrength * inSnowyBiome;
+        return VisibleRain() * inSnowyBiome;
     #else
         return 0.0;
     #endif
 }
 float SandStorm() {
     #ifdef WEATHER_STORMS
-        return rainStrength * inSandyBiome;
+        return VisibleRain() * inSandyBiome;
     #else
         return 0.0;
     #endif

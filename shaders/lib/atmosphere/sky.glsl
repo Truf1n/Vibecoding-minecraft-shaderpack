@@ -37,8 +37,9 @@ void OverworldSkyColors(float sunUp, out vec3 zenith, out vec3 horizon) {
     #else
         vec3 rainGrey = vec3(grey) * vec3(1.04, 1.00, 0.94);
     #endif
-    zenith = mix(zenith, rainGrey * 0.55, rainStrength * 0.85);
-    horizon = mix(horizon, rainGrey * 0.65, rainStrength * 0.85);
+    // (Follows the slowly smoothed rain, like the clouds turning overcast.)
+    zenith = mix(zenith, rainGrey * 0.55, stormRain * 0.85);
+    horizon = mix(horizon, rainGrey * 0.65, stormRain * 0.85);
     // Thunderstorms: darker still.
     zenith *= StormDim();
     horizon *= StormDim();
@@ -62,7 +63,7 @@ vec3 SunLightColor(float sunUp) {
     #ifdef MOON_PHASE_LIGHTING
         moon *= 0.35 + 0.65 * MoonFullness();
     #endif
-    return mix(moon, sun, day) * (1.0 - 0.8 * rainStrength) * StormDim() * LightMultiplier(sunUp);
+    return mix(moon, sun, day) * (1.0 - 0.8 * stormRain) * StormDim() * LightMultiplier(sunUp);
 }
 
 float ValueNoise2(vec2 p) {
