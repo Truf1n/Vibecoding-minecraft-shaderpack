@@ -63,6 +63,17 @@ void main() {
     #endif
 
     bool wavedWater = false;
+    #ifdef WAVING_WEATHER
+    #ifdef PROG_GBUFFERS_WEATHER
+        // Rain and snow fall at a slant in the wind, swaying a little (plan item V5).
+        {
+            float t = frameTimeCounter * WAVING_SPEED;
+            vec2 wind = vec2(0.30 + 0.08 * sin(t * 0.7), 0.10 + 0.05 * sin(t * 0.53)) * WAVING_INTENSITY * mix(1.0, 1.6, thunderStrength);
+            playerPos.xz += wind * (playerPos.y + cameraPosition.y - floor(cameraPosition.y));
+            wavedWater = true;
+        }
+    #endif
+    #endif
     #ifdef WAVING_WATER_VERTEX
     #ifdef PROG_GBUFFERS_WATER
         // Gently raise and lower the water surface (plan item W10). Only downwards, so it
@@ -97,6 +108,13 @@ void main() {
         gl_Position = wavedWater
             ? gl_ProjectionMatrix * (gbufferModelView * vec4(playerPos, 1.0))
             : ftransform();
+        #if defined PROG_GBUFFERS_HAND_WATER && HAND_SWAY > 0
+            // Hand sway (as in gbuffers_deferred.glsl), for translucent held items.
+            const float swayAmounts[4] = float[4](0.0, 0.006, 0.012, 0.024);
+            float t = frameTimeCounter;
+            vec3 sway = vec3(sin(t * 0.83) * 1.0 + sin(t * 1.9) * 0.25, sin(t * 1.21) * 0.7 + sin(t * 2.6) * 0.15, 0.0) * swayAmounts[HAND_SWAY];
+            gl_Position = gl_ProjectionMatrix * (gl_ModelViewMatrix * gl_Vertex + vec4(sway, 0.0));
+        #endif
     #endif
     gl_Position = ApplyTAAJitter(gl_Position);
 }
@@ -217,6 +235,11 @@ void main() {
             #ifdef OVERLAY_EMISSIVE
                 strength = 2.0;
             #endif
+            #ifdef PROG_GBUFFERS_LIGHTNING
+                // A blinding blue-white core: bright enough for the bloom to give it a halo.
+                color = vec3(0.68, 0.76, 1.00) * (1.0 + 2.0 * Luminance(color));
+                strength = 14.0;
+            #endif
             outColor = vec4(color * albedo.a * strength, 0.0); // additive layer
         #endif
 
@@ -323,7 +346,17 @@ void main() {
             vec3 color = SrgbToLinear(albedo.rgb) * GetLighting(surf, sunDir, lightDir);
 
             #ifdef PROG_GBUFFERS_WEATHER
-                albedo.a *= 0.6;
+                // Rain and snow: see-through streaks, lit like the air around them (cooler
+                // and heavier or warmer and lighter by Rain Style); snow stays bright.
+                bool snow = albedo.b > 0.0 && abs(albedo.r - albedo.b) < 0.08 && Luminance(albedo.rgb) > 0.6;
+                #if RAIN_STYLE == 1
+                    if (!snow) color *= vec3(0.80, 0.92, 1.10);
+                    albedo.a *= WEATHER_OPACITY * 1.25;
+                #else
+                    if (!snow) color *= vec3(1.00, 0.98, 0.94);
+                    albedo.a *= WEATHER_OPACITY;
+                #endif
+                albedo.a = saturate(albedo.a);
             #endif
             #ifdef GLOWING_LAVA_PARTICLES
             #ifdef PROG_GBUFFERS_TEXTURED

@@ -1,3 +1,6 @@
+#ifndef ENCODING_GLSL
+#define ENCODING_GLSL
+
 // Octahedral unit-vector encoding (Cigolle et al. 2014): 2 channels, uniform precision.
 
 vec2 OctWrap(vec2 v) { return (1.0 - abs(v.yx)) * vec2(v.x >= 0.0 ? 1.0 : -1.0, v.y >= 0.0 ? 1.0 : -1.0); }
@@ -24,3 +27,5 @@ int DecodeId(float v) { return int(v * 255.0 + 0.5); }
 
 // Vanilla lightmap coordinates (texel centres of a 16x16 map) -> [0,1] block/sky light.
 vec2 RemapLightmap(vec2 lm) { return saturate((lm - 0.5 / 16.0) * (16.0 / 15.0)); }
+
+#endif

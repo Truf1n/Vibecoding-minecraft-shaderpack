@@ -82,6 +82,30 @@ void main() {
 
         vec2 lm = normalLight.zw;
 
+        // Rain (plan items R5, +5): exposed surfaces darken as they get wet, and water
+        // collects in puddles on flat ground, with ripples from the raindrops.
+        float puddle = 0.0, wet = 0.0;
+        vec3 puddleNormal = normal;
+        #ifdef WORLD_OVERWORLD
+            if (shadingModel == SM_DEFAULT || shadingModel == SM_FOLIAGE || shadingModel == SM_LEAVES) {
+                vec3 worldPos = playerPos + cameraPosition;
+                #ifdef WET_SURFACES
+                    wet = wetness * RainExposure(lm.y);
+                #endif
+                if (shadingModel == SM_DEFAULT) puddle = PuddleAmount(worldPos, normal.y, lm.y);
+                if (puddle > 0.0) {
+                    puddleNormal = vec3(0.0, 1.0, 0.0);
+                    #ifdef RAIN_RIPPLES
+                        vec2 ripple = RainRipples(worldPos.xz) * rainStrength * (1.0 - smoothstep(16.0, 48.0, length(playerPos)));
+                        puddleNormal = normalize(vec3(ripple.x, 1.0, ripple.y));
+                    #endif
+                    puddleNormal = normalize(mix(normal, puddleNormal, puddle));
+                }
+                albedo *= 1.0 - 0.35 * max(wet, puddle);
+                albedo = pow(albedo, vec3(1.0 + 0.25 * max(wet, puddle))); // wet colours look deeper
+            }
+        #endif
+
         Surface surf;
         surf.playerPos = playerPos;
         surf.normal = normal;
@@ -112,6 +136,25 @@ void main() {
             if (smoothness > 0.05) color += sunLight * SpecularHighlight(normal, V, lightDir, roughness, f0) * smoothness;
         #endif
         color += albedo * material.g * EMISSION_BRIGHTNESS;
+
+        #ifdef WORLD_OVERWORLD
+            // Puddles and wet surfaces mirror the sky (and the clouds); smooth for puddles,
+            // a faint sheen at grazing angles for merely wet surfaces.
+            float gloss = max(puddle, wet * 0.3);
+            if (gloss > 0.01) {
+                vec3 R = reflect(-V, puddleNormal);
+                R.y = abs(R.y);
+                vec3 refl = GetBlockSkyReflection(R, sunDir, PixelAngle());
+                #ifdef VOLUMETRIC_CLOUDS
+                    vec4 cloudsR = CloudsInDirection(R);
+                    refl = refl * cloudsR.a + cloudsR.rgb;
+                #endif
+                refl *= lm.y * lm.y;
+                float fresnel = (0.02 + 0.98 * pow(1.0 - saturate(dot(puddleNormal, V)), 5.0)) * gloss;
+                color = mix(color, refl, fresnel);
+                color += sunLight * SpecularHighlight(puddleNormal, V, lightDir, mix(0.5, 0.06, puddle), vec3(0.02)) * gloss;
+            }
+        #endif
         color = ApplyFog(color, playerPos, sunDir, false);
     }
 

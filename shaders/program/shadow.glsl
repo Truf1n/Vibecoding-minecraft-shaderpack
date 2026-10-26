@@ -8,6 +8,8 @@
 
 #define COLUMN_MAP_WRITER
 #include "/lib/materials/columnMaps.glsl"
+#include "/lib/util/encoding.glsl"
+#include "/lib/materials/waving.glsl"
 #ifdef COLORED_LIGHTING
     #include "/lib/lighting/voxels.glsl"
     layout(r32ui) uniform uimage3D voxelImg;
@@ -29,6 +31,7 @@
 uniform mat4 shadowModelViewInverse;
 
 in vec2 mc_Entity;
+in vec4 mc_midTexCoord;
 in vec4 at_midBlock; // xyz: offset to the block centre in 1/64 blocks; w: light emission 0-15
 
 out vec2 texCoord;
@@ -79,6 +82,14 @@ void main() {
     }
 
     vec4 clip = ftransform(); // orthographic: w == 1
+    if (terrain && IsPlant(blockId)) {
+        // Waving plants (waving.glsl), so their shadows move with them.
+        vec3 shadowViewPos = (gl_ModelViewMatrix * gl_Vertex).xyz;
+        vec3 wp = (shadowModelViewInverse * vec4(shadowViewPos, 1.0)).xyz + cameraPosition;
+        vec2 lm = RemapLightmap((gl_TextureMatrix[1] * gl_MultiTexCoord1).xy);
+        vec3 wave = WavingOffset(blockId, wp, texCoord.y < mc_midTexCoord.y, lm.y);
+        clip = gl_ProjectionMatrix * vec4(shadowViewPos + mat3(gl_ModelViewMatrix) * wave, 1.0);
+    }
     gl_Position = vec4(DistortShadowClip(clip.xyz), 1.0);
 }
 

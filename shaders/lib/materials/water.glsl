@@ -92,6 +92,14 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
     float detail = 1.0 - smoothstep(12.0, 48.0, dist);
     if (abs(geoNormal.y) > 0.5) {
         N = WaveNormal(worldPos.xz, WATER_WAVE_STRENGTH * 0.22 / (1.0 + dist * 0.01), detail);
+        #if defined RAIN_RIPPLES && defined WORLD_OVERWORLD
+            // Raindrops hitting the surface.
+            float rain = rainStrength * smoothstep(0.86, 0.96, surf.lm.y) * (1.0 - inSnowyBiome) * (1.0 - inSandyBiome) * detail;
+            if (rain > 0.0) {
+                vec2 ripple = RainRipples(worldPos.xz) * rain;
+                N = normalize(N + vec3(ripple.x, 0.0, ripple.y));
+            }
+        #endif
         if (faceN.y < 0.0) N = -N;
     }
 

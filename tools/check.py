@@ -153,11 +153,12 @@ def check_option_detection() -> int:
 
 def main() -> int:
     quick = "--quick" in sys.argv
-    if check_option_detection():
+    undetected = check_option_detection()
+    if undetected and not quick:
         return 1
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)
-        failures = run({}, "default", tmp)
+        failures = run({}, "default", tmp) + undetected
         variants = 0
         if not quick:
             for label, overrides in option_variants():

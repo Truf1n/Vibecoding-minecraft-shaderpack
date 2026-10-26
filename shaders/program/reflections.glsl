@@ -99,7 +99,7 @@ void main() {
     // Where the screen has nothing: the sky (as much as reaches this spot), else the block
     // light around.
     float skyLight = normalLight.w;
-    vec3 fallback = GetSkyReflection(normalize(R), sunDir, -1.0);
+    vec3 fallback = GetBlockSkyReflection(normalize(R), sunDir, -1.0);
     #if defined WORLD_OVERWORLD && CLOUD_STYLE == 1
         vec4 clouds = CloudsInDirection(normalize(R));
         fallback = fallback * clouds.a + clouds.rgb;

@@ -55,33 +55,74 @@ CloudLayer MakeLayer(float bottom, float thickness, float scale, float amount, f
 }
 
 // ---- Styles -------------------------------------------------------------------------
-// Rain adds cover to every style.
+// Rain adds cover to every style, and turns every style into an overcast sky over half a
+// minute or so (stormRain, a slowly smoothed rain strength); thunderstorms make the deck
+// thicker and darker still (stormThunder).
 float CloudAmount() { return CLOUD_AMOUNT + rainStrength * 0.25; }
+
+// Overcast: a thick, nearly unbroken stratus deck under a high grey altostratus sheet.
+CloudLayer OvercastLayer(int i) {
+    float a = float(CLOUD_ALTITUDE), amount = CloudAmount();
+    if (i == 0) return MakeLayer(a - 24.0, CLOUD_THICKNESS * 0.7, 150.0, 0.62 + amount * 0.4, 0.45, 0.0, 0.18, 20.0, 0.06, vec2(1.3, 1.0), 0.8, false);
+    return MakeLayer(a + 210.0, 10.0, 320.0, 0.55 + amount * 0.3, 0.6, 0.0, 0.0, 0.0, 0.03, vec2(2.0, 1.0), 1.5, true);
+}
 
 #if CLOUD_PRESET == 1
     // Stratocumulus: a wide, flat-topped deck broken into lumpy cells, with fibrous cirrus
     // streaks high above.
     const int CLOUD_LAYERS = 2;
-    CloudLayer GetCloudLayer(int i) {
+    CloudLayer PresetLayer(int i) {
         float a = float(CLOUD_ALTITUDE), amount = CloudAmount();
         if (i == 0) return MakeLayer(a - 16.0, CLOUD_THICKNESS * 0.55, 120.0, amount + 0.18, 0.40, 0.25, 0.32, 13.0, 0.075, vec2(1.6, 1.0), 1.0, false);
         return MakeLayer(a + 220.0, 8.0, 150.0, CIRRUS_AMOUNT, 0.45, 0.0, 0.0, 0.0, 0.05, vec2(6.0, 1.0), 2.4, true);
     }
 #elif CLOUD_PRESET == 3
-    // Overcast: a thick, nearly unbroken stratus deck under a high grey altostratus sheet.
     const int CLOUD_LAYERS = 2;
-    CloudLayer GetCloudLayer(int i) {
-        float a = float(CLOUD_ALTITUDE), amount = CloudAmount();
-        if (i == 0) return MakeLayer(a - 24.0, CLOUD_THICKNESS * 0.7, 150.0, 0.62 + amount * 0.4, 0.45, 0.0, 0.18, 20.0, 0.06, vec2(1.3, 1.0), 0.8, false);
-        return MakeLayer(a + 210.0, 10.0, 320.0, 0.55 + amount * 0.3, 0.6, 0.0, 0.0, 0.0, 0.03, vec2(2.0, 1.0), 1.5, true);
-    }
+    CloudLayer PresetLayer(int i) { return OvercastLayer(i); }
 #else
-    // Cumulus (M5): one layer of soft puffy clouds with flat bottoms.
-    const int CLOUD_LAYERS = 1;
-    CloudLayer GetCloudLayer(int i) {
-        return MakeLayer(float(CLOUD_ALTITUDE), CLOUD_THICKNESS, 64.0, CloudAmount(), 0.28, 1.0, 0.42, 9.0, 0.09, vec2(1.0), 1.0, false);
+    // Cumulus (M5): one layer of soft puffy clouds with flat bottoms; the high sheet only
+    // forms in rain.
+    const int CLOUD_LAYERS = 2;
+    CloudLayer PresetLayer(int i) {
+        if (i == 0) return MakeLayer(float(CLOUD_ALTITUDE), CLOUD_THICKNESS, 64.0, CloudAmount(), 0.28, 1.0, 0.42, 9.0, 0.09, vec2(1.0), 1.0, false);
+        CloudLayer l = OvercastLayer(1);
+        l.amount = 0.0;
+        return l;
     }
 #endif
+
+CloudLayer MixLayers(CloudLayer a, CloudLayer b, float t) {
+    CloudLayer l = a;
+    l.bottom = mix(a.bottom, b.bottom, t);
+    l.thickness = mix(a.thickness, b.thickness, t);
+    l.scale = mix(a.scale, b.scale, t);
+    l.amount = mix(a.amount, b.amount, t);
+    l.softness = mix(a.softness, b.softness, t);
+    l.dome = mix(a.dome, b.dome, t);
+    l.erosion = mix(a.erosion, b.erosion, t);
+    l.detailScale = mix(a.detailScale, b.detailScale, t);
+    l.density = mix(a.density, b.density, t);
+    l.stretch = mix(a.stretch, b.stretch, t);
+    l.wind = mix(a.wind, b.wind, t);
+    return l;
+}
+
+CloudLayer GetCloudLayer(int i) {
+    CloudLayer l = PresetLayer(i);
+    #ifdef RAIN_OVERCAST
+    #if CLOUD_PRESET != 3
+        if (stormRain > 0.001) l = MixLayers(l, OvercastLayer(i), stormRain);
+    #endif
+    #endif
+    // Thunderstorms: a lower, thicker, denser (darker underneath) deck.
+    if (i == 0) {
+        l.bottom -= 12.0 * stormThunder;
+        l.thickness *= 1.0 + 0.6 * stormThunder;
+        l.density *= 1.0 + 1.2 * stormThunder;
+        l.amount += 0.15 * stormThunder;
+    }
+    return l;
+}
 
 // ---- Density --------------------------------------------------------------------------
 
@@ -264,6 +305,8 @@ CloudSample MarchClouds(vec3 dir, vec3 sunDir, vec3 lightDir, float dither) {
 
     vec3 sunColor = SunLightColor(sunDir.y) * 1.25;
     vec3 ambient = SkyAmbientColor(sunDir.y) * 1.1;
+    // Lightning lights the clouds from inside.
+    ambient += LightningFlashColor() * 1.5;
     float VdotL = dot(dir, lightDir);
     float phase = mix(HG(VdotL, 0.55), HG(VdotL, -0.25), 0.3);
 

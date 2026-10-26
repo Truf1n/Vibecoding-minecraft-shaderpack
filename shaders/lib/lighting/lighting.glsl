@@ -60,6 +60,12 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
             vec3 directColor = vec3(0.42, 0.34, 0.55) * 0.5 * LightMultiplier(0.0);
             vec3 ambientColor = vec3(0.16, 0.12, 0.22) * 0.55 * LightMultiplier(0.0);
             float skyGate = 1.0;
+            // The End's sky flash lights everything facing it (E3).
+            float endFlash = EndFlash();
+            if (endFlash > 0.0) {
+                float facing = hasNormal ? saturate(dot(s.normal, EndFlashDir())) * 0.8 + 0.2 : 0.6;
+                light += vec3(0.75, 0.55, 1.00) * (endFlash * facing * 0.6);
+            }
         #else
             vec3 directColor = SunLightColor(sunDir.y);
             vec3 ambientColor = SkyAmbientColor(sunDir.y) * 0.85 * s.lm.y * s.lm.y;
@@ -83,6 +89,11 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
         sunLight = directColor * sunVis * skyGate * s.ao;
         light += directColor * diffuse * sunVis * skyGate;
         light += ambientColor * upFacing * AMBIENT_MULT;
+        #ifdef WORLD_OVERWORLD
+            // Lightning: the bolt's own light, and the flash of the whole sky.
+            light += LightningLight(s.playerPos, s.normal, s.lm.y);
+            light += LightningFlashColor() * (0.25 * s.lm.y * s.lm.y * upFacing);
+        #endif
 
         if (s.foliage) {
             // Light scattered through thin leaves/grass, strongest looking towards the sun.

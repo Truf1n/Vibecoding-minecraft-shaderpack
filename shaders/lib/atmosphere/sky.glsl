@@ -14,6 +14,7 @@ float DayFactor(float sunUp) { return smoothstep(-0.10, 0.20, sunUp); }
 float SunsetFactor(float sunUp) { return smoothstep(-0.18, 0.0, sunUp) * (1.0 - smoothstep(0.0, 0.35, sunUp)); }
 
 #include "/lib/atmosphere/colorMultipliers.glsl"
+#include "/lib/atmosphere/weather.glsl"
 
 void OverworldSkyColors(float sunUp, out vec3 zenith, out vec3 horizon) {
     float day = DayFactor(sunUp);
@@ -29,10 +30,18 @@ void OverworldSkyColors(float sunUp, out vec3 zenith, out vec3 horizon) {
     zenith = mix(zenith, vec3(0.10, 0.09, 0.24), sunset * 0.6);
     horizon = mix(horizon, vec3(0.80, 0.42, 0.20), sunset * 0.5);
 
-    // Rain: grey, darker, flatter.
+    // Rain: grey, darker, flatter; warmer and lighter or colder and heavier (Rain Style).
     float grey = Luminance(zenith) * 0.55 + Luminance(horizon) * 0.45;
-    zenith = mix(zenith, vec3(grey) * 0.55, rainStrength * 0.85);
-    horizon = mix(horizon, vec3(grey) * 0.65, rainStrength * 0.85);
+    #if RAIN_STYLE == 1
+        vec3 rainGrey = vec3(grey) * vec3(0.86, 0.95, 1.10) * 0.8;
+    #else
+        vec3 rainGrey = vec3(grey) * vec3(1.04, 1.00, 0.94);
+    #endif
+    zenith = mix(zenith, rainGrey * 0.55, rainStrength * 0.85);
+    horizon = mix(horizon, rainGrey * 0.65, rainStrength * 0.85);
+    // Thunderstorms: darker still.
+    zenith *= StormDim();
+    horizon *= StormDim();
 }
 
 // Light reaching shaded surfaces from the whole sky (no sun disc).
@@ -53,7 +62,7 @@ vec3 SunLightColor(float sunUp) {
     #ifdef MOON_PHASE_LIGHTING
         moon *= 0.35 + 0.65 * MoonFullness();
     #endif
-    return mix(moon, sun, day) * (1.0 - 0.8 * rainStrength) * LightMultiplier(sunUp);
+    return mix(moon, sun, day) * (1.0 - 0.8 * rainStrength) * StormDim() * LightMultiplier(sunUp);
 }
 
 float ValueNoise2(vec2 p) {
@@ -143,9 +152,12 @@ vec3 MoonDisc(vec3 dir, vec3 moonDir) {
     return vec3(0.75, 0.82, 0.95) * albedo * (lit * 1.6 + 0.02) * edge;
 }
 
+#include "/lib/atmosphere/skyEffects.glsl"
+
 // starFootprint < 0: no stars or sun/moon discs (used for fog). The discs are also left out
-// of reflections, where the specular glint stands in for them.
-vec3 OverworldSky(vec3 dir, vec3 sunDir, float starFootprint, bool discs) {
+// of reflections, where the specular glint stands in for them. effects: nebulae, aurora
+// and rainbows.
+vec3 OverworldSky(vec3 dir, vec3 sunDir, float starFootprint, bool discs, bool effects) {
     float sunUp = sunDir.y;
     vec3 zenith, horizon;
     OverworldSkyColors(sunUp, zenith, horizon);
@@ -170,6 +182,10 @@ vec3 OverworldSky(vec3 dir, vec3 sunDir, float starFootprint, bool discs) {
     // Below the horizon: fade towards a darker ground colour.
     sky = mix(sky, horizon * 0.35, smoothstep(0.0, -0.25, up));
     sky *= AtmosphereMultiplier(sunUp);
+    // Lightning lights up the whole sky for a moment.
+    sky += LightningFlashColor() * 0.35;
+
+    if (effects) sky += Nebulae(dir, sunDir) + Aurora(dir, sunDir) + Rainbow(dir, sunDir);
 
     // Stars and the sun/moon discs (left out of reflections, where they would sparkle).
     if (starFootprint >= 0.0) {
@@ -197,7 +213,11 @@ vec3 EndSky(vec3 dir, float starFootprint) {
     float horizon = pow(1.0 - abs(dir.y), 4.0);
     vec3 sky = mix(vec3(0.010, 0.006, 0.020), vec3(0.075, 0.040, 0.110), horizon);
     sky *= AtmosphereMultiplier(0.0);
-    if (starFootprint >= 0.0) sky += Stars(dir, vec3(1.0, 0.0, 0.0), 0.010, 0.9 * END_STAR_INTENSITY, starFootprint) * vec3(0.9, 0.8, 1.0);
+    if (starFootprint >= 0.0) {
+        sky += Stars(dir, vec3(1.0, 0.0, 0.0), 0.010, 0.9 * END_STAR_INTENSITY, starFootprint) * vec3(0.9, 0.8, 1.0);
+        sky += EndBeams(dir);
+    }
+    sky += EndFlashSky(dir);
     return sky;
 }
 
@@ -224,7 +244,7 @@ vec3 GetSky(vec3 dir, vec3 sunDir, float starFootprint) {
     #elif defined WORLD_END
         return EndSky(dir, starFootprint);
     #else
-        return OverworldSky(dir, sunDir, starFootprint, true);
+        return OverworldSky(dir, sunDir, starFootprint, true, starFootprint >= 0.0);
     #endif
 }
 
@@ -235,7 +255,19 @@ vec3 GetSkyReflection(vec3 dir, vec3 sunDir, float starFootprint) {
     #elif defined WORLD_END
         return EndSky(dir, starFootprint);
     #else
-        return OverworldSky(dir, sunDir, starFootprint, false);
+        return OverworldSky(dir, sunDir, starFootprint, false, SKY_EFFECT_REFLECTIONS >= 1);
+    #endif
+}
+
+// Sky as seen in a reflection on blocks (puddles, polished blocks, ice): sky effects only
+// with Sky Effects in Reflections set to water and blocks.
+vec3 GetBlockSkyReflection(vec3 dir, vec3 sunDir, float starFootprint) {
+    #if defined WORLD_NETHER
+        return NetherSky();
+    #elif defined WORLD_END
+        return EndSky(dir, starFootprint);
+    #else
+        return OverworldSky(dir, sunDir, starFootprint, false, SKY_EFFECT_REFLECTIONS == 2);
     #endif
 }
 

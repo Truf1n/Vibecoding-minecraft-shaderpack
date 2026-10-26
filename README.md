@@ -8,7 +8,7 @@ choose **OpenGL**; Iris does not run on the Vulkan renderer.
 
 ## Status
 
-Milestone **M8 (post)** on top of M7 (materials), M6 (coloured lighting), M5 (clouds
+Milestone **M9 (night and weather extras)** on top of M8 (post), M7 (materials), M6 (coloured lighting), M5 (clouds
 and light shafts), M4 (temporal), M3 (water), M2 (atmosphere) and M1 (core lighting):
 
 - Deferred pipeline; shadow-mapped sun/moon with coloured shadows and leaf translucency;
@@ -45,7 +45,15 @@ and light shafts), M4 (temporal), M3 (water), M2 (atmosphere) and M1 (core light
   matrix and curves, light and sky colour multipliers per condition, vignette,
   chromatic aberration, FXAA, contrast-adaptive sharpening.
 
-Not yet: night/weather extras (M9) (see docs/PLAN.md).
+- Weather: clouds turn overcast in rain and darker in thunderstorms, lightning lights up
+  its surroundings, the clouds and the sky; rain styles, slanted rain and snow,
+  snowstorms and sandstorms, puddles reflecting the sky, wet surfaces, raindrop ripples
+  on puddles and water.
+- Sky extras: nightly nebulae, aurora (curtains or bands, with conditions), rainbows,
+  End beams and End flashes.
+- Waving plants, leaves, vines and lily pads (shadows included), flowing lava, hand sway.
+
+Not yet: tuning, profiles and the v1 release (M10) (see docs/PLAN.md).
 
 ## Install / test
 

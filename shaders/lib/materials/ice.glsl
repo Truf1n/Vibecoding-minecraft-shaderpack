@@ -8,7 +8,7 @@ TranslucentSurface ShadeIce(vec4 albedo, vec3 playerPos, vec3 normal, Surface su
     float fresnel = saturate((0.06 + 0.94 * pow(1.0 - NdotV, 5.0)) * ICE_REFLECTIVITY);
 
     vec3 R = reflect(-V, normal);
-    vec3 reflection = GetSkyReflection(normalize(vec3(R.x, abs(R.y), R.z)), sunDir, -1.0) * surf.lm.y * surf.lm.y;
+    vec3 reflection = GetBlockSkyReflection(normalize(vec3(R.x, abs(R.y), R.z)), sunDir, -1.0) * surf.lm.y * surf.lm.y;
     #if WATER_REFLECTIONS == 1
         if (fresnel > 0.02) {
             vec2 uv = gl_FragCoord.xy / vec2(viewWidth, viewHeight);

@@ -5,6 +5,10 @@
 #include "/lib/common.glsl"
 #include "/lib/materials/blockIds.glsl"
 #include "/lib/util/jitter.glsl"
+#include "/lib/util/encoding.glsl"
+#ifdef PROG_GBUFFERS_TERRAIN
+    #include "/lib/materials/waving.glsl"
+#endif
 
 #ifdef VERTEX_SHADER
 
@@ -45,14 +49,25 @@ void main() {
         blockId = 0;
     #endif
 
-    gl_Position = ApplyTAAJitter(ftransform());
+    #if defined PROG_GBUFFERS_TERRAIN
+        vec3 wave = WavingOffset(blockId, playerPos + cameraPosition, texCoord.y < mc_midTexCoord.y, RemapLightmap(lmCoord).y);
+        playerPos += wave;
+        gl_Position = ApplyTAAJitter(gl_ProjectionMatrix * (gbufferModelView * vec4(playerPos, 1.0)));
+    #elif defined PROG_GBUFFERS_HAND && HAND_SWAY > 0
+        // Hand sway: the held item drifts gently, as if breathing.
+        const float swayAmounts[4] = float[4](0.0, 0.006, 0.012, 0.024);
+        float t = frameTimeCounter;
+        vec3 sway = vec3(sin(t * 0.83) * 1.0 + sin(t * 1.9) * 0.25, sin(t * 1.21) * 0.7 + sin(t * 2.6) * 0.15, 0.0) * swayAmounts[HAND_SWAY];
+        gl_Position = ApplyTAAJitter(gl_ProjectionMatrix * (gl_ModelViewMatrix * gl_Vertex + vec4(sway, 0.0)));
+    #else
+        gl_Position = ApplyTAAJitter(ftransform());
+    #endif
 }
 
 #endif
 
 #ifdef FRAGMENT_SHADER
 
-#include "/lib/util/encoding.glsl"
 #include "/lib/materials/terrainMaterial.glsl"
 
 uniform sampler2D gtexture;
@@ -86,7 +101,29 @@ layout(location = 1) out vec4 outNormalLight;
 layout(location = 2) out vec4 outMaterial;
 
 void main() {
-    vec4 tex = texture(gtexture, texCoord);
+    #ifdef WAVING_LAVA
+    #ifdef PROG_GBUFFERS_TERRAIN
+        #define LAVA_FLOW
+    #endif
+    #endif
+    #ifdef LAVA_FLOW
+        // Lava's surface slowly flows and churns (plan item V3): the texture is bent by a
+        // gentle swirl, wrapped inside its own sprite.
+        vec4 tex;
+        if (blockId == BLOCK_LIGHT_LAVA) {
+            vec2 size = spriteBounds.zw - spriteBounds.xy;
+            vec3 wp = playerPos + cameraPosition;
+            vec2 p = (abs(worldNormal.y) > 0.5 ? wp.xz : vec2(wp.x + wp.z, wp.y)) * 0.6;
+            float t = frameTimeCounter * 0.35 * WAVING_SPEED;
+            vec2 swirl = vec2(sin(p.y * 2.1 + t) + sin(p.x * 1.3 - t * 0.7), cos(p.x * 1.9 + t * 0.8) + sin(p.y * 1.1 + t * 0.6)) * 0.035;
+            vec2 local = fract((texCoord - spriteBounds.xy) / size + swirl);
+            tex = textureGrad(gtexture, spriteBounds.xy + local * size, dFdx(texCoord), dFdy(texCoord));
+        } else {
+            tex = texture(gtexture, texCoord);
+        }
+    #else
+        vec4 tex = texture(gtexture, texCoord);
+    #endif
 
     #ifdef PROG_GBUFFERS_TERRAIN
         // separateAo = true: vertex alpha carries vanilla AO, not transparency.

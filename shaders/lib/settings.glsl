@@ -189,6 +189,52 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define STAR_AMOUNT 2           //[0 1 2 3 4]
 #define MOON_PHASE_LIGHTING
 #define END_STAR_INTENSITY 1.00 //[0.00 0.25 0.50 0.75 1.00 1.50 2.00]
+// Night sky extras: procedural nebulae (0 = off), aurora (0 off, 1 curtains, 2 bands) and
+// when it shows (0 every night, 1 full moon, 2 snowy biomes, 3 full moon or snowy biomes).
+#define NEBULAE 0.60            //[0.00 0.20 0.40 0.60 0.80 1.00 1.50 2.00]
+#define AURORA 1                //[0 1 2]
+#define AURORA_CONDITION 3      //[0 1 2 3]
+// 0 off, 1 after rain, 2 always (with the sun low behind you)
+#define RAINBOWS 1              //[0 1 2]
+// Aurora, nebulae and rainbows in reflections: 0 off, 1 water, 2 water and blocks
+#define SKY_EFFECT_REFLECTIONS 1 //[0 1 2]
+// End: volumetric beams rising from the void, and the End's sky flashes.
+#define END_BEAMS
+#define END_BEAM_INTENSITY 1.00 //[0.25 0.50 0.75 1.00 1.50 2.00]
+#define END_FLASHES
+
+// ---- Weather ------------------------------------------------------------------
+// Rain turns the clouds into an overcast deck; thunderstorms darken the sky further.
+#define RAIN_OVERCAST
+#define STORM_DARKNESS 1.00     //[0.00 0.25 0.50 0.75 1.00 1.25 1.50]
+// Lightning lights up its surroundings and the clouds for a moment.
+#define LIGHTNING_FLASH 1.00    //[0.00 0.25 0.50 1.00 1.50 2.00 3.00]
+// 0 light & warmer, 1 heavy & colder
+#define RAIN_STYLE 0            //[0 1]
+#define WEATHER_OPACITY 0.60    //[0.20 0.30 0.40 0.50 0.60 0.70 0.80 1.00]
+// Snowstorms in snowy biomes and sandstorms in deserts and badlands while it rains.
+#define WEATHER_STORMS
+// 0 off, 1 puddles in rain, 2 full coverage in rain, 3 puddles always
+#define PUDDLES 1               //[0 1 2 3]
+// Exposed surfaces darken and get glossier in rain.
+#define WET_SURFACES
+// Raindrop ripples on puddles and water.
+#define RAIN_RIPPLES
+
+// ---- Waving -------------------------------------------------------------------
+#define WAVING_PLANTS
+#define WAVING_LEAVES
+#define WAVING_LAVA
+#define WAVING_LILY_PADS
+#define WAVING_WEATHER
+#define WAVING_SPEED 1.00       //[0.25 0.50 0.75 1.00 1.25 1.50 2.00]
+#define WAVING_INTENSITY 1.00   //[0.25 0.50 0.75 1.00 1.25 1.50 2.00]
+// Rain makes plants wave this much more.
+#define WAVING_RAIN 1.50        //[1.00 1.25 1.50 2.00 2.50 3.00]
+// Plants under a roof (no sky light) stay still.
+#define NO_WAVING_INDOORS
+// Hand sway: 0 off, 1 subtle, 2 normal, 3 intense
+#define HAND_SWAY 1             //[0 1 2 3]
 
 // ---- Clouds -----------------------------------------------------------------
 // 0 off, 1 Unbound-style volumetric, 2 vanilla

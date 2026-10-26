@@ -36,6 +36,10 @@ const vec4 colortex4ClearColor = vec4(0.0, 0.0, 0.0, 0.0);
 const vec4 colortex5ClearColor = vec4(1.0, 1.0, 1.0, 1.0);
 const vec4 colortex6ClearColor = vec4(0.0, 0.0, 0.0, 0.0);
 
+// The wetness uniform (puddles, wet surfaces): wets over ~30 s of rain, dries over ~90 s.
+const float wetnessHalflife = 30.0;
+const float drynessHalflife = 90.0;
+
 // Vanilla AO is passed through vertex colour alpha (separateAo = true) at full strength;
 // the pack scales it with VANILLA_AO_I.
 const float ambientOcclusionLevel = 1.0;

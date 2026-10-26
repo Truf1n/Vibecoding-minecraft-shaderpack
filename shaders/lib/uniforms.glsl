@@ -25,6 +25,13 @@ uniform float sunAngle;       // 0 sunrise, 0.25 noon, 0.5 sunset, 0.75 midnight
 
 // World state
 uniform float rainStrength;
+uniform float wetness;        // rain strength smoothed: rises over ~30 s, dries over ~90 s
+uniform float thunderStrength;
+uniform float stormRain, stormThunder; // custom (shaders.properties): slowly smoothed rain / thunder
+uniform float inSnowyBiome, inSandyBiome; // custom, 0..1
+uniform vec4 lightningBoltPosition; // camera-relative position of a lightning bolt; w = 1 while one exists
+uniform float endFlashIntensity;
+uniform vec3 endFlashPosition; // view space
 uniform vec3 skyColor;
 uniform vec3 fogColor;
 uniform int isEyeInWater;     // 0 air, 1 water, 2 lava, 3 powder snow
