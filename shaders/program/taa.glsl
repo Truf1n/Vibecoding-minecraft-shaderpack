@@ -58,11 +58,11 @@ vec3 SampleHistory(vec2 uv) {
     vec2 tc3 = (center + 2.0) / size;
     vec2 tc12 = (center + w2 / w12) / size;
 
-    vec3 result = texture(colortex8, vec2(tc12.x, tc0.y)).rgb * (w12.x * w0.y)
-                + texture(colortex8, vec2(tc0.x, tc12.y)).rgb * (w0.x * w12.y)
-                + texture(colortex8, tc12).rgb * (w12.x * w12.y)
-                + texture(colortex8, vec2(tc3.x, tc12.y)).rgb * (w3.x * w12.y)
-                + texture(colortex8, vec2(tc12.x, tc3.y)).rgb * (w12.x * w3.y);
+    vec3 result = textureLod(colortex8, vec2(tc12.x, tc0.y), 0.0).rgb * (w12.x * w0.y)
+                + textureLod(colortex8, vec2(tc0.x, tc12.y), 0.0).rgb * (w0.x * w12.y)
+                + textureLod(colortex8, tc12, 0.0).rgb * (w12.x * w12.y)
+                + textureLod(colortex8, vec2(tc3.x, tc12.y), 0.0).rgb * (w3.x * w12.y)
+                + textureLod(colortex8, vec2(tc12.x, tc3.y), 0.0).rgb * (w12.x * w3.y);
     float weight = w12.x * w0.y + w0.x * w12.y + w12.x * w12.y + w3.x * w12.y + w12.x * w3.y;
     return max(result / weight, 0.0);
 }

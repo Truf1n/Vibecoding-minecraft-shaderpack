@@ -59,6 +59,8 @@ PROGRAMS = {
     "composite1":           ("lightShafts", ["LS_MARCH"]),  # half size (scale.composite1)
     "composite2":           ("lightShafts", ["LS_APPLY"]),
     "composite3":           ("taa", []),
+    "composite4":           ("bloom", []),             # half size (size.buffer.colortex13)
+    "composite5":           ("post", []),              # tonemap, grading -> colortex14
     "final":                ("final", []),
 }
 

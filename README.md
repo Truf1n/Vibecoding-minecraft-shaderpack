@@ -8,8 +8,8 @@ choose **OpenGL**; Iris does not run on the Vulkan renderer.
 
 ## Status
 
-Milestone **M7 (materials)** on top of M6 (coloured lighting), M5 (clouds and light
-shafts), M4 (temporal), M3 (water), M2 (atmosphere) and M1 (core lighting):
+Milestone **M8 (post)** on top of M7 (materials), M6 (coloured lighting), M5 (clouds
+and light shafts), M4 (temporal), M3 (water), M2 (atmosphere) and M1 (core lighting):
 
 - Deferred pipeline; shadow-mapped sun/moon with coloured shadows and leaf translucency;
   sky-matched ambient, blocklight, handheld light; filmic tonemap.
@@ -40,7 +40,12 @@ shafts), M4 (temporal), M3 (water), M2 (atmosphere) and M1 (core lighting):
   generated normals and coated textures, glowing ores (per type), amethyst, lichen,
   armour trims, lava particles, animated portals.
 
-Not yet: bloom and post (M8), night/weather extras (M9) (see docs/PLAN.md).
+- Post: bloom from six blurred mip tiles (with "bloom fog" in rain, caves, under water
+  and the Nether), filmic tonemap, vibrance and dark desaturation, colour grading
+  matrix and curves, light and sky colour multipliers per condition, vignette,
+  chromatic aberration, FXAA, contrast-adaptive sharpening.
+
+Not yet: night/weather extras (M9) (see docs/PLAN.md).
 
 ## Install / test
 
@@ -87,8 +92,10 @@ docs/PLAN.md           research, feature list (IDs), milestones
 | Particles, weather | `gbuffers_textured/weather` | colortex0 (forward-lit, blended) |
 | Composite | `composite` | colortex0 × colortex5 + colortex6, underwater distortion |
 | Light shafts | `composite1` (half size), `composite2` (Overworld) | march → colortex11; depth-aware upsample added to colortex0 |
-| TAA | `composite3` | history colortex8 (final reads it from there) |
-| Output | `final` | reads colortex8 (TAA on) or colortex0; tonemap, sharpening, sRGB, dither, debug views |
+| TAA | `composite3` | history colortex8 (the bloom and post passes read it from there) |
+| Bloom | `composite4` (half size) | six blurred mip levels of the scene → colortex13 tiles |
+| Post | `composite5` | chromatic aberration, bloom, tonemap, colour balance/grading, vignette → colortex14 (sRGB) |
+| Output | `final` | FXAA, sharpening, dither, debug views |
 
 ## Licence
 

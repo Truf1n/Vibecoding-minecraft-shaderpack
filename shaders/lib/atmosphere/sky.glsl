@@ -13,6 +13,8 @@ float DayFactor(float sunUp) { return smoothstep(-0.10, 0.20, sunUp); }
 // Peaks while the sun is near the horizon.
 float SunsetFactor(float sunUp) { return smoothstep(-0.18, 0.0, sunUp) * (1.0 - smoothstep(0.0, 0.35, sunUp)); }
 
+#include "/lib/atmosphere/colorMultipliers.glsl"
+
 void OverworldSkyColors(float sunUp, out vec3 zenith, out vec3 horizon) {
     float day = DayFactor(sunUp);
     float sunset = SunsetFactor(sunUp);
@@ -37,7 +39,7 @@ void OverworldSkyColors(float sunUp, out vec3 zenith, out vec3 horizon) {
 vec3 SkyAmbientColor(float sunUp) {
     vec3 zenith, horizon;
     OverworldSkyColors(sunUp, zenith, horizon);
-    return mix(horizon, zenith, 0.55);
+    return mix(horizon, zenith, 0.55) * LightMultiplier(sunUp);
 }
 
 // 1 at full moon, 0 at new moon.
@@ -51,7 +53,7 @@ vec3 SunLightColor(float sunUp) {
     #ifdef MOON_PHASE_LIGHTING
         moon *= 0.35 + 0.65 * MoonFullness();
     #endif
-    return mix(moon, sun, day) * (1.0 - 0.8 * rainStrength);
+    return mix(moon, sun, day) * (1.0 - 0.8 * rainStrength) * LightMultiplier(sunUp);
 }
 
 float ValueNoise2(vec2 p) {
@@ -167,6 +169,7 @@ vec3 OverworldSky(vec3 dir, vec3 sunDir, float starFootprint, bool discs) {
 
     // Below the horizon: fade towards a darker ground colour.
     sky = mix(sky, horizon * 0.35, smoothstep(0.0, -0.25, up));
+    sky *= AtmosphereMultiplier(sunUp);
 
     // Stars and the sun/moon discs (left out of reflections, where they would sparkle).
     if (starFootprint >= 0.0) {
@@ -193,6 +196,7 @@ vec3 OverworldSky(vec3 dir, vec3 sunDir, float starFootprint, bool discs) {
 vec3 EndSky(vec3 dir, float starFootprint) {
     float horizon = pow(1.0 - abs(dir.y), 4.0);
     vec3 sky = mix(vec3(0.010, 0.006, 0.020), vec3(0.075, 0.040, 0.110), horizon);
+    sky *= AtmosphereMultiplier(0.0);
     if (starFootprint >= 0.0) sky += Stars(dir, vec3(1.0, 0.0, 0.0), 0.010, 0.9 * END_STAR_INTENSITY, starFootprint) * vec3(0.9, 0.8, 1.0);
     return sky;
 }
@@ -206,7 +210,7 @@ vec3 NetherSky() {
            + vec3(0.060, 0.052, 0.058) * inBasaltDeltas
            + vec3(0.022, 0.048, 0.058) * inSoulValley;
     float w = inNetherWastes + inCrimsonForest + inWarpedForest + inBasaltDeltas + inSoulValley;
-    return w > 0.01 ? c / w : vec3(0.110, 0.028, 0.012);
+    return (w > 0.01 ? c / w : vec3(0.110, 0.028, 0.012)) * AtmosphereMultiplier(0.0);
 }
 
 // Angular size of one screen pixel (radians), for star prefiltering.

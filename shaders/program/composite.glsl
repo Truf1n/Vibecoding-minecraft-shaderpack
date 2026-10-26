@@ -43,7 +43,7 @@ void main() {
         }
     #endif
 
-    vec3 color = texture(colortex0, uv).rgb;
+    vec3 color = textureLod(colortex0, uv, 0.0).rgb;
     color = color * texelFetch(colortex5, pixel, 0).rgb + texelFetch(colortex6, pixel, 0).rgb;
 
     #ifdef VOLUMETRIC_CLOUDS

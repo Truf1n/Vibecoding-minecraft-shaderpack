@@ -54,11 +54,11 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
         // Biome-tinted ambient (crimson, warped, ...), from the same colours as the Nether fog.
         vec3 biomeTint = NetherSky();
         biomeTint /= max(max(biomeTint.r, max(biomeTint.g, biomeTint.b)), 0.01);
-        light += mix(vec3(0.30, 0.13, 0.07), vec3(0.30, 0.13, 0.07) * 0.5 + biomeTint * 0.15, 0.6) * 0.55 * AMBIENT_MULT;
+        light += mix(vec3(0.30, 0.13, 0.07), vec3(0.30, 0.13, 0.07) * 0.5 + biomeTint * 0.15, 0.6) * 0.55 * AMBIENT_MULT * LightMultiplier(0.0);
     #else
         #ifdef WORLD_END
-            vec3 directColor = vec3(0.42, 0.34, 0.55) * 0.5;
-            vec3 ambientColor = vec3(0.16, 0.12, 0.22) * 0.55;
+            vec3 directColor = vec3(0.42, 0.34, 0.55) * 0.5 * LightMultiplier(0.0);
+            vec3 ambientColor = vec3(0.16, 0.12, 0.22) * 0.55 * LightMultiplier(0.0);
             float skyGate = 1.0;
         #else
             vec3 directColor = SunLightColor(sunDir.y);
