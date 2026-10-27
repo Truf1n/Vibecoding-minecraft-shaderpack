@@ -86,7 +86,7 @@ void main() {
     vec3 normal = DecodeNormal(normalLight.xy);
     vec3 viewPos = ScreenToView(uv, depth);
     vec3 playerPos = ViewToPlayer(viewPos);
-    vec3 V = -normalize(playerPos);
+    vec3 V = -EyeDir(playerPos);
 
     // Rough surfaces: a different microfacet every frame (blurry reflections after TAA).
     float roughness = RoughnessFromSmoothness(material.b);
@@ -153,7 +153,7 @@ void main() {
 
         vec3 albedo = SrgbToLinear(texelFetch(colortex1, pixel, 0).rgb);
         vec3 normal = DecodeNormal(texelFetch(colortex2, pixel, 0).xy);
-        vec3 V = -normalize(ViewToPlayer(ScreenToView(gl_FragCoord.xy / vec2(viewWidth, viewHeight), depth)));
+        vec3 V = -EyeDir(ViewToPlayer(ScreenToView(gl_FragCoord.xy / vec2(viewWidth, viewHeight), depth)));
         float roughness = RoughnessFromSmoothness(material.b);
         vec3 F = FresnelRoughness(dot(normal, V), SpecularF0(albedo, material.a), roughness);
         color += reflection * F * smoothstep(REFL_MIN_SMOOTHNESS, REFL_MIN_SMOOTHNESS + 0.2, material.b);

@@ -87,21 +87,22 @@ vec3 ApplyFog(vec3 color, vec3 playerPos, vec3 sunDir, bool isSky) {
     }
 
     #if defined WORLD_OVERWORLD && defined WEATHER_STORMS
-        // Snowstorms and sandstorms: thick air that swallows distant terrain and the sky
-        // alike (applied last, so nothing behind it shows through darker), lit by the
-        // daylight, drifting in denser and thinner patches.
-        float snowStorm = SnowStorm(), sandStorm = SandStorm();
-        if (snowStorm + sandStorm > 0.001) {
-            float light = 0.12 + 0.88 * DayFactor(sunDir.y);
-            vec3 stormColor = (vec3(0.70, 0.76, 0.85) * snowStorm + vec3(0.85, 0.60, 0.36) * sandStorm) / (snowStorm + sandStorm);
-            stormColor *= light * StormDim() * (1.0 - 0.75 * caveFactor) * AtmosphereMultiplier(sunDir.y);
-            float stormDist = isSky ? 1e4 : dist;
-            vec3 probe = cameraPosition + dir * min(stormDist, 24.0);
-            vec2 drift = vec2(1.0, 0.4) * frameTimeCounter * (snowStorm * 3.0 + sandStorm * 6.0);
-            float patches = 0.7 + 0.6 * SmoothNoise((probe.xz + drift) * 0.06 + probe.y * 0.03);
-            float density = 0.045 * patches;
-            float amount = (1.0 - exp(-stormDist * density)) * max(snowStorm, sandStorm);
-            color = mix(color, stormColor, amount);
+        // Snowstorms and sandstorms: thick air you cannot see far through - at full
+        // strength, terrain is gone into the storm's colour by about 60-80 blocks. The
+        // sky is already the storm's colour (sky.glsl); this also covers what is drawn over
+        // it (the clouds). Drifts in denser and thinner patches.
+        float storm = StormAmount();
+        if (storm > 0.001) {
+            vec3 stormColor = StormColor(sunDir.y);
+            if (isSky) {
+                color = mix(color, stormColor, smoothstep(0.0, 0.6, storm));
+            } else {
+                vec3 probe = cameraPosition + dir * min(dist, 24.0);
+                vec2 drift = vec2(1.0, 0.4) * frameTimeCounter * (SnowStorm() * 3.0 + SandStorm() * 6.0);
+                float patches = 0.75 + 0.5 * SmoothNoise((probe.xz + drift) * 0.06 + probe.y * 0.03);
+                float density = 0.06 * storm * patches;
+                color = mix(color, stormColor, 1.0 - exp(-dist * density));
+            }
         }
     #endif
 

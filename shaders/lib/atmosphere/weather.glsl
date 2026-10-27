@@ -62,6 +62,17 @@ float SandStorm() {
     #endif
 }
 
+// Strength of a snowstorm or sandstorm here (0 outside one).
+float StormAmount() { return max(SnowStorm(), SandStorm()); }
+
+// Colour of the storm's air: bright snow-white or sandy by day, dark at night.
+vec3 StormColor(float sunUp) {
+    float snow = SnowStorm(), sand = SandStorm();
+    vec3 color = (vec3(0.70, 0.76, 0.85) * snow + vec3(0.85, 0.60, 0.36) * sand) / max(snow + sand, 1e-4);
+    float light = 0.04 + 0.96 * DayFactor(sunUp);
+    return color * light * StormDim() * (1.0 - 0.75 * caveFactor) * AtmosphereMultiplier(sunUp);
+}
+
 // ---- Rain on surfaces ------------------------------------------------------------------
 
 // Rain falls here at all: under the open sky, not in snowy or dry biomes.

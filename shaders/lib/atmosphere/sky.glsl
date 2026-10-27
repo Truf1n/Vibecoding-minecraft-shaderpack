@@ -183,6 +183,10 @@ vec3 OverworldSky(vec3 dir, vec3 sunDir, float starFootprint, bool discs, bool e
     // Below the horizon: fade towards a darker ground colour.
     sky = mix(sky, horizon * 0.35, smoothstep(0.0, -0.25, up));
     sky *= AtmosphereMultiplier(sunUp);
+    // Snowstorms and sandstorms: the sky disappears into the storm (so does everything that
+    // takes its colour from the sky: the haze, reflections).
+    float storm = StormAmount();
+    if (storm > 0.0) sky = mix(sky, StormColor(sunUp), smoothstep(0.0, 0.6, storm));
     // Lightning lights up the whole sky for a moment.
     sky += LightningFlashColor() * 0.35;
 

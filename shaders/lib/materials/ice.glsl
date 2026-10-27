@@ -2,7 +2,7 @@
 // (screen-space, sky fallback). Needs: ssr.glsl, sky.glsl, lighting.glsl, translucent.glsl.
 
 TranslucentSurface ShadeIce(vec4 albedo, vec3 playerPos, vec3 normal, Surface surf, vec3 sunDir, vec3 lightDir) {
-    vec3 V = -normalize(playerPos);
+    vec3 V = -EyeDir(playerPos);
     float NdotV = saturate(abs(dot(normal, V)));
     // A bit more reflective than physical ice (F0 0.018) for the stylised glassy look.
     float fresnel = saturate((0.06 + 0.94 * pow(1.0 - NdotV, 5.0)) * ICE_REFLECTIVITY);

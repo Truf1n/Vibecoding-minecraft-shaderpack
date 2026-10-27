@@ -212,9 +212,6 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 // 0 light & warmer, 1 heavy & colder
 #define RAIN_STYLE 0            //[0 1]
 #define WEATHER_OPACITY 0.60    //[0.20 0.30 0.40 0.50 0.60 0.70 0.80 1.00]
-// Rain drawn by the pack: thin falling streaks that also show behind glass (instead of
-// the vanilla rain texture).
-#define REALISTIC_RAIN
 // Snowstorms in snowy biomes and sandstorms in deserts and badlands while it rains.
 #define WEATHER_STORMS
 // 0 off, 1 puddles in rain, 2 full coverage in rain, 3 puddles always

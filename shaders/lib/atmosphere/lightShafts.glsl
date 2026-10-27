@@ -55,8 +55,10 @@ vec3 ShaftVisibility(vec3 playerPos, vec3 lightDir) {
 
 // Light scattered towards the camera along the ray to a point (player space).
 vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float dither) {
-    float endDist = sky ? 1e9 : length(endPos);
-    vec3 dir = endPos / max(length(endPos), 1e-4);
+    // Marched from the eye (view bobbing moves it off the origin, see EyePlayerPos).
+    vec3 eye = EyePlayerPos();
+    float endDist = sky ? 1e9 : length(endPos - eye);
+    vec3 dir = normalize(endPos - eye);
     float VdotL = dot(dir, lightDir);
 
     if (isEyeInWater == 1) {
@@ -67,7 +69,7 @@ vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float d
         vec3 sum = vec3(0.0);
         for (int i = 0; i < VL_STEPS; i++) {
             float t = (float(i) + dither) * stepLen;
-            vec3 p = dir * t;
+            vec3 p = eye + dir * t;
             vec3 clip = (shadowProjection * vec4((shadowModelView * vec4(p, 1.0)).xyz, 1.0)).xyz;
             if (length(clip.xy) > 0.98) continue;
             vec3 coord = DistortShadowClip(clip) * 0.5 + 0.5;
@@ -89,7 +91,7 @@ vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float d
     vec3 sum = vec3(0.0);
     for (int i = 0; i < VL_STEPS; i++) {
         float t = (float(i) + dither) * stepLen;
-        vec3 p = dir * t;
+        vec3 p = eye + dir * t;
         // Haze is thicker low down: densest around sea level, thinning with height.
         float y = p.y + cameraPosition.y;
         float density = exp(-max(y - 63.0, 0.0) / 60.0) * (1.0 + rainStrength);

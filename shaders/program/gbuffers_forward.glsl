@@ -155,6 +155,9 @@ uniform sampler2D gtexture;
     #define TRANSLUCENT_OIT
     #include "/lib/materials/translucent.glsl"
 #endif
+#ifdef PROG_GBUFFERS_WEATHER
+    uniform sampler2D depthtex1; // opaque depth (copied before the translucent pass)
+#endif
 #if FORWARD_ORDER_SAFE == 1 && defined PROG_GBUFFERS_TEXTURED
     // Also write the "keep" shading model, so this survives if Iris draws it before deferred.
     #define ORDER_SAFE_LAYER
@@ -194,6 +197,14 @@ flat in vec3 lightDir;
 #endif
 
 void main() {
+    #ifdef PROG_GBUFFERS_WEATHER
+        // Rain and snow behind glass: Minecraft draws the weather after the translucent
+        // blocks, so the depth test against the glass would hide it. Test against the
+        // opaque scene by hand instead, and pass the hardware test by claiming to be in
+        // front of everything (the weather is drawn last and does not write depth).
+        if (gl_FragCoord.z >= texelFetch(depthtex1, ivec2(gl_FragCoord.xy), 0).r) discard;
+        gl_FragDepth = 0.0;
+    #endif
     #if defined FWD_SKY
         discard; // sky, sunset fan, stars and void are drawn by deferred.glsl
 
@@ -316,12 +327,12 @@ void main() {
                     if (isEyeInWater == 1) {
                         // As the underwater fog, and only inside Snell's window: outside it the
                         // surface mirrors the water below instead (critical angle ~48.6 degrees).
-                        float upward = normalize(playerPos).y;
+                        float upward = EyeDir(playerPos).y;
                         transmit = vec3(exp(-length(playerPos) * 0.06) * smoothstep(0.60, 0.72, upward));
                     } else {
                         // Fades as fast as the water hides the ground behind it (the water's
                         // brightness transmittance, see ShadeWater).
-                        float viewDown = max(-normalize(playerPos).y, 0.05);
+                        float viewDown = max(-EyeDir(playerPos).y, 0.05);
                         vec3 waterT = exp(-(surfaceY - inside.y) / viewDown * WaterAbsorption());
                         transmit = vec3(Luminance(waterT));
                     }
@@ -349,11 +360,6 @@ void main() {
                 // Rain and snow: see-through streaks, lit like the air around them (cooler
                 // and heavier or warmer and lighter by Rain Style); snow stays bright.
                 bool snow = albedo.b > 0.0 && abs(albedo.r - albedo.b) < 0.08 && Luminance(albedo.rgb) > 0.6;
-                #ifdef REALISTIC_RAIN
-                #ifdef WORLD_OVERWORLD
-                    if (!snow) discard; // the pack draws its own rain (composite, rain.glsl)
-                #endif
-                #endif
                 #if RAIN_STYLE == 1
                     if (!snow) color *= vec3(0.80, 0.92, 1.10);
                     albedo.a *= WEATHER_OPACITY * 1.25;

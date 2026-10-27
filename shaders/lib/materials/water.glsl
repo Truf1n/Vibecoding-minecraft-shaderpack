@@ -80,7 +80,7 @@ int UnderBlockState(vec3 worldPos) {
 TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, vec3 geoNormal, Surface surf, vec3 sunDir, vec3 lightDir) {
     vec3 worldPos = playerPos + cameraPosition;
     float dist = length(playerPos);
-    vec3 V = -playerPos / max(dist, 1e-4);
+    vec3 V = -EyeDir(playerPos);
     vec2 uv = gl_FragCoord.xy / vec2(viewWidth, viewHeight);
     vec3 viewPos = ScreenToView(uv, gl_FragCoord.z);
     float surfaceDist = length(viewPos);

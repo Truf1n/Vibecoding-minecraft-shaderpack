@@ -46,7 +46,8 @@ and light shafts), M4 (temporal), M3 (water), M2 (atmosphere) and M1 (core light
   chromatic aberration, FXAA, contrast-adaptive sharpening.
 
 - Weather: clouds turn overcast in rain and darker in thunderstorms, lightning lights up
-  its surroundings, the clouds and the sky; rain styles, slanted rain and snow,
+  its surroundings, the clouds and the sky; rain styles, slanted rain and snow (also
+  visible behind glass),
   snowstorms and sandstorms, puddles reflecting the sky, wet surfaces, raindrop ripples
   on puddles and water.
 - Sky extras: nightly nebulae, aurora (curtains or bands, with conditions), rainbows,

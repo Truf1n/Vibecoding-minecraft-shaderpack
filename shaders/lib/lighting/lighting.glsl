@@ -97,7 +97,7 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
 
         if (s.foliage) {
             // Light scattered through thin leaves/grass, strongest looking towards the sun.
-            vec3 viewDir = normalize(s.playerPos);
+            vec3 viewDir = EyeDir(s.playerPos);
             float phase = 0.25 + 1.75 * pow(saturate(dot(viewDir, lightDir)), 6.0);
             float transmit = exp(-thickness * 1.5);
             light += directColor * transmit * phase * 0.6 * FOLIAGE_SSS * skyGate;

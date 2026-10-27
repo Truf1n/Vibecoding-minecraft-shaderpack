@@ -65,7 +65,7 @@ void main() {
 
     if (depth == 1.0) {
         // Sky: colortex0 holds only what vanilla drew on top (sun, moon), cleared to black.
-        vec3 dir = normalize(playerPos);
+        vec3 dir = EyeDir(playerPos);
         color += isEyeInWater == 1 ? GetSkyFromUnderwater(dir, sunDir) : GetSky(dir, sunDir, PixelAngle());
         #ifdef VOLUMETRIC_CLOUDS
             vec4 clouds = SampleClouds(texCoord);
@@ -121,7 +121,7 @@ void main() {
         // only a little diffuse light; what the surface reflects is added by the reflection
         // passes (deferred2/3), the sun/moon highlight here.
         float smoothness = material.b, metalness = material.a;
-        vec3 V = -normalize(playerPos);
+        vec3 V = -EyeDir(playerPos);
         float roughness = RoughnessFromSmoothness(smoothness);
         vec3 f0 = SpecularF0(albedo, metalness);
         vec3 F = FresnelRoughness(dot(normal, V), f0, roughness);

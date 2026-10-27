@@ -10,7 +10,7 @@ TranslucentSurface ShadeGlass(int blockId, vec4 texel, vec4 avgTexel, vec3 playe
     // Frame/streak pixels are noticeably more opaque than the glass on average.
     float frame = smoothstep(avgTexel.a + 0.04, avgTexel.a + 0.15, texel.a);
 
-    vec3 V = -normalize(playerPos);
+    vec3 V = -EyeDir(playerPos);
     float fresnel = 0.04 + 0.96 * pow(1.0 - saturate(abs(dot(normal, V))), 5.0);
     #ifdef DISTANT_GLASS_REFLECTIONS
         // Far-away glass reads as reflective windows rather than holes (X4).

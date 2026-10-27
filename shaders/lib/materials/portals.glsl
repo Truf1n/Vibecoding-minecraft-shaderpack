@@ -11,7 +11,7 @@ float PortalHash(vec2 p) {
 // Stars on several layers seen through the portal surface, deeper layers shifting less
 // as the view moves (parallax). playerPos: camera-relative position on the portal.
 vec3 EndPortalColor(vec3 playerPos) {
-    vec3 dir = normalize(playerPos);
+    vec3 dir = EyeDir(playerPos);
     vec3 worldPos = playerPos + cameraPosition;
     vec3 color = vec3(0.006, 0.012, 0.020);
     for (int i = 0; i < 6; i++) {
