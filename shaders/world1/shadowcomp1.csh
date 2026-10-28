@@ -5,4 +5,4 @@
 #define PROG_SHADOWCOMP1
 #define COMPUTE_SHADER
 
-#include "/program/ripples.glsl"
+#include "/program/rippleSources.glsl"

@@ -1,67 +1,73 @@
-// Interactive ripple simulation step (shadowcomp1, compute; see lib/materials/ripples.glsl).
-// Wave equation on a 256 x 256 grid of quarter-block cells around the player:
-//   h_new = (2 h - h_old + a * laplacian(h)) * damping
-// with the previous two steps kept in the r and g channels. Cells where the shadow pass saw
-// an entity touch the water are pushed down; cells whose spot just came into range (the
-// grid wraps around the world) start flat.
+// Interactive ripple simulation step (shadowcomp2, compute; see lib/materials/ripples.glsl).
+// Wave equation on two grids around the player (fine near, coarse far):
+//   h_new = (2 h - h_old + a * laplacian(h)) * damping - push * (occupied - occupied_before)
+// rgba: r height now, g height a step ago, b how much of the cell was occupied last frame.
+// Only a change of occupation pushes the water, so still entities make no waves. Cells whose
+// spot just came into range (the grids wrap around the world) start flat.
 
 #include "/lib/common.glsl"
 #include "/lib/materials/ripples.glsl"
-#include "/lib/materials/columnMaps.glsl"
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-const ivec3 workGroups = ivec3(16, 16, 1);
+const ivec3 workGroups = ivec3(16, 32, 1); // x: 256 cells; y: 256 per grid, two grids
 
 uniform vec3 previousCameraPosition;
 
-layout(rg16f) uniform image2D rippleImg;
-layout(r32ui) uniform readonly uimage2D rippleLowImg;
-layout(r32ui) uniform readonly uimage2D rippleHighImg;
+layout(rgba16f) uniform image2D rippleImg;
+layout(r32ui) uniform readonly uimage2D rippleHighImg; // 1 where an entity crosses the water (rippleSources)
 
 // World cell held by a texel, for a window centred on a camera position.
-ivec2 WindowCell(ivec2 texel, vec3 camera) {
-    ivec2 origin = RippleCellOf(camera.xz) - RIPPLE_SIZE / 2;
+ivec2 WindowCell(ivec2 texel, vec3 camera, float cellsPerBlock) {
+    ivec2 origin = RippleCellOf(camera.xz, cellsPerBlock) - RIPPLE_SIZE / 2;
     return origin + ivec2(mod(vec2(texel - origin), float(RIPPLE_SIZE)));
 }
 
 // The image starts out with whatever was in the memory: never let a bad value in.
-float Clean(float x) { return isnan(x) || isinf(x) ? 0.0 : clamp(x, -0.2, 0.2); }
+float Clean(float x) { return isnan(x) || isinf(x) ? 0.0 : clamp(x, -0.3, 0.3); }
+
+// How much of the area around a world point (radius ~0.2 block) entities occupy, 0..1.
+float Occupied(vec2 xz) {
+    ivec2 center = RippleCellOf(xz, RIPPLE_MASK_CELLS);
+    float sum = 0.0;
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            sum += float(imageLoad(rippleHighImg, RippleWrap(center + ivec2(x, y), RIPPLE_MASK_SIZE)).r);
+        }
+    }
+    return saturate(sum / 3.0);
+}
 
 void main() {
-    ivec2 texel = ivec2(gl_GlobalInvocationID.xy);
-    if (any(greaterThanEqual(texel, ivec2(RIPPLE_SIZE)))) return;
-    int readHalf = 1 - RippleCurrentHalf(), writeHalf = RippleCurrentHalf();
-    ivec2 readBase = ivec2(0, RIPPLE_SIZE * readHalf), writeBase = ivec2(0, RIPPLE_SIZE * writeHalf);
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    int grid = id.y / RIPPLE_SIZE;
+    ivec2 texel = ivec2(id.x, id.y % RIPPLE_SIZE);
+    float cellsPerBlock = RippleCellsPerBlock(grid);
+    ivec2 readBase = RippleBase(grid, 1 - RippleCurrentHalf()), writeBase = RippleBase(grid, RippleCurrentHalf());
 
     // This texel's spot moved into the window since last frame: start flat.
-    if (WindowCell(texel, cameraPosition) != WindowCell(texel, previousCameraPosition)) {
+    ivec2 cell = WindowCell(texel, cameraPosition, cellsPerBlock);
+    if (cell != WindowCell(texel, previousCameraPosition, cellsPerBlock)) {
         imageStore(rippleImg, texel + writeBase, vec4(0.0));
         return;
     }
 
-    vec2 here = imageLoad(rippleImg, texel + readBase).rg; // r: height now, g: height a step ago
-    here = vec2(Clean(here.r), Clean(here.g));
+    vec4 here = imageLoad(rippleImg, texel + readBase);
+    here = vec4(Clean(here.r), Clean(here.g), saturate(Clean(here.b)), 0.0);
     ivec2 size = ivec2(RIPPLE_SIZE);
-    float left = imageLoad(rippleImg, ((texel + ivec2(-1, 0)) + size) % size + readBase).r;
-    float right = imageLoad(rippleImg, ((texel + ivec2(1, 0)) + size) % size + readBase).r;
-    float down = imageLoad(rippleImg, ((texel + ivec2(0, -1)) + size) % size + readBase).r;
-    float up = imageLoad(rippleImg, ((texel + ivec2(0, 1)) + size) % size + readBase).r;
+    float neighbours = Clean(imageLoad(rippleImg, (texel + ivec2(-1, 0) + size) % size + readBase).r)
+                     + Clean(imageLoad(rippleImg, (texel + ivec2(1, 0) + size) % size + readBase).r)
+                     + Clean(imageLoad(rippleImg, (texel + ivec2(0, -1) + size) % size + readBase).r)
+                     + Clean(imageLoad(rippleImg, (texel + ivec2(0, 1) + size) % size + readBase).r);
 
     float dt = clamp(frameTime, 0.0, 0.05);
-    const float waveSpeed = 2.5; // blocks per second
-    float a = min(pow(waveSpeed * dt * RIPPLE_CELLS_PER_BLOCK, 2.0), 0.45);
-    float neighbours = Clean(left) + Clean(right) + Clean(down) + Clean(up);
-    float h = (2.0 * here.r - here.g + a * (neighbours - 4.0 * here.r)) * exp(-dt * 1.4);
+    const float waveSpeed = 2.2; // blocks per second
+    float a = min(pow(waveSpeed * dt * cellsPerBlock, 2.0), 0.45);
+    float h = (2.0 * here.r - here.g + a * (neighbours - 4.0 * here.r)) * exp(-dt * 0.8);
 
-    // An entity crossing the water surface here this frame: push the surface down.
-    uint high = imageLoad(rippleHighImg, texel).r;
-    if (high != 0u) {
-        float top = UnpackRippleHeight(high);
-        float bottom = UnpackRippleHeight(0xFFFFFFFFu - imageLoad(rippleLowImg, texel).r);
-        vec2 xz = (vec2(WindowCell(texel, cameraPosition)) + 0.5) / RIPPLE_CELLS_PER_BLOCK;
-        float surface = ColumnWaterSurface(vec3(xz.x, bottom - 1.0, xz.y));
-        if (surface > -1e5 && bottom < surface + 0.1 && top > surface - 0.3) h = mix(h, -0.06, 0.5);
-    }
+    // Something moving into (or out of) the water here: push the surface down (or let it
+    // spring back up).
+    float occupied = Occupied((vec2(cell) + 0.5) / cellsPerBlock);
+    h -= 0.08 * (occupied - here.b);
 
-    imageStore(rippleImg, texel + writeBase, vec4(Clean(h), here.r, 0.0, 0.0));
+    imageStore(rippleImg, texel + writeBase, vec4(Clean(h), here.r, occupied, 0.0));
 }

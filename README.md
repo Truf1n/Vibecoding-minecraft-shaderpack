@@ -89,7 +89,7 @@ docs/PLAN.md           research, feature list (IDs), milestones
 | Stage | Programs | Writes |
 |---|---|---|
 | Shadow map | `shadow` (in the Nether only for the voxels) | shadowtex0/1, shadowcolor0 (glass tint), shadowcolor1 (water mask), column bit maps (water, glass, block undersides near the player) |
-| Interactive ripples | `shadowcomp1` (compute, Overworld/End) | entity heights per quarter-block cell (from the shadow pass) vs the water surface → wave-equation step in rippleImg |
+| Interactive ripples | `shadowcomp1`, `shadowcomp2` (compute, Overworld/End) | entity heights per eighth-block cell (shadow pass) → "crosses the water" flags → wave-equation step on a fine near grid and a coarse far grid in rippleImg |
 | Coloured light | `shadowcomp` (compute) | floodfill of the voxel volume → floodImgA/B (alternating) |
 | Sun / moon | `gbuffers_skytextured` (vanilla sky disc and stars are discarded) | colortex0 |
 | Opaque geometry | `gbuffers_terrain/entities/block/hand` | G-buffer: colortex1 albedo+AO, colortex2 normal+lightmap, colortex3 shading model+emission+smoothness+metalness |

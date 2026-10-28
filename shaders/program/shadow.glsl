@@ -92,8 +92,8 @@ void main() {
         // quarter-block cell, for the ripple simulation to check against the water.
         if (renderStage == MC_RENDER_STAGE_ENTITIES) {
             vec3 wp = (shadowModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz + cameraPosition;
-            if (InRippleRange(wp.xz)) {
-                ivec2 texel = RippleTexel(RippleCellOf(wp.xz));
+            if (all(lessThan(abs(wp.xz - cameraPosition.xz), vec2(31.0)))) {
+                ivec2 texel = RippleWrap(RippleCellOf(wp.xz, RIPPLE_MASK_CELLS), RIPPLE_MASK_SIZE);
                 uint q = PackRippleHeight(wp.y);
                 imageAtomicMax(rippleHighImg, texel, q);
                 imageAtomicMax(rippleLowImg, texel, 0xFFFFFFFFu - q);

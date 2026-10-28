@@ -69,8 +69,9 @@ void main() {
     wsWindOffset.xy += dir * speed * dt;
     wsWindOffset.zw += Rotate(dir, -0.44) * (speed * 2.5 + 2.0) * dt;
     wsJet.xy += Rotate(dir, -0.7) * (speed * 2.0 + 8.0) * dt;
-    // Wave clock (seconds): each wave's speed comes from its length (waves.glsl).
-    wsJet.z += dt;
+    // Wave clock: each wave's speed comes from its length (waves.glsl); the clock itself
+    // runs faster in stronger wind (integrated, so a change of wind never makes waves jump).
+    wsJet.z += dt * (0.8 + 0.05 * speed);
 
     // ---- Air ---------------------------------------------------------------------------
     // Temperature in rough degrees: vanilla's biome temperature (snow below 0.15) cooled with
