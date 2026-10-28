@@ -73,6 +73,7 @@ option.FAR_SHADOWS=Far Shadows
 option.FAR_SHADOWS.comment=Shadows beyond the shadow distance from a coarse height map of the terrain: distant mountains shade each other, valleys go dark at sunset. Draws more of the world in the shadow pass (some CPU/GPU cost).
 option.FAR_SHADOW_RANGE=Far Shadow Range
 option.FAR_SHADOW_RANGE.comment=How far far shadows reach, in multiples of the shadow distance (never beyond the render distance, nor ~500 blocks). Higher costs more.
+value.FAR_SHADOW_RANGE.1.5=1.5x
 value.FAR_SHADOW_RANGE.2.0=2x
 value.FAR_SHADOW_RANGE.3.0=3x
 value.FAR_SHADOW_RANGE.4.0=4x

@@ -18,9 +18,11 @@
 #if defined CONTACT_SHADOW_PASS && !defined WORLD_NETHER
     // Contact shadows (W4, plan item Q9): a short trace towards the sun through the depth
     // buffer, for shadows smaller than a shadow-map texel - grass on the ground, small
-    // items, the gap where a mob stands on a block. Within ~24 blocks only. Every position
-    // is taken at the centre of the pixel whose depth is read (as for the AO), so flat
-    // ground never shadows itself.
+    // items, the gap where a mob stands on a block. Within ~24 blocks only. Only mobs,
+    // items and plants count as casters: blocks already cast exact-enough shadows into the
+    // shadow map, and a second, sharper copy of their edge beside it looks wrong. Every
+    // position is taken at the centre of the pixel whose depth is read (as for the AO), so
+    // flat ground never shadows itself.
     float ContactShadow(vec3 playerPos, vec3 normal, vec3 L) {
         float dist = length(playerPos);
         float fade = 1.0 - smoothstep(16.0, 24.0, dist);
@@ -28,7 +30,7 @@
         vec2 screen = vec2(viewWidth, viewHeight);
         float noise = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + float(frameCounter % 64) * 0.618034);
         const int STEPS = 10;
-        const float LENGTH = 0.4; // blocks
+        const float LENGTH = 0.35; // blocks
         vec3 start = mat3(gbufferModelView) * (playerPos + normal * (0.02 + dist * 0.002)) + gbufferModelView[3].xyz;
         vec3 dirV = mat3(gbufferModelView) * L;
         for (int i = 0; i < STEPS; i++) {
@@ -39,11 +41,13 @@
             if (any(lessThan(pixel, ivec2(0))) || any(greaterThanEqual(pixel, ivec2(screen)))) break;
             float depth = texelFetch(depthtex0, pixel, 0).r;
             if (depth < 0.56) continue; // the hand casts nothing
+            int caster = DecodeId(texelFetch(colortex3, pixel, 0).r);
+            if (caster != SM_ENTITY && caster != SM_FOLIAGE) continue;
             float sceneZ = ScreenToView((vec2(pixel) + 0.5) / screen, depth).z;
             float inFront = sceneZ - p.z; // > 0: the scene is nearer the camera than the ray
             // In front of the ray but not by much (thin things block; a wall far in front
             // of it says nothing about what is behind).
-            if (inFront > 0.02 + 0.003 * -p.z && inFront < 0.5) return 1.0 - fade;
+            if (inFront > 0.02 + 0.003 * -p.z && inFront < 0.35) return 1.0 - fade;
         }
         return 1.0;
     }

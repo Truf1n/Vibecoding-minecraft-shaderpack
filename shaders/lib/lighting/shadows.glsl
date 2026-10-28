@@ -90,6 +90,12 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
     // a lot. The taps lie on a spiral turned per pixel and per frame (TAA blends them).
     float noise = ShadowNoise();
     float texelsPerBlock = 1.0 / localTexel;
+    // Receiver slope: a tap some way off the point lands on the surface itself, nearer the
+    // sun or further from it where the surface slopes away from the light; without allowing
+    // for that the surface shadows itself in stripes. Depth allowance per texel of offset.
+    vec3 shadowNormal = dot(normal, normal) > 0.5 ? mat3(shadowModelView) * normal : vec3(0.0, 0.0, 1.0);
+    float slope = min(length(shadowNormal.xy) / max(abs(shadowNormal.z), 0.2), 5.0);
+    float slopeBias = localTexel * slope / ShadowDepthToBlocks(1.0);
     float uvPerTexel = 1.0 / float(shadowMapResolution);
     float sunSize = SunPenumbra(); // blocks of blur per block between caster and receiver
     float minRadius = SHADOW_SOFTNESS * 0.5; // texels
@@ -107,9 +113,9 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
         // where it slopes away from the light).
         float blockerBias = 0.1 / ShadowDepthToBlocks(1.0);
         for (int i = 0; i < 6; i++) {
-            vec2 o = VogelDisk(i, 6, noise * TAU) * searchTexels * uvPerTexel;
-            float d = textureLod(shadowtex1, coord.xy + o, 0.0).r;
-            if (d < coord.z - blockerBias) { blockerSum += d; blockers += 1.0; }
+            vec2 disk = VogelDisk(i, 6, noise * TAU) * searchTexels;
+            float d = textureLod(shadowtex1, coord.xy + disk * uvPerTexel, 0.0).r;
+            if (d < coord.z - blockerBias - slopeBias * length(disk)) { blockerSum += d; blockers += 1.0; }
         }
         if (blockers > 0.0) {
             float gap = ShadowDepthToBlocks(coord.z - blockerSum / blockers);
@@ -120,7 +126,8 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
     int taps = length(playerPos) > 64.0 ? SHADOW_SAMPLES / 2 : SHADOW_SAMPLES;
     float opaque = 0.0, allVis = 0.0;
     for (int i = 0; i < taps; i++) {
-        vec3 o = vec3(VogelDisk(i, taps, noise * TAU + 1.3) * radius * uvPerTexel, 0.0);
+        vec2 disk = VogelDisk(i, taps, noise * TAU + 1.3) * radius;
+        vec3 o = vec3(disk * uvPerTexel, -slopeBias * (length(disk) + 0.5));
         opaque += texture(shadowtex1HW, coord + o);
         allVis += texture(shadowtex0HW, coord + o);
     }

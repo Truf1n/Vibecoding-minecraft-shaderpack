@@ -36,9 +36,12 @@ measure first). Block-light shadows (Q5) are still for later.
 **W4 implemented (M10-W4):**
 - soft shadows (PCSS) with a blocker search, a rotated spiral filter that TAA blends, and the
   sun widened by overcast;
-- contact shadows (deferred only, within 24 blocks);
+- contact shadows (deferred only, within 24 blocks; only entities and plants cast them);
 - far shadows from a 2×2-block height map, with the shadow pass drawing out to
-  FAR_SHADOW_RANGE × the shadow distance;
+  FAR_SHADOW_RANGE × the shadow distance. The map is kept between frames with per-tile tags,
+  and far vertices skip all other shadow-pass work;
+- receiver-slope bias for the soft-shadow taps;
+- reflections take their clouds from a world-space cloud panorama (deferred.csh, 512×128).
 - dithered shadows for see-through entities;
 - lightning shadows traced through the voxel volume.
 

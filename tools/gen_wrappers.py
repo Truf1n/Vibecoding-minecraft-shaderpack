@@ -72,6 +72,7 @@ PROGRAMS = {
 EXTRA_COMPUTE = {
     "begin":                ("worldState", ["WORLD_STATE_WRITER"]),   # world state (once per frame)
     "composite5":           ("exposure", ["WORLD_STATE_WRITER"]),     # auto exposure, before post
+    "deferred":             ("skyView", []),                          # cloud panorama for reflections
 }
 
 # Programs left out of a dimension entirely (Iris skips missing passes).
@@ -105,6 +106,8 @@ def main() -> None:
                 (out_dir / f"{program}{ext}").write_text("\n".join(lines))
                 count += 1
         for program, (template, defines) in EXTRA_COMPUTE.items():
+            if program in SKIP.get(folder, ()):
+                continue
             lines = [VERSION, HEADER, "", f"#define {world}", f"#define PROG_{program.upper()}_COMPUTE"]
             lines += [f"#define {d}" for d in defines]
             lines += ["#define COMPUTE_SHADER", "", f'#include "/program/{template}.glsl"', ""]

@@ -86,9 +86,16 @@ void main() {
         bool voxel = false;
     #endif
     #if defined FAR_SHADOWS && defined WORLD_OVERWORLD
-        // Far-shadow height map: one corner of every face looking up (not water).
-        if (terrain && gl_Normal.y > 0.5 && (gl_VertexID & 3) == 0 && !IsWater(blockId)) {
-            WriteFarHeight((shadowModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz + cameraPosition);
+        if (terrain) {
+            vec3 farPos = (shadowModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz;
+            // Far-shadow height map: one corner of every face looking up (not water).
+            if (gl_Normal.y > 0.5 && (gl_VertexID & 3) == 0 && !IsWater(blockId)) WriteFarHeight(farPos + cameraPosition);
+            // Terrain beyond the shadow map is drawn only for the height map: nothing else
+            // to do for it (and nothing to rasterize).
+            if (any(greaterThan(abs(farPos.xz), vec2(shadowDistance + 16.0)))) {
+                gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+                return;
+            }
         }
     #endif
     if (terrain && (columnInfo || voxel)) {

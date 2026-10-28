@@ -115,7 +115,7 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 // valleys at sunset). Draws more of the world in the shadow pass (some CPU/GPU cost).
 #define FAR_SHADOWS
 // How far far shadows reach, in multiples of the shadow distance (limited by render distance).
-#define FAR_SHADOW_RANGE 3.0 //[2.0 3.0 4.0 6.0]
+#define FAR_SHADOW_RANGE 2.0 //[1.5 2.0 3.0 4.0 6.0]
 // See-through mobs and their see-through parts (slimes, ...) cast partial shadows.
 #define TRANSLUCENT_ENTITY_SHADOWS
 // Lightning casts shadows from hills, trees and buildings (needs Coloured Lighting).
