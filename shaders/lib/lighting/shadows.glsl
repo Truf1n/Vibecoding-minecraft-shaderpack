@@ -111,7 +111,9 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
         float blockerSum = 0.0, blockers = 0.0;
         // Only casters at least a tenth of a block above count (not the surface itself
         // where it slopes away from the light).
-        float blockerBias = 0.1 / ShadowDepthToBlocks(1.0);
+        // (Plants: half a block, so a blade never takes itself, or its neighbours in the
+        // same tuft, for a distant caster.)
+        float blockerBias = (foliage ? 0.5 : 0.1) / ShadowDepthToBlocks(1.0);
         for (int i = 0; i < 6; i++) {
             vec2 disk = VogelDisk(i, 6, noise * TAU) * searchTexels;
             float d = textureLod(shadowtex1, coord.xy + disk * uvPerTexel, 0.0).r;
@@ -122,6 +124,9 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
             radius = clamp(gap * sunSize * texelsPerBlock, minRadius, 24.0);
         }
     }
+    // Thin plants: a wide blur would sample the blade itself (tilted against the light, it
+    // lies at other depths a few texels on) and streak it with its own shadow.
+    if (foliage) radius = min(radius, minRadius + 1.5);
     // Fewer taps far away, where a pixel covers more than the blur anyway.
     int taps = length(playerPos) > 64.0 ? SHADOW_SAMPLES / 2 : SHADOW_SAMPLES;
     float opaque = 0.0, allVis = 0.0;

@@ -151,15 +151,22 @@ vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float d
         #ifdef COLORED_LIGHTING
             // Glowing air around light sources (Q6): a little haze everywhere, more in caves
             // and mist, lit by the light volume's block light.
-            if (LIGHT_FOG > 0.0 && t < 96.0) {
+            // Only near the camera (within ~48 blocks): further out the steps are long, and
+            // the odd step landing right by a distant torch would count a whole step of its
+            // glow (sparkling noise). Each step counts at most 3 blocks of it.
+            float glowRange = 1.0 - smoothstep(32.0, 48.0, t);
+            if (LIGHT_FOG > 0.0 && glowRange > 0.0) {
                 vec3 v = worldPos - vec3(VoxelOrigin());
                 vec3 block = VoxelLight(v);
                 float peak = max(block.r, max(block.g, block.b));
-                if (peak > 0.003) {
-                    // Brightness falls off like block light does on surfaces (squared).
-                    // A faint glow: a little air everywhere, more in caves, some in mist.
+                if (peak > 0.05) {
+                    // A glow in the air hugs its source: far steeper than the light's reach
+                    // on surfaces (the volume's light drops by 0.86 per block; to the 6th
+                    // power that is ~40% one block away, ~7% at three, ~1% at five).
+                    // A little air everywhere, more in caves, some in mist.
                     float glowAir = 0.003 + 0.008 * caveFactor + mist * 0.25;
-                    sum += GradeLightColor(block / peak) * (peak * peak * glowAir * 0.35 * LIGHT_FOG * BLOCKLIGHT_I) * transmit * stepLen;
+                    float glow = pow(peak, 6.0) * glowAir * 1.2 * LIGHT_FOG * BLOCKLIGHT_I * glowRange;
+                    sum += GradeLightColor(block / peak) * glow * transmit * min(stepLen, 3.0);
                 }
             }
         #endif
