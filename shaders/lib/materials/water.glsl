@@ -95,7 +95,7 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
         waveRoughness = sqrt(waves.unresolvedSlope2);
         #if defined RAIN_RIPPLES && defined WORLD_OVERWORLD
             // Raindrops hitting the surface: their rings add onto the waves.
-            float rain = VisibleRain() * smoothstep(0.86, 0.96, surf.lm.y) * (1.0 - inSnowyBiome) * (1.0 - inSandyBiome) * detail;
+            float rain = VisibleRain() * smoothstep(0.86, 0.96, surf.lm.y) * (1.0 - inSnowyBiome) * (1.0 - inDryBiome) * detail;
             if (rain > 0.0) slope += RainRipples(worldPos.xz) * rain;
         #endif
         #ifdef INTERACTIVE_RIPPLES

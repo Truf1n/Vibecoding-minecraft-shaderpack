@@ -77,7 +77,7 @@ vec3 StormColor(float sunUp) {
 
 // Rain falls here at all: under the open sky, not in snowy or dry biomes.
 float RainExposure(float skylight) {
-    return smoothstep(0.86, 0.96, skylight) * (1.0 - inSnowyBiome) * (1.0 - inSandyBiome);
+    return smoothstep(0.86, 0.96, skylight) * (1.0 - inSnowyBiome) * (1.0 - inDryBiome);
 }
 
 // Expanding rings from raindrops, as a slope (dh/dx, dh/dz) to add to the surface's own
@@ -126,7 +126,7 @@ float PuddleAmount(vec3 worldPos, float up, float skylight) {
         if (flat_ <= 0.0) return 0.0;
         #if PUDDLES == 3
             float wet = 1.0;
-            float exposure = smoothstep(0.86, 0.96, skylight) * (1.0 - inSnowyBiome) * (1.0 - inSandyBiome);
+            float exposure = smoothstep(0.86, 0.96, skylight) * (1.0 - inSnowyBiome) * (1.0 - inDryBiome);
         #else
             float wet = wetness;
             float exposure = RainExposure(skylight);

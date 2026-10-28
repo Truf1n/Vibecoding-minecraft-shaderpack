@@ -135,7 +135,7 @@ void main() {
                 if (puddle > 0.0) {
                     puddleNormal = vec3(0.0, 1.0, 0.0);
                     #ifdef RAIN_RIPPLES
-                        vec2 ripple = RainRipples(worldPos.xz) * VisibleRain() * (1.0 - smoothstep(16.0, 48.0, length(playerPos)));
+                        vec2 ripple = RainRipples(worldPos.xz) * VisibleRain() * (1.0 - inDryBiome) * (1.0 - smoothstep(16.0, 48.0, length(playerPos)));
                         puddleNormal = normalize(vec3(-ripple.x, 1.0, -ripple.y));
                     #endif
                     puddleNormal = normalize(mix(normal, puddleNormal, puddle));

@@ -33,7 +33,7 @@ uniform float biomeWindiness; // custom: open, windy biomes > 1, sheltered fores
 uniform float thunderStrength;
 uniform float watSwamp, watMangrove, watWarm, watLukewarm, watCold, watMeadow, watCherry, watPale; // custom: water biome weights
 uniform float watDesert, watBadlands, watJungle, watMushroom;
-uniform float inSnowyBiome, inSandyBiome; // custom, 0..1
+uniform float inSnowyBiome, inSandyBiome, inDryBiome; // custom, 0..1
 uniform vec4 lightningBoltPosition; // camera-relative position of a lightning bolt; w = 1 while one exists
 uniform float endFlashIntensity;
 uniform vec3 endFlashPosition; // view space

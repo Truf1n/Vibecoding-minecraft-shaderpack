@@ -44,7 +44,9 @@ void main() {
     stormRain = Approach(stormRain, rainStrength, rainStrength > stormRain ? 200.0 : 260.0);
     stormThunder = Approach(stormThunder, thunderStrength, thunderStrength > stormThunder ? 43.0 : 130.0);
     afterRain = Approach(afterRain, rainStrength, rainStrength > afterRain ? 3.0 : 173.0);
-    float precipitation = min(rainStrength, stormRain);
+    // Rain or snow actually falling here (none in savanna, desert, badlands: there the
+    // weather only clouds the sky over).
+    float precipitation = min(rainStrength, stormRain) * (1.0 - inDryBiome);
 
     // ---- Wind -------------------------------------------------------------------------
     // Direction: the day's prevailing wind, veering by up to ~40 degrees through the day,
@@ -96,7 +98,7 @@ void main() {
     float calm = 1.0 - smoothstep(2.0, 7.0, speed);
     float damp = saturate((humidity - 0.25) / 0.55);
     float tropical = saturate((rainfall - 0.75) * 4.0) * step(0.6, temperature);
-    float mistTarget = saturate(overnight * calm * damp + afterRain * (1.0 - precipitation) * 0.35 * calm + tropical * 0.3)
+    float mistTarget = saturate(overnight * calm * damp + afterRain * (1.0 - precipitation) * (1.0 - inDryBiome) * 0.35 * calm + tropical * 0.3)
                      * (1.0 - stormThunder) * step(-8.0, wsAir.x);
     wsMist.x = Approach(wsMist.x, mistTarget, 90.0);
     // It pools low: up to a few blocks above sea level, deeper the more humid it is.

@@ -157,8 +157,9 @@ vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float d
                 float peak = max(block.r, max(block.g, block.b));
                 if (peak > 0.003) {
                     // Brightness falls off like block light does on surfaces (squared).
-                    float glowAir = 0.004 + 0.016 * caveFactor + mist;
-                    sum += GradeLightColor(block / peak) * (peak * peak * glowAir * 0.8 * LIGHT_FOG * BLOCKLIGHT_I) * transmit * stepLen;
+                    // A faint glow: a little air everywhere, more in caves, some in mist.
+                    float glowAir = 0.003 + 0.008 * caveFactor + mist * 0.25;
+                    sum += GradeLightColor(block / peak) * (peak * peak * glowAir * 0.35 * LIGHT_FOG * BLOCKLIGHT_I) * transmit * stepLen;
                 }
             }
         #endif

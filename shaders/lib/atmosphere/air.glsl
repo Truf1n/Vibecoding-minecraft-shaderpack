@@ -76,7 +76,7 @@ vec3 MistColor(vec3 sunDir) {
 float RainCurtain(vec3 dir, float dist) {
     #ifdef RAIN_CURTAINS
     #ifdef WORLD_OVERWORLD
-        float rain = VisibleRain() * (1.0 - inSnowyBiome * 0.5) * (1.0 - inSandyBiome) * (1.0 - caveFactor);
+        float rain = VisibleRain() * (1.0 - inSnowyBiome * 0.5) * (1.0 - inDryBiome) * (1.0 - caveFactor);
         if (rain <= 0.001 || dist < 48.0) return 0.0;
         // Sheets hang under the clouds: only near the horizon for the sky.
         float low = 1.0 - smoothstep(0.02, 0.25, dir.y);
