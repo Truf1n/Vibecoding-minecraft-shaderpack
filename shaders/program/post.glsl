@@ -26,6 +26,7 @@ void main() {
 #endif
 #ifdef BLOOM
     uniform sampler2D colortex13;
+    uniform sampler2D depthtex0;
 #endif
 
 /* RENDERTARGETS: 14 */
@@ -86,6 +87,18 @@ vec3 Saturation(vec3 c, float s) { return max(mix(vec3(Luminance(c)), c, s), 0.0
         #endif
         return saturate(0.06 * BLOOM_STRENGTH * (1.0 + BLOOM_FOG * fog));
     }
+
+    // Distant light bloom (plan item K8): far away, at night and in caves, lights spread a
+    // little wider, as if scattered by the air in between.
+    float DistantBloom(vec2 uv) {
+        if (DISTANT_LIGHT_BLOOM <= 0.0) return 1.0;
+        float depth = texelFetch(depthtex0, ivec2(gl_FragCoord.xy), 0).r;
+        if (depth >= 1.0 || depth < 0.56) return 1.0;
+        vec4 view = gbufferProjectionInverse * vec4(vec3(uv, depth) * 2.0 - 1.0, 1.0);
+        float dist = length(view.xyz / view.w);
+        float dark = max(1.0 - smoothstep(-0.1, 0.1, SunElevation()), caveFactor);
+        return 1.0 + 2.5 * DISTANT_LIGHT_BLOOM * smoothstep(40.0, 160.0, dist) * dark;
+    }
 #endif
 
 void main() {
@@ -104,7 +117,7 @@ void main() {
     #endif
 
     #ifdef BLOOM
-        color = mix(color, Bloom(uv), BloomAmount());
+        color = mix(color, Bloom(uv), saturate(BloomAmount() * DistantBloom(uv)));
     #endif
 
     color *= TM_EXPOSURE;

@@ -85,6 +85,8 @@
 #define BLOOM_STRENGTH 1.00 //[0.25 0.50 0.75 1.00 1.25 1.50 2.00 2.50 3.00]
 // Extra bloom in rain, caves and under water (damp air scatters light).
 #define BLOOM_FOG 1.00      //[0.00 0.50 1.00 1.50 2.00 3.00]
+// Far-away lights glow a little wider at night and in caves, as if seen through air.
+#define DISTANT_LIGHT_BLOOM 1.00 //[0.00 0.50 1.00 1.50 2.00 3.00]
 #define VIGNETTE 0.25       //[0.00 0.10 0.20 0.25 0.30 0.40 0.50 0.70 1.00]
 #define CHROMATIC_ABERRATION 0 //[0 1 2 3 4 5]
 //#define FXAA
@@ -99,10 +101,22 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 // high = very sharp under you and blocky far away.
 #define SHADOW_FALLOFF 0.75 //[0.40 0.50 0.60 0.70 0.75 0.80 0.85 0.90]
 #define ENTITY_SHADOWS
+// Your own shadow (with Entity Shadows off, only yours is drawn).
+#define PLAYER_SHADOW
+// Sharper shadows close to you (your own shadow especially): 0 normal, 1 high, 2 very high.
+// Finer filtering near the player and a little more shadow-map detail around you.
+#define PLAYER_SHADOW_QUALITY 1 //[0 1 2]
+// Leaves and vines deep in the dark (caves, interiors) cast no shadows: a little faster.
+#define LEAF_SHADOW_OPTIMIZATION
 #define COLORED_SHADOWS
 #define FOLIAGE_SSS 1.00 //[0.00 0.50 0.75 1.00 1.25 1.50 2.00]
 
 // ---- Lighting -------------------------------------------------------------------
+// Screen-space ambient occlusion: 0 off, 1 medium, 2 high
+#define SSAO 1                  //[0 1 2]
+#define SSAO_STRENGTH 1.00      //[0.25 0.50 0.75 1.00 1.25 1.50 2.00]
+// Block light flickering, in steps of 2% brightness.
+#define BLOCKLIGHT_FLICKER 2    //[0 1 2 3 4 5]
 #define AMBIENT_MULT 1.00   //[0.25 0.50 0.75 1.00 1.25 1.50 2.00]
 #define CAVE_LIGHTING 1.00  //[0.00 0.25 0.50 0.75 1.00 1.50 2.00 3.00]
 #define BLOCKLIGHT_I 1.00   //[0.25 0.50 0.75 1.00 1.25 1.50 2.00]
@@ -255,6 +269,8 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define CLOUD_SIZE 1.00         //[0.50 0.75 1.00 1.25 1.50 2.00]
 #define CLOUD_DENSITY 1.00      //[0.50 0.75 1.00 1.50 2.00]
 #define CLOUD_SPEED 1.00        //[0.00 0.25 0.50 1.00 2.00 4.00]
+// Skip the volumetric clouds while deep underground, where the sky cannot be seen.
+#define NO_CLOUDS_UNDERGROUND
 // Drift follows the world clock instead of real time (same clouds for everyone).
 //#define CLOUD_WORLD_TIME
 // Strength of cloud shadows on the ground, percent.

@@ -3,7 +3,6 @@
 
 #define WORLD_END
 #define PROG_DEFERRED2
-#define REFL_TRACE
 #define VERTEX_SHADER
 
-#include "/program/reflections.glsl"
+#include "/program/deferred.glsl"

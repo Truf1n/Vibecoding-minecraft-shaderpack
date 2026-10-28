@@ -15,11 +15,28 @@ float HeldLight(float distToCamera) {
     return saturate((level - distToCamera) / 15.0);
 }
 
+// Blocklight flickering (plan item L13): fire and torch light breathes a little, slowly
+// drifting across the world so neighbouring lights do not pulse in step.
+float BlocklightFlicker(vec3 playerPos) {
+    #if BLOCKLIGHT_FLICKER > 0
+        vec3 p = playerPos + cameraPosition;
+        float t = frameTimeCounter;
+        float f = sin(t * 7.3 + p.x * 0.31 + p.z * 0.27) * 0.5 + sin(t * 13.1 + p.y * 0.43 - p.x * 0.19) * 0.3 + sin(t * 23.7 + p.z * 0.51) * 0.2;
+        return 1.0 - float(BLOCKLIGHT_FLICKER) * 0.02 * (f * 0.5 + 0.5);
+    #else
+        return 1.0;
+    #endif
+}
+
 // Blocklight falloff: steep near the source, long soft tail (vanilla levels are linear-ish).
 float BlocklightFalloff(float lmBlock) {
     float l = lmBlock * lmBlock;
     return l * (0.25 + 0.75 * l) * 1.6;
 }
+
+// Screen-space ambient occlusion at the pixel being lit (set by the deferred pass; 1 in
+// the forward passes). Darkens the ambient and block light, not the sun.
+float lightingAO = 1.0;
 
 struct Surface {
     vec3 playerPos; // camera-relative world position
@@ -42,7 +59,7 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
     vec3 light = vec3(0.0);
     if (worldPart + heldPart > 1e-4) {
         vec3 color = WorldBlocklightColor(s.playerPos, s.normal, s.lm.x) * worldPart + HeldLightColor() * heldPart;
-        light = color / (worldPart + heldPart) * BlocklightFalloff(max(s.lm.x, held)) * BLOCKLIGHT_I;
+        light = color / (worldPart + heldPart) * BlocklightFalloff(max(s.lm.x, held)) * BLOCKLIGHT_I * lightingAO * BlocklightFlicker(s.playerPos);
     }
 
     bool hasNormal = dot(s.normal, s.normal) > 0.5;
@@ -54,7 +71,7 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
         // Biome-tinted ambient (crimson, warped, ...), from the same colours as the Nether fog.
         vec3 biomeTint = NetherSky();
         biomeTint /= max(max(biomeTint.r, max(biomeTint.g, biomeTint.b)), 0.01);
-        light += mix(vec3(0.30, 0.13, 0.07), vec3(0.30, 0.13, 0.07) * 0.5 + biomeTint * 0.15, 0.6) * 0.55 * AMBIENT_MULT * LightMultiplier(0.0);
+        light += mix(vec3(0.30, 0.13, 0.07), vec3(0.30, 0.13, 0.07) * 0.5 + biomeTint * 0.15, 0.6) * 0.55 * AMBIENT_MULT * LightMultiplier(0.0) * lightingAO;
     #else
         #ifdef WORLD_END
             vec3 directColor = vec3(0.42, 0.34, 0.55) * 0.5 * LightMultiplier(0.0);
@@ -88,7 +105,7 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
         #endif
         sunLight = directColor * sunVis * skyGate * s.ao;
         light += directColor * diffuse * sunVis * skyGate;
-        light += ambientColor * upFacing * AMBIENT_MULT;
+        light += ambientColor * upFacing * AMBIENT_MULT * lightingAO;
         #ifdef WORLD_OVERWORLD
             // Lightning: the bolt's own light, and the flash of the whole sky.
             light += LightningLight(s.playerPos, s.normal, s.lm.y);
@@ -104,7 +121,7 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
         }
     #endif
 
-    light += vec3(0.0035 * CAVE_LIGHTING) + vec3(0.25 * nightVision);
+    light += (vec3(0.0035 * CAVE_LIGHTING) + vec3(0.25 * nightVision)) * lightingAO;
     return light * s.ao;
 }
 

@@ -1,4 +1,4 @@
-// Deferred resolve (deferred1, after the cloud pass): draws the sky behind everything,
+// Deferred resolve (deferred2, after the cloud and ambient occlusion passes): draws the sky behind everything,
 // lights every opaque G-buffer pixel once, adds the volumetric clouds to the sky (so water
 // reflects and refracts them), then composites the pre-deferred overlay (vanilla clouds,
 // glint, glowing eyes, beacon beams).
@@ -45,6 +45,31 @@ uniform sampler2D colortex2;
 uniform sampler2D colortex3;
 uniform sampler2D colortex4;
 uniform sampler2D depthtex0;
+#if SSAO > 0
+    uniform sampler2D colortex15; // ambient occlusion, half size (ssao.glsl)
+
+    // Upsamples the half-size occlusion with a small blur that follows the depth (so it
+    // does not bleed across edges and the per-frame sample pattern smooths out).
+    float SampleAO(ivec2 pixel, float depth) {
+        float linear = ScreenToView(vec2(pixel) / vec2(viewWidth, viewHeight), depth).z;
+        vec2 pos = (vec2(pixel) + 0.5) * 0.5 - 0.5;
+        ivec2 base = ivec2(floor(pos));
+        ivec2 maxTexel = textureSize(colortex15, 0) - 1;
+        float sum = 0.0, wsum = 0.0;
+        for (int y = -1; y <= 2; y++) {
+            for (int x = -1; x <= 2; x++) {
+                ivec2 t = clamp(base + ivec2(x, y), ivec2(0), maxTexel);
+                vec2 d = vec2(t) - pos;
+                ivec2 full = min(t * 2 + 1, ivec2(viewWidth, viewHeight) - 1);
+                float z = ScreenToView((vec2(full) + 0.5) / vec2(viewWidth, viewHeight), texelFetch(depthtex0, full, 0).r).z;
+                float w = exp(-dot(d, d) * 0.5) * exp(-abs(z - linear) / (0.05 * abs(linear) + 0.1));
+                sum += texelFetch(colortex15, t, 0).r * w;
+                wsum += w;
+            }
+        }
+        return pow(sum / max(wsum, 1e-4), SSAO_STRENGTH);
+    }
+#endif
 
 in vec2 texCoord;
 flat in vec3 sunDir;
@@ -114,12 +139,15 @@ void main() {
         surf.foliage = shadingModel == SM_FOLIAGE || shadingModel == SM_LEAVES;
         surf.useShadowMap = shadingModel != SM_HAND; // hand depth uses its own projection
 
+        #if SSAO > 0
+            if (shadingModel != SM_HAND) lightingAO = SampleAO(pixel, depth);
+        #endif
         vec3 sunLight;
         vec3 light = GetLighting(surf, sunDir, lightDir, sunLight);
 
         // Specular (X1): metals give most of their light back as reflection, so they keep
         // only a little diffuse light; what the surface reflects is added by the reflection
-        // passes (deferred2/3), the sun/moon highlight here.
+        // passes (deferred3/4), the sun/moon highlight here.
         float smoothness = material.b, metalness = material.a;
         vec3 V = -EyeDir(playerPos);
         float roughness = RoughnessFromSmoothness(smoothness);

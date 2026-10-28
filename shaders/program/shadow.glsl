@@ -83,6 +83,15 @@ void main() {
     }
 
     vec4 clip = ftransform(); // orthographic: w == 1
+    #ifdef LEAF_SHADOW_OPTIMIZATION
+        // Leaves and vines with (almost) no sky light: in caves and interiors, where their
+        // shadows hardly ever show. Moved out of the shadow map.
+        if (terrain && (blockId == BLOCK_LEAVES || blockId == BLOCK_PLANT_HANGING)
+            && RemapLightmap((gl_TextureMatrix[1] * gl_MultiTexCoord1).xy).y < 0.15) {
+            gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+            return;
+        }
+    #endif
     if (terrain && IsPlant(blockId)) {
         // Waving plants (waving.glsl), so their shadows move with them.
         vec3 shadowViewPos = (gl_ModelViewMatrix * gl_Vertex).xyz;
@@ -101,6 +110,7 @@ void main() {
 #include "/lib/materials/glassTint.glsl"
 
 uniform sampler2D gtexture;
+uniform int entityId; // entity.properties
 
 in vec2 texCoord;
 in vec4 vertColor;
@@ -115,6 +125,9 @@ layout(location = 1) out vec4 outShadowCaster; // r: water, g: opacity of a see-
 void main() {
     #ifdef WORLD_NETHER
         discard; // the Nether has no sun: this pass only fills the coloured-light voxels
+    #endif
+    #ifndef PLAYER_SHADOW
+        if (entityId == ENTITY_PLAYER) discard;
     #endif
     if (IsWater(blockId)) {
         // Water: no tint, marked in shadowcolor1.

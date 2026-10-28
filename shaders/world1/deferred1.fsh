@@ -5,4 +5,4 @@
 #define PROG_DEFERRED1
 #define FRAGMENT_SHADER
 
-#include "/program/deferred.glsl"
+#include "/program/ssao.glsl"

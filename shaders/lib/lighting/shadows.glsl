@@ -58,6 +58,11 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
 
     // 3x3 hardware-filtered PCF (each tap is itself bilinear-filtered: 36 effective samples).
     float spacing = SHADOW_SOFTNESS / float(shadowMapResolution);
+    #if PLAYER_SHADOW_QUALITY > 0
+        // Finer filtering close to the player (crisper shadows of you and around you).
+        float nearPlayer = 1.0 - smoothstep(4.0, 20.0, length(playerPos));
+        spacing *= mix(1.0, PLAYER_SHADOW_QUALITY == 1 ? 0.55 : 0.35, nearPlayer);
+    #endif
     float opaque = 0.0;
     for (int x = -1; x <= 1; x++) {
         for (int y = -1; y <= 1; y++) {

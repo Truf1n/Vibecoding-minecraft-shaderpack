@@ -4,7 +4,8 @@
 
 // Radial distortion: shadow density near the player vs at the edge of the shadow range is
 // 1 / (1 - SHADOW_DISTORT)^2 : 1 (0.6 -> 6x, 0.85 -> 44x). Must match in all programs.
-const float SHADOW_DISTORT = SHADOW_FALLOFF;
+// Player Shadow Quality adds a little more concentration around the player.
+const float SHADOW_DISTORT = min(SHADOW_FALLOFF + 0.04 * float(PLAYER_SHADOW_QUALITY), 0.92);
 const float SHADOW_Z_SCALE = 0.2;
 
 float ShadowDistortFactor(vec2 clipXY) { return length(clipXY) * SHADOW_DISTORT + (1.0 - SHADOW_DISTORT); }

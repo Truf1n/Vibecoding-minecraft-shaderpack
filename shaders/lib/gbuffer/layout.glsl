@@ -15,6 +15,7 @@ const int colortex11Format = RGBA16F;       // light shafts (half-size buffer): 
 const int colortex12Format = RGBA16F;       // block reflections (full or half size): light | linear depth
 const int colortex13Format = R11F_G11F_B10F; // bloom tiles (half-size buffer)
 const int colortex14Format = RGB10_A2;      // display image (sRGB) from the post pass
+const int colortex15Format = R8;            // screen-space ambient occlusion (half-size buffer)
 */
 
 const bool colortex1Clear = true;
@@ -30,6 +31,7 @@ const bool colortex11Clear = false;
 const bool colortex12Clear = false;
 const bool colortex13Clear = false; // fully rewritten each frame
 const bool colortex14Clear = false;
+const bool colortex15Clear = false;
 const vec4 colortex0ClearColor = vec4(0.0, 0.0, 0.0, 1.0); // sky is added in deferred
 const vec4 colortex1ClearColor = vec4(0.0, 0.0, 0.0, 0.0); // Iris default for colortex1 is white
 const vec4 colortex4ClearColor = vec4(0.0, 0.0, 0.0, 0.0);

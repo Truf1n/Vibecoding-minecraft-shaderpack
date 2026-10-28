@@ -52,9 +52,10 @@ PROGRAMS = {
     "shadowcomp":           ("floodfill", []),
     # Fullscreen
     "deferred":             ("clouds", []),            # reduced size (scale.deferred)
-    "deferred1":            ("deferred", []),          # lighting, sky, clouds composite
-    "deferred2":            ("reflections", ["REFL_TRACE"]),  # full or half size (size.buffer)
-    "deferred3":            ("reflections", ["REFL_APPLY"]),
+    "deferred1":            ("ssao", []),              # half size (size.buffer.colortex15)
+    "deferred2":            ("deferred", []),          # lighting, sky, clouds composite
+    "deferred3":            ("reflections", ["REFL_TRACE"]),  # full or half size (size.buffer)
+    "deferred4":            ("reflections", ["REFL_APPLY"]),
     "composite":            ("composite", []),
     "composite1":           ("lightShafts", ["LS_MARCH"]),  # half size (scale.composite1)
     "composite2":           ("lightShafts", ["LS_APPLY"]),

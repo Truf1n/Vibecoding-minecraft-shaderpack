@@ -39,6 +39,14 @@ layout(location = 1) out vec4 outCloudDistance;
 void main() {
     vec2 bufferSize = vec2(textureSize(colortex9, 0));
     vec2 uv = gl_FragCoord.xy / bufferSize;
+    #ifdef NO_CLOUDS_UNDERGROUND
+        // Deep underground the sky cannot be seen: skip the march (plan item C4).
+        if (caveFactor > 0.95) {
+            outClouds = vec4(0.0, 0.0, 0.0, 1.0);
+            outCloudDistance = vec4(CLOUD_NONE_DIST, 0.0, 0.0, 1.0);
+            return;
+        }
+    #endif
 
     vec3 dir = normalize(ViewToPlayerDir(ScreenToView(uv, 1.0)));
     float dither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + float(frameCounter % 64) * 0.618034);

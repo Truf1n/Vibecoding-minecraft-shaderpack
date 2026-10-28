@@ -1,12 +1,15 @@
 // Reflections on smooth opaque blocks (plan items X1, X2), two deferred passes after the
 // lighting pass and before translucents:
-//   REFL_TRACE (deferred2, into colortex12 at full or half size, see size.buffer): traces
+//   REFL_TRACE (deferred3, into colortex12 at full or half size, see size.buffer): traces
 //              a reflected ray per pixel through the screen (the lit scene in colortex7),
 //              falling back to the sky (and the clouds) or, out of the sky's reach, to the
-//              block light around. Rough surfaces jitter the ray per frame; TAA smooths it.
-//              rgb = reflected light, a = linear depth (for the upsample).
-//   REFL_APPLY (deferred3, full size): upsamples it following the depth and adds it,
-//              weighted by Fresnel, to colortex0 and the scene copy (colortex7).
+//              block light around. Rough surfaces jitter the ray per frame (biased
+//              towards the mirror direction) and blend it with their own previous
+//              frames (reprojected), so the jitter averages out instead of showing as
+//              grain. rgb = reflected light, a = linear depth (upsample, history check).
+//   REFL_APPLY (deferred4, full size): upsamples it with a blur that follows the depth and
+//              widens on rougher surfaces, and adds it, weighted by Fresnel, to colortex0
+//              and the scene copy (colortex7).
 
 #include "/lib/common.glsl"
 
@@ -52,6 +55,7 @@ float LinearDepthOf(float depth) {
 
 #include "/lib/atmosphere/sky.glsl"
 #include "/lib/materials/ssr.glsl"
+#include "/lib/util/reprojection.glsl"
 #if defined WORLD_OVERWORLD && CLOUD_STYLE == 1
     #include "/lib/atmosphere/cloudBuffer.glsl"
 #endif
@@ -92,7 +96,9 @@ void main() {
     float roughness = RoughnessFromSmoothness(material.b);
     float n1 = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + float(frameCounter % 64) * 0.618034);
     float n2 = fract(n1 * 7.31 + float(frameCounter % 64) * 0.381966);
-    vec3 H = roughness > 0.05 ? SampleGGXNormal(normal, roughness, vec2(n1, n2 * 0.8)) : normal;
+    // (n2 scaled down: the rays stay closer to the mirror direction - less noise, at the
+    // cost of slightly sharper reflections than the material's true roughness.)
+    vec3 H = roughness > 0.05 ? SampleGGXNormal(normal, roughness, vec2(n1, n2 * 0.55)) : normal;
     vec3 R = reflect(-V, H);
     if (dot(R, normal) < 0.0) R = reflect(R, normal);
 
@@ -110,7 +116,20 @@ void main() {
     vec3 viewR = normalize(mat3(gbufferModelView) * R);
     vec3 viewN = normalize(mat3(gbufferModelView) * normal);
     vec4 hit = TraceSSR(viewPos, viewR, viewN, n1);
-    outReflection = vec4(mix(fallback, hit.rgb, hit.a), LinearDepthOf(depth));
+    vec3 reflection = min(mix(fallback, hit.rgb, hit.a), vec3(24.0)); // no single fireflies
+    float linear = LinearDepthOf(depth);
+
+    // Blend with this spot's reflection from the previous frames (where it was then). The
+    // smoother the surface, the less jitter there is to hide and the sharper (and more
+    // view-dependent) its reflection, so mirrors keep almost none.
+    vec2 prevUV = ReprojectToPreviousFrame(uv, depth);
+    if (all(greaterThan(prevUV, vec2(0.0))) && all(lessThan(prevUV, vec2(1.0)))) {
+        vec4 history = texture(colortex12, prevUV);
+        float sameSurface = 1.0 - smoothstep(0.03, 0.1, abs(history.a - linear) / linear);
+        float blend = 0.88 * smoothstep(0.03, 0.25, roughness) * sameSurface;
+        reflection = mix(reflection, history.rgb, blend);
+    }
+    outReflection = vec4(reflection, linear);
 }
 
 #endif
@@ -132,29 +151,32 @@ void main() {
     int shadingModel = DecodeId(material.r);
 
     if (depth < 1.0 && shadingModel != SM_KEEP && shadingModel != SM_HAND && material.b >= REFL_MIN_SMOOTHNESS) {
-        // Upsample: the four nearest reflection samples, weighted by distance and by how
-        // close their depth is to this pixel's.
+        // Upsample and smooth: the 4x4 nearest reflection samples, weighted by distance
+        // (a wider blur on rougher surfaces) and by how close their depth is to this pixel's.
         float linear = LinearDepthOf(depth);
+        float roughness = RoughnessFromSmoothness(material.b);
+        float spread = mix(0.35, 1.6, smoothstep(0.03, 0.5, roughness));
         vec2 pos = gl_FragCoord.xy * REFL_SCALE - 0.5;
         ivec2 base = ivec2(floor(pos));
-        vec2 f = pos - vec2(base);
         ivec2 maxTexel = textureSize(colortex12, 0) - 1;
         vec3 sum = vec3(0.0);
         float wsum = 0.0;
-        for (int i = 0; i < 4; i++) {
-            ivec2 o = ivec2(i & 1, i >> 1);
-            vec4 s = texelFetch(colortex12, clamp(base + o, ivec2(0), maxTexel), 0);
-            float w = (o.x == 1 ? f.x : 1.0 - f.x) * (o.y == 1 ? f.y : 1.0 - f.y);
-            w *= exp(-abs(s.a - linear) / (0.03 * linear + 0.05)) + 1e-4;
-            sum += s.rgb * w;
-            wsum += w;
+        for (int y = -1; y <= 2; y++) {
+            for (int x = -1; x <= 2; x++) {
+                ivec2 t = clamp(base + ivec2(x, y), ivec2(0), maxTexel);
+                vec4 s = texelFetch(colortex12, t, 0);
+                vec2 d = vec2(base + ivec2(x, y)) - pos;
+                float w = exp(-dot(d, d) / (2.0 * spread * spread));
+                w *= exp(-abs(s.a - linear) / (0.03 * linear + 0.05)) + 1e-4;
+                sum += s.rgb * w;
+                wsum += w;
+            }
         }
         vec3 reflection = sum / max(wsum, 1e-5);
 
         vec3 albedo = SrgbToLinear(texelFetch(colortex1, pixel, 0).rgb);
         vec3 normal = DecodeNormal(texelFetch(colortex2, pixel, 0).xy);
         vec3 V = -EyeDir(ViewToPlayer(ScreenToView(gl_FragCoord.xy / vec2(viewWidth, viewHeight), depth)));
-        float roughness = RoughnessFromSmoothness(material.b);
         vec3 F = FresnelRoughness(dot(normal, V), SpecularF0(albedo, material.a), roughness);
         color += reflection * F * smoothstep(REFL_MIN_SMOOTHNESS, REFL_MIN_SMOOTHNESS + 0.2, material.b);
     }

@@ -94,8 +94,9 @@ docs/PLAN.md           research, feature list (IDs), milestones
 | Opaque geometry | `gbuffers_terrain/entities/block/hand` | G-buffer: colortex1 albedo+AO, colortex2 normal+lightmap, colortex3 shading model+emission+smoothness+metalness |
 | Overlays | `gbuffers_clouds/armor_glint/spidereyes/beaconbeam/lightning` | colortex4 (premultiplied) |
 | Clouds | `deferred` (half/quarter size, Overworld) | ray-marched clouds blended with the previous frames → colortex9 (light, transmittance), colortex10 (distance) |
-| Deferred | `deferred1` | procedural sky + clouds behind everything; lights the G-buffer once per pixel (diffuse + highlights) → colortex0, copy in colortex7 |
-| Block reflections | `deferred2` (half/full size), `deferred3` | trace → colortex12; depth-aware upsample × Fresnel added to colortex0/7 |
+| Ambient occlusion | `deferred1` (half size) | hemisphere samples against the depth buffer → colortex15 |
+| Deferred | `deferred2` | procedural sky + clouds behind everything; lights the G-buffer once per pixel (diffuse + highlights) → colortex0, copy in colortex7 |
+| Block reflections | `deferred3` (half/full size), `deferred4` | trace (blended with its reprojected history on rough surfaces) → colortex12; depth-aware, roughness-wide upsample × Fresnel added to colortex0/7 |
 | Translucent terrain | `gbuffers_water/hand_water` | colortex0 (sorted alpha blend; water opaque, refracting colortex7) + colortex5 tint |
 | Translucent mobs | `gbuffers_entities_translucent/block_translucent` | colortex5/6 (order-independent) |
 | Particles, weather | `gbuffers_textured/weather` | colortex0 (forward-lit, blended) |

@@ -82,6 +82,9 @@
 
 #define BLOCK_END_PORTAL        9001
 
+// Entity IDs (entity.properties)
+#define ENTITY_PLAYER           10001
+
 bool IsPlant(int id)       { return id >= 1001 && id <= 1008; }
 bool IsLightSource(int id) { return (id >= 2001 && id <= 2019) || (id >= 2100 && id <= 2116); }
 bool IsWater(int id)       { return id == BLOCK_WATER || id == BLOCK_WATER_FLOWING; }
