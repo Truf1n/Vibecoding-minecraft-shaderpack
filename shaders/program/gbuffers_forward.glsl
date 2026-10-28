@@ -344,7 +344,9 @@ void main() {
             #endif
             float fogAmount = BorderFogAmount(length(playerPos));
             outColor = vec4(ApplyFog(surface.color, playerPos, sunDir, false), surface.alpha);
-            outTint = vec4(mix(surface.tint, vec3(1.0), fogAmount), 1.0);
+            // Alpha 0 marks "translucent terrain in front" for TAA (taa.glsl): only there does
+            // it also follow what is behind (not behind translucent mobs or players).
+            outTint = vec4(mix(surface.tint, vec3(1.0), fogAmount), 0.0);
         #elif defined TRANSLUCENT_OIT
             if (albedo.a < alphaTestRef) discard;
             albedo.rgb = mix(albedo.rgb, entityColor.rgb, entityColor.a); // hurt flash

@@ -22,6 +22,7 @@ uniform sampler2D colortex0;
 uniform sampler2D colortex8; // TAA history (not cleared between frames)
 uniform sampler2D depthtex0;
 uniform sampler2D depthtex1; // without translucents
+uniform sampler2D colortex5; // alpha 0 where translucent terrain (water, glass, ice) is in front
 
 // The result goes only into the history; the final pass reads it from there (saves a
 // full-screen write).
@@ -96,7 +97,11 @@ void main() {
     // well each matches the pixel now (otherwise the view behind the glass smears and
     // lags; picking just one flickers on reflections, which match neither exactly).
     float depthBehind = texelFetch(depthtex1, pixel, 0).r;
-    if (depthBehind > depth + 1e-6 && depth >= HAND_DEPTH_LIMIT) {
+    // Only behind translucent terrain: translucent mobs and players (which Iris may also
+    // leave out of the opaque depth) are solid surfaces that move on their own, and
+    // following the terrain behind them makes them look see-through.
+    bool behindTranslucentTerrain = texelFetch(colortex5, pixel, 0).a < 0.5;
+    if (behindTranslucentTerrain && depthBehind > depth + 1e-6 && depth >= HAND_DEPTH_LIMIT) {
         vec2 behindUV = ReprojectToPreviousFrame(uv, depthBehind);
         if (all(greaterThanEqual(behindUV, vec2(0.0))) && all(lessThanEqual(behindUV, vec2(1.0)))) {
             vec3 behind = RgbToYCoCg(Compress(SampleHistory(behindUV)));
