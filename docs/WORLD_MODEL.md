@@ -67,6 +67,30 @@ tell them apart from opaque casters, so they get dithered partial shadows instea
 - **Fix:** solid texels of translucent entities are also written to the scene copy water
   refracts (colortex7).
 
+**Performance pass (Perf1): the easy and moderate items from the brainstorm.**
+- **Clouds:**
+  - P1: no march where terrain covers the whole cloud pixel nearer than the clouds; flagged
+    so the history is never used.
+  - P13: adaptive cloud steps (stride over empty columns, longer steps far out, short light
+    march for wisps).
+  - P15: aurora, nebulae and rainbow drawn in the cloud pass.
+- **Air and passes:**
+  - P2: air-march early outs.
+  - P10: air light added in the tint pass instead of a pass of its own (passes renumbered:
+    composite = march, composite1 = tint, composite2 = TAA, composite3 = bloom,
+    composite4 = post).
+- **Lighting:**
+  - P4: camera water style in the world state.
+  - P9: light volume updated half per frame (3D checkerboard).
+  - P14: AO with its own history, fewer samples per frame.
+- **Geometry and reflections:**
+  - P11: gbuffers_terrain_solid with early depth test.
+  - P12: SSR steps by distance and a far-plane stop.
+  - P16: column maps written once per face.
+- **Options:** P5 as an off-by-default option (Compact TAA History).
+- **Already done or skipped:** P3 and P8 were already in place; P6 and P7 were excluded by
+  request.
+
 Still to do from W5 (W5.2): cloud upgrade (Q26, P1, P13), physical sky option (Q25), Q27
 touches, storms with shape, sky visibility for mist in caves.
 

@@ -5,4 +5,4 @@
 #define PROG_COMPOSITE4
 #define FRAGMENT_SHADER
 
-#include "/program/bloom.glsl"
+#include "/program/post.glsl"

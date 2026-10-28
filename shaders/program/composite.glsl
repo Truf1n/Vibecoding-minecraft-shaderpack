@@ -1,6 +1,7 @@
-// Applies translucent tints and order-independent layers: scene * colortex5 + colortex6,
-// then the volumetric clouds in front of anything farther away than them - terrain, water,
-// glass, particles - e.g. when flying through a cloud. (The sky already has its clouds.)
+// Tint pass (composite1): applies translucent tints and order-independent layers:
+// scene * colortex5 + colortex6, then the volumetric clouds in front of anything farther
+// away than them - terrain, water, glass, particles - e.g. when flying through a cloud (the
+// sky already has its clouds), then adds the light of the air (the air march's buffer).
 
 #include "/lib/common.glsl"
 
@@ -25,6 +26,15 @@ void main() {
 uniform sampler2D colortex0;
 uniform sampler2D colortex5;
 uniform sampler2D colortex6;
+#if defined WORLD_OVERWORLD && VL_QUALITY > 0
+    // The air march's light (composite), added here rather than in a pass of its own (P10).
+    #define ADD_AIR_LIGHT
+    #ifndef VOLUMETRIC_CLOUDS
+        uniform sampler2D depthtex0;
+    #endif
+    uniform sampler2D depthtex1;
+    #include "/lib/atmosphere/airBuffer.glsl"
+#endif
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;
@@ -53,6 +63,9 @@ void main() {
             vec4 clouds = SampleClouds(screenUV);
             color = color * clouds.a + clouds.rgb;
         }
+    #endif
+    #ifdef ADD_AIR_LIGHT
+        color += AirLight(ivec2(gl_FragCoord.xy));
     #endif
     outColor = vec4(color, 1.0);
 }

@@ -103,12 +103,12 @@ docs/PLAN.md           research, feature list (IDs), milestones
 | Translucent terrain | `gbuffers_water/hand_water` | colortex0 (sorted alpha blend; water opaque, refracting colortex7) + colortex5 tint |
 | Translucent mobs | `gbuffers_entities_translucent/block_translucent` | colortex5/6 (order-independent) |
 | Particles, weather | `gbuffers_textured/weather` | colortex0 (forward-lit, blended) |
-| Composite | `composite` | colortex0 × colortex5 + colortex6, underwater distortion |
-| Air march | `composite1` (half size), `composite2` (Overworld) | light shafts, sunlit mist, glowing air around light sources, water shafts seen from above → colortex11 (accumulated over frames); depth-aware upsample added to colortex0 |
-| TAA | `composite3` | history colortex8 (the bloom and post passes read it from there) |
-| Bloom | `composite4` (half size) | six blurred mip levels of the scene → colortex13 tiles |
-| Auto exposure | `composite5` (compute) | log-average scene luminance → exposure in the world state |
-| Post | `composite5` | chromatic aberration, bloom, tonemap, colour balance/grading, vignette → colortex14 (sRGB) |
+| Air march | `composite` (half size, Overworld) | light shafts, sunlit mist, glowing air around light sources, water shafts seen from above → colortex11 (accumulated over frames) |
+| Tint | `composite1` | colortex0 × colortex5 + colortex6, underwater distortion, clouds in front of terrain, air light (depth-aware upsample of colortex11) added |
+| TAA | `composite2` | history colortex8 (the bloom and post passes read it from there) |
+| Bloom | `composite3` (half size) | six blurred mip levels of the scene → colortex13 tiles |
+| Auto exposure | `composite4` (compute) | log-average scene luminance → exposure in the world state |
+| Post | `composite4` | chromatic aberration, bloom, tonemap, colour balance/grading, vignette → colortex14 (sRGB) |
 | Output | `final` | FXAA, sharpening, dither, debug views |
 
 ## Licence

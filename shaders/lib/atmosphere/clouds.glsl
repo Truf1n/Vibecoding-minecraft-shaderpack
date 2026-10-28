@@ -269,18 +269,25 @@ void MarchLayer(CloudLayer l, int index, vec3 dir, float tNear, float tFar, int 
         return;
     }
 
-    float stepLen = (tFar - tNear) / float(steps);
-    float t = tNear + stepLen * dither;
-    for (int i = 0; i < steps; i++, t += stepLen) {
+    // Adaptive steps (P13): the base step spreads the step count over the span; empty sky
+    // (no cloud column overhead) is crossed at twice the step without evaluating the 3D
+    // shape, and far out, where clouds fade into the distance, steps grow too. Thin wisps
+    // get a short light march.
+    float baseStep = (tFar - tNear) / float(steps);
+    float t = tNear + baseStep * dither;
+    for (int i = 0; i < steps * 2 && t < tFar; i++) {
         vec3 pos = camera + dir * t;
+        float stepLen = baseStep * (1.0 + smoothstep(CLOUD_FADE_DIST, CLOUD_FADE_DIST * 3.0, t));
+        if (LayerCoverage(l, index, pos.xz) <= 0.0) { t += stepLen * 2.0; continue; }
         float density = LayerDensity(l, index, pos, true);
-        if (density <= 0.0) continue;
+        if (density <= 0.0) { t += stepLen; continue; }
 
         // Light from the sun/moon: optical depth along a few growing steps towards it.
         float od = 0.0;
         float ls = 4.0 * CLOUD_SIZE;
         vec3 lp = pos;
-        for (int j = 0; j < CLOUD_LIGHT_STEPS; j++) {
+        int lightSteps = density < 0.02 ? min(CLOUD_LIGHT_STEPS, 2) : CLOUD_LIGHT_STEPS;
+        for (int j = 0; j < lightSteps; j++) {
             lp += lightDir * ls;
             od += LayerDensity(l, index, lp, false) * ls;
             ls *= 1.9;
@@ -293,6 +300,7 @@ void MarchLayer(CloudLayer l, int index, vec3 dir, float tNear, float tFar, int 
         vec3 light = sunColor * sunT * phase * mix(0.6, 1.0, powder) + ambient * (0.45 + 0.55 * h);
         AccumulateCloud(a, light, exp(-density * stepLen), t, length(dir.xz));
         if (a.transmittance < 0.02) break;
+        t += stepLen;
     }
 }
 

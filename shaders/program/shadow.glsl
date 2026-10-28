@@ -77,11 +77,13 @@ void main() {
     bool terrain = renderStage == MC_RENDER_STAGE_TERRAIN_SOLID || renderStage == MC_RENDER_STAGE_TERRAIN_CUTOUT
                 || renderStage == MC_RENDER_STAGE_TERRAIN_CUTOUT_MIPPED || renderStage == MC_RENDER_STAGE_TERRAIN_TRANSLUCENT;
     bool seeThrough = renderStage == MC_RENDER_STAGE_TERRAIN_TRANSLUCENT && !IsWater(blockId);
-    bool columnInfo = seeThrough || IsWater(blockId) || gl_Normal.y < -0.5;
-    // Voxels need one vertex per face: Sodium stores each quad as four consecutive vertices,
-    // so exactly one of them has an index divisible by four.
+    // Voxels and column maps need one vertex per face: Sodium stores each quad as four
+    // consecutive vertices, so exactly one of them has an index divisible by four. (All
+    // four would mark the same block: three atomic writes in four wasted, P16.)
+    bool firstOfFace = (gl_VertexID & 3) == 0;
+    bool columnInfo = firstOfFace && (seeThrough || IsWater(blockId) || gl_Normal.y < -0.5);
     #ifdef COLORED_LIGHTING
-        bool voxel = (gl_VertexID & 3) == 0;
+        bool voxel = firstOfFace;
     #else
         bool voxel = false;
     #endif

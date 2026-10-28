@@ -3,7 +3,6 @@
 
 #define WORLD_OVERWORLD
 #define PROG_COMPOSITE2
-#define LS_APPLY
 #define FRAGMENT_SHADER
 
-#include "/program/lightShafts.glsl"
+#include "/program/taa.glsl"

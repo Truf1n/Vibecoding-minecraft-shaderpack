@@ -3,7 +3,6 @@
 
 #define WORLD_OVERWORLD
 #define PROG_COMPOSITE1
-#define LS_MARCH
 #define VERTEX_SHADER
 
-#include "/program/lightShafts.glsl"
+#include "/program/composite.glsl"

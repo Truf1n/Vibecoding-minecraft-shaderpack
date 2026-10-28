@@ -1,8 +1,9 @@
-// Coloured-light floodfill (shadowcomp, compute; plan item A1). Each frame, every block
-// space in the voxel volume takes the brightest light of its six neighbours from the
-// previous frame, dimmed by one step and tinted by what fills it (stained glass, leaves,
-// water); solid blocks stop it, light sources set their own colour. Light so spreads one
-// block per frame and fades over about 15 blocks, like vanilla block light. Two volumes
+// Coloured-light floodfill (shadowcomp, compute; plan item A1). Each frame, half the block
+// spaces in the voxel volume (alternating, P9) take the brightest light of their six
+// neighbours from the previous frame, dimmed by one step and tinted by what fills them
+// (stained glass, leaves, water); solid blocks stop it, light sources set their own colour.
+// All six neighbours of a cell are of the other half, updated the frame before, so light
+// still spreads a block per frame; it fades over about 15 blocks, like vanilla block light. Two volumes
 // take turns (read one, write the other); the volume follows the camera, so the previous
 // one is read shifted by how far the camera moved.
 // The same pass keeps the rest of the light volume (docs/WORLD_MODEL.md F1): how much of
@@ -86,6 +87,22 @@ void main() {
     ivec3 shift = ivec3(floor(cameraPosition)) - ivec3(floor(previousCameraPosition));
     ivec3 prev = v + shift;
 
+    // Half the volume per frame (P9), in a checkerboard that alternates: the other half
+    // carries its values over (moved with the camera). A cell's six neighbours are all of
+    // the half updated last frame, so light still spreads a block per frame.
+    if (((v.x + v.y + v.z + frameCounter) & 1) == 1) {
+        vec3 keepLight = PreviousLight(prev, fromA);
+        vec4 keepBounce = InVolume(prev) ? PreviousBounce(prev, fromA) : vec4(0.0, 0.0, 0.0, 1.0);
+        if (fromA) {
+            imageStore(floodImgB, v, vec4(keepLight, 1.0));
+            imageStore(bounceImgB, v, keepBounce);
+        } else {
+            imageStore(floodImgA, v, vec4(keepLight, 1.0));
+            imageStore(bounceImgA, v, keepBounce);
+        }
+        return;
+    }
+
     sunLightDir = mat3(gbufferModelViewInverse) * normalize(shadowLightPosition);
     uint voxel = imageLoad(voxelImg, v).r;
     uint priority = VoxelPriority(voxel);
@@ -147,7 +164,8 @@ void main() {
         // Smoothed over a fraction of a second, so nothing in it flickers (the spreading
         // above still settles within a few frames).
         vec4 before = PreviousBounce(prev, fromA);
-        if (InVolume(prev)) bounce = mix(before, bounce, 1.0 - exp(-clamp(frameTime, 0.0, 0.1) / 0.2));
+        // (Each cell is updated every other frame: two frames' worth.)
+        if (InVolume(prev)) bounce = mix(before, bounce, 1.0 - exp(-clamp(2.0 * frameTime, 0.0, 0.2) / 0.2));
     }
 
     if (fromA) {

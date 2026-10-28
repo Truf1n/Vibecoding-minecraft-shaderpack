@@ -4,7 +4,7 @@
 // Light shafts and the air march (plan items F5, F8; W5): light scattered towards the
 // camera by the air along the view ray - haze, mist, glowing air around light sources -
 // wherever the shadow map (and the clouds) let the sun through. Marched at half resolution
-// in composite1 with per-pixel, per-frame random offsets, accumulated over frames there.
+// in composite with per-pixel, per-frame random offsets, accumulated over frames there.
 // Under water the shafts take the water's colour, fade with depth and carry the caustics.
 // Needs: common.glsl, sky.glsl, shadowSpace.glsl, shadows.glsl, clouds.glsl, air.glsl,
 // coloredLight.glsl (Light Fog), blockIds.glsl.
@@ -113,6 +113,20 @@ vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float d
     float mistPhase = 0.35 + 0.5 * HG(VdotL, 0.6);
     float strength = LightShaftStrength(sunDir);
 
+    // Early outs (P2): deep underground the sun's light cannot reach the air around the
+    // camera (skip the shadow-map and cloud-shadow lookups of every step); with no mist,
+    // no light fog, no lightning and no water either, there is nothing to march at all.
+    bool sunActive = caveFactor < 0.98 && strength * Luminance(sunColor) > 1e-4;
+    bool glowActive = false;
+    #ifdef COLORED_LIGHTING
+        glowActive = LIGHT_FOG > 0.0;
+    #endif
+    bool otherActive = wsMist.x > 0.001 || lightningBoltPosition.w > 0.5 || glowActive;
+    #if defined WATER_SHAFTS_FROM_ABOVE && !defined WORLD_NETHER
+        otherActive = otherActive || !sky;
+    #endif
+    if (!sunActive && !otherActive) return vec3(0.0);
+
     vec3 sum = vec3(0.0);
     float mistDepth = 0.0;   // mist passed so far (optical depth)
     float waterTravel = 0.0; // blocks of water passed so far (looking in from above)
@@ -142,7 +156,7 @@ vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float d
         float haze = exp(-max(worldPos.y - 63.0, 0.0) / 60.0) * (1.0 + rainStrength);
         float mist = MistDensity(worldPos);
         mistDepth += mist * stepLen;
-        vec3 sunVis = ShaftVisibility(p, lightDir);
+        vec3 sunVis = sunActive ? ShaftVisibility(p, lightDir) : vec3(0.0);
         // Beyond the shadow map only the clouds shadow the haze: it counts a little less
         // there (the fog's colour already holds most of the light of distant haze).
         float hazeShare = mix(1.0, 0.6, smoothstep(shadowDistance * 0.8, shadowDistance, t));

@@ -105,7 +105,13 @@ void main() {
     if (depth == 1.0) {
         // Sky: colortex0 holds only what vanilla drew on top (sun, moon), cleared to black.
         vec3 dir = EyeDir(playerPos);
-        color += isEyeInWater == 1 ? GetSkyFromUnderwater(dir, sunDir) : GetSky(dir, sunDir, PixelAngle());
+        #if defined WORLD_OVERWORLD && CLOUD_STYLE == 1
+            // The aurora, nebulae and rainbow come with the clouds here (drawn at the cloud
+            // pass's resolution, P15): only the plain sky, stars and discs per pixel.
+            color += isEyeInWater == 1 ? GetSkyFromUnderwater(dir, sunDir) : OverworldSky(dir, sunDir, PixelAngle(), true, false);
+        #else
+            color += isEyeInWater == 1 ? GetSkyFromUnderwater(dir, sunDir) : GetSky(dir, sunDir, PixelAngle());
+        #endif
         #ifdef VOLUMETRIC_CLOUDS
             vec4 clouds = SampleClouds(texCoord);
             color = color * clouds.a + clouds.rgb;

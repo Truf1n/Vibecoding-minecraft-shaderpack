@@ -5,4 +5,4 @@
 #define PROG_COMPOSITE3
 #define FRAGMENT_SHADER
 
-#include "/program/taa.glsl"
+#include "/program/bloom.glsl"

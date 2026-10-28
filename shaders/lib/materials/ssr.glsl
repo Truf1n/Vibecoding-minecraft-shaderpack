@@ -23,20 +23,26 @@ float LinearizeDepth(float depth) {
 // planeNormal: view-space normal of the reflecting surface (not the wave normal); hits
 // behind that plane (e.g. terrain under the water) cannot appear in the reflection.
 vec4 TraceSSR(vec3 viewPos, vec3 viewDir, vec3 planeNormal, float dither) {
-    float stepLen = 0.15 + length(viewPos) * 0.02;
+    float dist = length(viewPos);
+    float stepLen = 0.15 + dist * 0.02;
     vec3 pos = viewPos + viewDir * stepLen * dither;
     vec3 prev = pos;
+    // Distant surfaces (P12): fewer, faster-growing steps that reach about as far (their
+    // reflections are small on screen and mostly sky).
+    int steps = dist > 64.0 ? SSR_STEPS / 2 : (dist > 24.0 ? SSR_STEPS * 3 / 4 : SSR_STEPS);
+    float growth = dist > 64.0 ? 1.45 : (dist > 24.0 ? 1.3 : 1.22);
 
-    for (int i = 0; i < SSR_STEPS; i++) {
+    for (int i = 0; i < steps; i++) {
         prev = pos;
         pos += viewDir * stepLen;
-        stepLen *= 1.22;
+        stepLen *= growth;
 
         vec3 screen = ViewToScreen(pos);
         if (any(lessThan(screen.xy, vec2(0.0))) || any(greaterThan(screen.xy, vec2(1.0))) || pos.z > -near) break;
 
-        float sceneLin = LinearizeDepth(texture(depthtex1, screen.xy).r);
         float rayLin = -pos.z;
+        if (rayLin > far) break; // beyond everything drawn: only the sky is left
+        float sceneLin = LinearizeDepth(texture(depthtex1, screen.xy).r);
         float behind = rayLin - sceneLin;
         if (behind > 0.0) {
             // Too far behind the surface: the ray passed behind an object, keep going.

@@ -4,7 +4,7 @@
 // Half size (size.buffer.colortex15). Horizon-based (GTAO, Jimenez 2016): in a few screen
 // directions (slices), the highest horizon on each side of the pixel within ~1 block is
 // found, and the cosine-weighted share of the hemisphere above them is integrated exactly.
-// The slices turn a little every frame (TAA blends them); the lighting pass upsamples the
+// The slices turn every frame and the pass keeps a history of its own; the lighting pass upsamples the
 // result with a depth-aware blur and adds the multi-bounce correction (bright surfaces lose
 // less light to occlusion and keep their colour). Only ambient, bounce and block light are
 // darkened, never sunlight. Positions go through the projection matrices both ways, which
@@ -25,18 +25,22 @@ void main() {
 #include "/lib/gbuffer/layout.glsl"
 #include "/lib/util/encoding.glsl"
 #include "/lib/util/space.glsl"
+#include "/lib/util/reprojection.glsl"
 
 uniform sampler2D colortex2;
 uniform sampler2D depthtex0;
+uniform sampler2D colortex15; // the previous frames' result (this pass reads it and writes the next)
 
 /* RENDERTARGETS: 15 */
 layout(location = 0) out vec4 outAO; // rgb: bent normal (world, *0.5+0.5), a: occlusion (1 = open)
 
+// Few samples per frame (P14): the slices turn every frame and the result is blended with
+// the previous frames' (re-projected), so over a few frames many directions add up.
 #if SSAO == 2
-    const int AO_SLICES = 3;
-    const int AO_STEPS = 6;
-#else
     const int AO_SLICES = 2;
+    const int AO_STEPS = 5;
+#else
+    const int AO_SLICES = 1;
     const int AO_STEPS = 4;
 #endif
 const float AO_RADIUS = 1.1; // blocks
@@ -126,7 +130,19 @@ void main() {
     ao = mix(1.0, ao, edgeFade);
     vec3 bentWorld = dot(bent, bent) > 1e-6 ? normalize(mat3(gbufferModelViewInverse) * normalize(bent)) : worldNormal;
     bentWorld = normalize(mix(worldNormal, bentWorld, edgeFade));
-    outAO = vec4(bentWorld * 0.5 + 0.5, ao);
+    vec4 result = vec4(bentWorld * 0.5 + 0.5, ao);
+
+    // Blend with the previous frames where this spot was then. A history whose bent normal
+    // points elsewhere belonged to another surface (it moved in or out): not used.
+    vec2 prevUV = ReprojectToPreviousFrame(uv, depth);
+    if (all(greaterThan(prevUV, vec2(0.0))) && all(lessThan(prevUV, vec2(1.0)))) {
+        vec4 history = texture(colortex15, prevUV);
+        float similar = dot(history.rgb * 2.0 - 1.0, bentWorld);
+        float motion = length((prevUV - uv) * size);
+        float weight = 0.8 * smoothstep(0.75, 0.9, similar) * (1.0 - 0.4 * smoothstep(2.0, 10.0, motion));
+        result = mix(result, history, weight);
+    }
+    outAO = result;
 }
 
 #endif

@@ -1,4 +1,4 @@
-// Bloom tiles (composite4, plan item K1): each tile is a Gaussian blur of one mip level
+// Bloom tiles (composite3, plan item K1): each tile is a Gaussian blur of one mip level
 // of the finished scene (see lib/post/bloomTiles.glsl). The buffer is half size
 // (size.buffer.colortex13), so this pass only shades a quarter of the screen's pixels,
 // and most of them belong to the smallest tiles' gaps, which are skipped.

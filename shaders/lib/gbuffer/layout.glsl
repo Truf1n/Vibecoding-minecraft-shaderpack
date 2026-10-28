@@ -8,7 +8,6 @@ const int colortex4Format = RGBA16F;        // pre-deferred overlay, premultipli
 const int colortex5Format = RGBA8;          // translucent tint (multiplicative: stained glass, translucent mobs)
 const int colortex6Format = R11F_G11F_B10F; // translucent mobs: added light (additive, order-independent)
 const int colortex7Format = R11F_G11F_B10F; // lit opaque scene copy from deferred (read by water reflections)
-const int colortex8Format = RGBA16F;        // TAA history (kept between frames)
 const int colortex9Format = RGBA16F;        // clouds (buffer at the cloud resolution): scattered light | transmittance (kept: history)
 const int colortex10Format = R16F;          // clouds (buffer at the cloud resolution): distance along the view ray
 const int colortex11Format = RGBA16F;       // light shafts (half-size buffer): light | linear depth
@@ -17,6 +16,18 @@ const int colortex13Format = R11F_G11F_B10F; // bloom tiles (half-size buffer)
 const int colortex14Format = RGB10_A2;      // display image (sRGB) from the post pass
 const int colortex15Format = RGBA8;         // ambient occlusion (a) + bent normal (rgb), half-size buffer
 */
+// TAA history (kept between frames; also the finished image the bloom and post passes
+// read). Compact History (P5) halves its memory traffic, but at 11/10 bits per channel
+// slow changes can stall and colours drift a little, so it is off by default.
+#ifdef COMPACT_TAA_HISTORY
+/*
+const int colortex8Format = R11F_G11F_B10F;
+*/
+#else
+/*
+const int colortex8Format = RGBA16F;
+*/
+#endif
 
 const bool colortex1Clear = true;
 const bool colortex2Clear = true;

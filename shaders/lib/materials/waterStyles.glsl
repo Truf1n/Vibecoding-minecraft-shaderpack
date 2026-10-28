@@ -81,8 +81,10 @@ WaterStyle CameraDefaultWaterStyle() {
     #endif
 }
 
-// The look of the water the camera is in (underwater fog, caustics, light shafts).
-WaterStyle CameraWaterStyle() {
+// The look of the water the camera is in (underwater fog, caustics, light shafts), blended
+// from the biome weights. Worked out once per frame by the begin pass (P4); everything else
+// reads the result from the world state (CameraWaterStyle below).
+WaterStyle CameraWaterStyleModel() {
     #ifdef BIOME_WATER
         float tinted = watSwamp + watMangrove + watWarm + watLukewarm + watCold + watMeadow + watCherry + watPale;
         WaterStyle s = MakeWaterStyle(vec3(0.0), vec3(0.0), vec3(0.0), 0.0);
@@ -100,6 +102,14 @@ WaterStyle CameraWaterStyle() {
         return s;
     #else
         return StyleDefault();
+    #endif
+}
+
+WaterStyle CameraWaterStyle() {
+    #ifdef WORLD_STATE_WRITER
+        return CameraWaterStyleModel();
+    #else
+        return MakeWaterStyle(wsWaterScatter.rgb, wsWaterAbsorb.rgb, wsWaterFog.rgb, wsWaterScatter.a);
     #endif
 }
 

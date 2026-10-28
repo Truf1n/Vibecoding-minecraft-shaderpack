@@ -24,6 +24,9 @@ WORLDS = {
 PROGRAMS = {
     # Opaque geometry -> G-buffer
     "gbuffers_terrain":     ("gbuffers_deferred", []),
+    # Solid terrain on its own (P11): no alpha test, so the depth test runs before the
+    # shader and hidden pixels never run the material code.
+    "gbuffers_terrain_solid": ("gbuffers_deferred", ["PROG_GBUFFERS_TERRAIN", "TERRAIN_SOLID"]),
     "gbuffers_entities":    ("gbuffers_deferred", []),
     "gbuffers_block":       ("gbuffers_deferred", []),
     "gbuffers_hand":        ("gbuffers_deferred", []),
@@ -58,12 +61,11 @@ PROGRAMS = {
     "deferred2":            ("deferred", []),          # lighting, sky, clouds composite
     "deferred3":            ("reflections", ["REFL_TRACE"]),  # full or half size (size.buffer)
     "deferred4":            ("reflections", ["REFL_APPLY"]),
-    "composite":            ("composite", []),
-    "composite1":           ("lightShafts", ["LS_MARCH"]),  # half size (scale.composite1)
-    "composite2":           ("lightShafts", ["LS_APPLY"]),
-    "composite3":           ("taa", []),
-    "composite4":           ("bloom", []),             # half size (size.buffer.colortex13)
-    "composite5":           ("post", []),              # tonemap, grading -> colortex14
+    "composite":            ("lightShafts", ["LS_MARCH"]),  # air march, half size (size.buffer.colortex11)
+    "composite1":           ("composite", []),         # tints, clouds in front, air light
+    "composite2":           ("taa", []),
+    "composite3":           ("bloom", []),             # half size (size.buffer.colortex13)
+    "composite4":           ("post", []),              # tonemap, grading -> colortex14
     "final":                ("final", []),
 }
 
@@ -71,7 +73,7 @@ PROGRAMS = {
 # (pass name -> template, defines). They write <pass>.csh next to <pass>.vsh/.fsh.
 EXTRA_COMPUTE = {
     "begin":                ("worldState", ["WORLD_STATE_WRITER"]),   # world state (once per frame)
-    "composite5":           ("exposure", ["WORLD_STATE_WRITER"]),     # auto exposure, before post
+    "composite4":           ("exposure", ["WORLD_STATE_WRITER"]),     # auto exposure, before post
     "deferred":             ("skyView", []),                          # cloud panorama for reflections
 }
 
@@ -80,8 +82,8 @@ EXTRA_COMPUTE = {
 # shaders.properties.)
 # Clouds and light shafts are Overworld-only (no sun in the Nether, End beams come later).
 SKIP = {
-    "world-1": {"deferred", "composite1", "composite2", "shadowcomp1", "shadowcomp2"},
-    "world1": {"deferred", "composite1", "composite2"},
+    "world-1": {"deferred", "composite", "shadowcomp1", "shadowcomp2"},
+    "world1": {"deferred", "composite"},
 }
 
 STAGES = {".vsh": "VERTEX_SHADER", ".fsh": "FRAGMENT_SHADER"}

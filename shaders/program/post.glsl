@@ -1,4 +1,4 @@
-// Post-processing (composite5, plan items K1, K3, K4, K9, H3): chromatic aberration,
+// Post-processing (composite4, plan items K1, K3, K4, K9, H3): chromatic aberration,
 // bloom, exposure, tonemap, colour balance and grading, vignette. Writes the display image
 // (sRGB) for the final pass, which adds FXAA, sharpening and dithering.
 

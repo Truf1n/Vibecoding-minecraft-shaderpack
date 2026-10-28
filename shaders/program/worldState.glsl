@@ -14,6 +14,7 @@
 #include "/lib/common.glsl"
 #include "/lib/gbuffer/layout.glsl"
 #include "/lib/atmosphere/sky.glsl"
+#include "/lib/materials/waterStyles.glsl"
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 const ivec3 workGroups = ivec3(1, 1, 1);
@@ -125,6 +126,12 @@ void main() {
     wsSkyHorizon = vec4(horizon, 1.0);
     wsSkyAmbient = vec4(SkyAmbientColorModel(sunUp), 1.0);
     wsSun = vec4(SunLightColorModel(sunUp), sunUp);
+
+    // The water style where the camera is (biome blend; read by every pixel under water).
+    WaterStyle water = CameraWaterStyleModel();
+    wsWaterScatter = vec4(water.scatter, water.fogDensity);
+    wsWaterAbsorb = vec4(water.absorption, 0.0);
+    wsWaterFog = vec4(water.fogColor, 0.0);
 
     if (firstFrame) wsExposure = vec4(1.0, 1.0, 0.3, 0.0);
     wsHeader.x = 1.0;

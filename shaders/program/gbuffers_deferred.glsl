@@ -95,6 +95,12 @@ in vec3 playerPos;
 flat in int blockId;
 flat in vec4 spriteBounds;
 
+#ifdef TERRAIN_SOLID
+    // Solid terrain (P11): nothing is cut out and the depth is never changed, so the depth
+    // test can run first and pixels that end up hidden skip all of the below.
+    layout(early_fragment_tests) in;
+#endif
+
 /* RENDERTARGETS: 1,2,3 */
 layout(location = 0) out vec4 outAlbedo;
 layout(location = 1) out vec4 outNormalLight;
@@ -129,7 +135,9 @@ void main() {
         float ao = 1.0;
     #endif
 
-    if (albedo.a < alphaTestRef) discard;
+    #ifndef TERRAIN_SOLID
+        if (albedo.a < alphaTestRef) discard;
+    #endif
 
     #ifdef PROG_GBUFFERS_ENTITIES
         albedo.rgb = mix(albedo.rgb, entityColor.rgb, entityColor.a); // hurt flash

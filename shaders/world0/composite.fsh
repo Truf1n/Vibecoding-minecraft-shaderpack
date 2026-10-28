@@ -3,6 +3,7 @@
 
 #define WORLD_OVERWORLD
 #define PROG_COMPOSITE
+#define LS_MARCH
 #define FRAGMENT_SHADER
 
-#include "/program/composite.glsl"
+#include "/program/lightShafts.glsl"

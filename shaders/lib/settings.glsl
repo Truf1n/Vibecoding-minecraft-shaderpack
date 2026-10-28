@@ -6,6 +6,9 @@
 
 // ---- Camera / colour balance -------------------------------------------------
 #define TAA
+// Keep the TAA history at 11/10 bits per channel instead of 16 (a little faster at 4K;
+// slow changes can stall and colours drift slightly).
+//#define COMPACT_TAA_HISTORY
 #define TAA_SMOOTHING 0.90  //[0.75 0.80 0.85 0.88 0.90 0.92 0.94 0.96]
 #define TAA_JITTER 1.00     //[0.00 0.25 0.50 0.75 1.00]
 #define IMAGE_SHARPENING 3  //[0 1 2 3 4 5 6 7 8 9 10]

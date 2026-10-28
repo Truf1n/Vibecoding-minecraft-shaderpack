@@ -27,6 +27,9 @@ layout(std430, binding = 0) WORLD_STATE_ACCESS buffer WorldStateBuffer {
     vec4 wsSkyAmbient;  // rgb: light from the whole sky
     vec4 wsExposure;    // x: exposure in use; y: target; z: average scene luminance
     vec4 wsMist;        // x: mist 0..1; y: height (absolute y) up to which it lies thick
+    vec4 wsWaterScatter; // rgb: scattering of the water style at the camera (waterStyles.glsl); a: fog density
+    vec4 wsWaterAbsorb;  // rgb: its absorption
+    vec4 wsWaterFog;     // rgb: its underwater fog colour
 };
 
 // The weather values the effects used to get from custom uniforms.

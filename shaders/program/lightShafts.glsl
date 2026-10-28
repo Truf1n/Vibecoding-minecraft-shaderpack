@@ -1,12 +1,12 @@
-// The air march (W5; light shafts, mist light, glowing air), two passes:
-//   LS_MARCH (composite1, into the half-size colortex11, see size.buffer): marches the view ray of
+// The air march (W5; light shafts, mist light, glowing air):
+//   LS_MARCH (composite, into the half-size colortex11, see size.buffer): marches the view ray of
 //            each half-size pixel (lib/atmosphere/lightShafts.glsl) with random offsets
 //            that change every frame, and blends the result into the previous frames'
 //            (re-projected to where the same spot was, rejected where the depth there does
 //            not match): smooth shafts from few steps, without a fixed noise pattern.
 //            rgb = scattered light, a = linear depth of that pixel.
-//   LS_APPLY (composite2, full resolution): adds it to the scene, upsampled with weights
-//            that follow the depth, so shafts don't bleed across object edges.
+//   Adding it to the scene happens in the tint pass (composite1, program/composite.glsl),
+//            upsampled with weights that follow the depth (lib/atmosphere/airBuffer.glsl).
 // Looking into water from above, the march goes on below the surface (depth without
 // translucents) for the water's own shafts.
 
@@ -30,27 +30,9 @@ void main() {
 #include "/lib/gbuffer/layout.glsl"
 #include "/lib/util/space.glsl"
 
-const float LS_SCALE = 0.5; // must match size.buffer.colortex11 in shaders.properties
-
 uniform sampler2D depthtex0;
 uniform sampler2D depthtex1;
-uniform sampler2D colortex11; // shafts at half resolution: rgb light, a linear depth
-
-// Depth the air is marched to: through the water surface (and glass) when looking in from
-// above, for the shafts under water; from inside the water, up to its surface.
-float AirDepth(ivec2 pixel) {
-    #ifdef WATER_SHAFTS_FROM_ABOVE
-    #ifndef WORLD_NETHER
-        if (isEyeInWater != 1) return texelFetch(depthtex1, pixel, 0).r;
-    #endif
-    #endif
-    return texelFetch(depthtex0, pixel, 0).r;
-}
-
-float LinearDepth(float depth) {
-    float ndc = depth * 2.0 - 1.0;
-    return 2.0 * near * far / (far + near - ndc * (far - near));
-}
+#include "/lib/atmosphere/airBuffer.glsl"
 
 #ifdef LS_MARCH
 
@@ -126,42 +108,6 @@ void main() {
         }
     }
     outShafts = vec4(shafts, linear);
-}
-
-#endif
-
-#ifdef LS_APPLY
-
-uniform sampler2D colortex0;
-
-/* RENDERTARGETS: 0 */
-layout(location = 0) out vec4 outColor;
-
-void main() {
-    ivec2 pixel = ivec2(gl_FragCoord.xy);
-    vec3 color = texelFetch(colortex0, pixel, 0).rgb;
-    float depth = LinearDepth(AirDepth(pixel));
-
-    // Upsample with a small blur: the 4x4 nearest half-size samples, weighted by distance
-    // (Gaussian) and by how close their depth is to this pixel's, so it smooths what noise
-    // is left without bleeding across object edges.
-    vec2 halfPos = gl_FragCoord.xy * LS_SCALE - 0.5;
-    ivec2 base = ivec2(floor(halfPos));
-    ivec2 maxTexel = textureSize(colortex11, 0) - 1;
-    vec3 sum = vec3(0.0);
-    float wsum = 0.0;
-    for (int y = -1; y <= 2; y++) {
-        for (int x = -1; x <= 2; x++) {
-            ivec2 t = base + ivec2(x, y);
-            vec4 s = texelFetch(colortex11, clamp(t, ivec2(0), maxTexel), 0);
-            vec2 d = vec2(t) - halfPos;
-            float w = exp(-dot(d, d) * 0.7) * (exp(-abs(s.a - depth) / (0.05 * depth + 0.1)) + 1e-4);
-            sum += s.rgb * w;
-            wsum += w;
-        }
-    }
-    color += sum / max(wsum, 1e-5);
-    outColor = vec4(color, 1.0);
 }
 
 #endif

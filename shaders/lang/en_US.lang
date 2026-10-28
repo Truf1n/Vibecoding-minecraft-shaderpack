@@ -532,3 +532,5 @@ option.LIGHT_FOG=Light Fog
 option.LIGHT_FOG.comment=Glowing haze around light sources (lava, torches, portals), strongest in caves and mist. Needs Coloured Lighting and Light Shaft Quality above Off.
 option.WATER_SHAFTS_FROM_ABOVE=Water Shafts From Above
 option.WATER_SHAFTS_FROM_ABOVE.comment=The light shafts under water also show, faintly, when looking into the water from above.
+option.COMPACT_TAA_HISTORY=Compact TAA History
+option.COMPACT_TAA_HISTORY.comment=Stores the TAA history at 11/10 bits per colour channel instead of 16: a little less memory traffic at high resolutions, but slow changes can stall and colours can drift slightly.

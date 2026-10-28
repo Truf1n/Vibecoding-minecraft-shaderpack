@@ -1,4 +1,4 @@
-// Auto exposure (composite5 compute, runs before the post pass; plan item Q28): measures how
+// Auto exposure (composite4 compute, runs before the post pass; plan item Q28): measures how
 // bright the finished scene is and adapts the exposure like an eye - quicker to bright
 // light than to darkness. Only part of the way (Auto Exposure Strength), so caves and nights
 // still look dark, just less murky. Result in the world state (wsExposure.x), used by post.

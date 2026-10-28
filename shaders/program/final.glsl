@@ -1,5 +1,5 @@
 // Final output: FXAA, sharpening and dithering of the display image from the post pass
-// (composite5). Also hosts the debug views.
+// (composite4). Also hosts the debug views.
 
 #include "/lib/common.glsl"
 
