@@ -68,7 +68,10 @@ void main() {
 
     // Screen radius of the search (in uv), from the world radius at this depth.
     float radiusUV = AO_RADIUS * gbufferProjection[1][1] * 0.5 / max(-viewPos.z, 0.1);
-    if (radiusUV < 1.5 / size.y) return; // under two pixels: nothing to find
+    // Far away the search covers only a few pixels: fade out smoothly (not cut off, which
+    // would pop on and off at that distance as you move).
+    float distanceFade = smoothstep(2.0, 6.0, radiusUV * size.y);
+    if (distanceFade <= 0.0) return;
 
     float noise = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + float(frameCounter % 16) * 0.618034);
     float stepJitter = fract(noise * 7.31 + 0.37);
@@ -119,7 +122,7 @@ void main() {
     float ao = saturate(visibility / float(AO_SLICES));
     // Fade out towards the screen edges, where much of the surroundings is off screen.
     vec2 edge = smoothstep(vec2(0.0), vec2(0.06), uv) * smoothstep(vec2(0.0), vec2(0.06), 1.0 - uv);
-    float edgeFade = edge.x * edge.y;
+    float edgeFade = edge.x * edge.y * distanceFade;
     ao = mix(1.0, ao, edgeFade);
     vec3 bentWorld = dot(bent, bent) > 1e-6 ? normalize(mat3(gbufferModelViewInverse) * normalize(bent)) : worldNormal;
     bentWorld = normalize(mix(worldNormal, bentWorld, edgeFade));

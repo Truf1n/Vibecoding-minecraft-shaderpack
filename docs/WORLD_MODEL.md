@@ -33,7 +33,23 @@ sun direction: the shadow map can only be looked up along it.
 Not done from W3: round-robin and brick skipping (the volume updates in full each frame;
 measure first). Block-light shadows (Q5) are still for later.
 
-W4 onwards: design only.
+**W4 implemented (M10-W4):**
+- soft shadows (PCSS) with a blocker search, a rotated spiral filter that TAA blends, and the
+  sun widened by overcast;
+- contact shadows (deferred only, within 24 blocks);
+- far shadows from a 2×2-block height map, with the shadow pass drawing out to
+  FAR_SHADOW_RANGE × the shadow distance;
+- dithered shadows for see-through entities;
+- lightning shadows traced through the voxel volume.
+
+Fixes to W3 made alongside: the bounce is weighted by the receiver's normal (no
+self-lighting floors), fades out at the volume edges, and is 16-bit and smoothed over time;
+the sunlight check is filtered over 4 taps.
+
+Not done from W4: tinted (coloured) shadows for see-through entities. The shadow map can't
+tell them apart from opaque casters, so they get dithered partial shadows instead.
+
+W5 onwards: design only.
 
 ---
 

@@ -8,6 +8,47 @@
 #endif
 
 #include "/lib/lighting/coloredLight.glsl"
+#ifdef FAR_SHADOWS
+    #ifdef WORLD_OVERWORLD
+        #include "/lib/lighting/farShadows.glsl"
+    #endif
+#endif
+
+#ifdef CONTACT_SHADOWS
+#if defined CONTACT_SHADOW_PASS && !defined WORLD_NETHER
+    // Contact shadows (W4, plan item Q9): a short trace towards the sun through the depth
+    // buffer, for shadows smaller than a shadow-map texel - grass on the ground, small
+    // items, the gap where a mob stands on a block. Within ~24 blocks only. Every position
+    // is taken at the centre of the pixel whose depth is read (as for the AO), so flat
+    // ground never shadows itself.
+    float ContactShadow(vec3 playerPos, vec3 normal, vec3 L) {
+        float dist = length(playerPos);
+        float fade = 1.0 - smoothstep(16.0, 24.0, dist);
+        if (fade <= 0.0) return 1.0;
+        vec2 screen = vec2(viewWidth, viewHeight);
+        float noise = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + float(frameCounter % 64) * 0.618034);
+        const int STEPS = 10;
+        const float LENGTH = 0.4; // blocks
+        vec3 start = mat3(gbufferModelView) * (playerPos + normal * (0.02 + dist * 0.002)) + gbufferModelView[3].xyz;
+        vec3 dirV = mat3(gbufferModelView) * L;
+        for (int i = 0; i < STEPS; i++) {
+            float t = (float(i) + noise) / float(STEPS) * LENGTH;
+            vec3 p = start + dirV * t;
+            vec4 clip = gbufferProjection * vec4(p, 1.0);
+            ivec2 pixel = ivec2((clip.xy / clip.w * 0.5 + 0.5) * screen);
+            if (any(lessThan(pixel, ivec2(0))) || any(greaterThanEqual(pixel, ivec2(screen)))) break;
+            float depth = texelFetch(depthtex0, pixel, 0).r;
+            if (depth < 0.56) continue; // the hand casts nothing
+            float sceneZ = ScreenToView((vec2(pixel) + 0.5) / screen, depth).z;
+            float inFront = sceneZ - p.z; // > 0: the scene is nearer the camera than the ray
+            // In front of the ray but not by much (thin things block; a wall far in front
+            // of it says nothing about what is behind).
+            if (inFront > 0.02 + 0.003 * -p.z && inFront < 0.5) return 1.0 - fade;
+        }
+        return 1.0;
+    }
+#endif
+#endif
 
 // Dynamic handheld light (plan item L14): vanilla light level minus distance, like vanilla falloff.
 float HeldLight(float distToCamera) {
@@ -110,8 +151,16 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
         float thickness = 4.0;
         if (s.useShadowMap && skyGate > 0.0 && (diffuse > 0.0 || s.foliage)) {
             ShadowResult sh = GetShadow(s.playerPos, hasNormal ? s.normal : vec3(0.0), s.foliage);
+            #if defined FAR_SHADOWS && defined WORLD_OVERWORLD
+                // Beyond the shadow map: the terrain height map (still gated by sky light,
+                // for caves).
+                if (sh.coverage < 1.0) sunVis *= FarShadow(s.playerPos + cameraPosition, lightDir);
+            #endif
             sunVis = mix(sunVis, sh.light, sh.coverage);
             thickness = mix(thickness, sh.thickness, sh.coverage);
+            #if defined CONTACT_SHADOW_PASS && defined CONTACT_SHADOWS
+                if (hasNormal && !s.foliage && diffuse > 0.0 && dot(sunVis, vec3(1.0)) > 0.0) sunVis *= ContactShadow(s.playerPos, s.normal, lightDir);
+            #endif
         }
 
         #ifdef WORLD_OVERWORLD
@@ -126,12 +175,20 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
             // off sunlit blocks nearby, in their colour (Q2, Q3).
             vec4 bounceSky = SurfaceBounceSky(s.playerPos, hasNormal ? s.normal : vec3(0.0, 1.0, 0.0));
             ambientColor *= mix(1.0, bounceSky.a, VOXEL_SKY_OCCLUSION);
-            light += directColor * bounceSky.rgb * SUN_BOUNCE * lightingAO;
+            // Bounced light comes mostly from sunlit ground, which faces up: floors get
+            // little of it (and never their own: the volume holds it just above them),
+            // walls more, undersides of leaves and overhangs the most.
+            float receive = hasNormal ? 0.2 + 0.8 * saturate(0.5 - 0.5 * s.normal.y) : 0.5;
+            light += directColor * bounceSky.rgb * (SUN_BOUNCE * receive) * lightingAO;
         #endif
         light += ambientColor * upFacing * AMBIENT_MULT * lightingAO;
         #ifdef WORLD_OVERWORLD
             // Lightning: the bolt's own light, and the flash of the whole sky.
-            light += LightningLight(s.playerPos, s.normal, s.lm.y);
+            vec3 boltLight = LightningLight(s.playerPos, s.normal, s.lm.y);
+            #if defined COLORED_LIGHTING && defined LIGHTNING_SHADOWS
+                if (dot(boltLight, vec3(1.0)) > 0.0) boltLight *= LightningVoxelShadow(s.playerPos, hasNormal ? s.normal : vec3(0.0));
+            #endif
+            light += boltLight;
             light += LightningFlashColor() * (0.25 * s.lm.y * s.lm.y * upFacing);
         #endif
 

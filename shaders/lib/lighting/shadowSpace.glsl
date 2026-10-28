@@ -16,7 +16,13 @@ vec3 DistortShadowClip(vec3 clip) {
 
 // Iris pass configuration.
 const bool shadowHardwareFiltering = true;  // enables the shadowtex*HW compare samplers
-const float shadowDistanceRenderMul = 1.0;  // don't render shadow casters beyond shadowDistance (CPU saver)
+#if defined FAR_SHADOWS && defined WORLD_OVERWORLD
+    // Draw the terrain further out too, for the far-shadow height map (it falls outside the
+    // shadow map itself, so it only costs vertex work).
+    const float shadowDistanceRenderMul = FAR_SHADOW_RANGE;
+#else
+    const float shadowDistanceRenderMul = 1.0; // don't render shadow casters beyond shadowDistance (CPU saver)
+#endif
 const float entityShadowDistanceMul = 0.25; // entities only cast shadows within 1/4 of shadowDistance
 
 /*

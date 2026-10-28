@@ -201,8 +201,10 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
         vec4 clouds = CloudsInDirection(R);
         skyReflection = skyReflection * clouds.a + clouds.rgb;
     #endif
-    // Rough water blurs what it mirrors: lean towards the average sky.
-    skyReflection = mix(skyReflection, SkyAmbientColor(sunDir.y) * 1.3, saturate(waveRoughness * 4.0));
+    // Rough water blurs what it mirrors: lean a little towards the average sky (only a
+    // little: at a distance the reflection is still mostly the sky and clouds themselves,
+    // smeared, not a flat colour).
+    skyReflection = mix(skyReflection, SkyAmbientColor(sunDir.y) * 1.3, saturate(waveRoughness * 1.5) * 0.3);
     vec3 reflection = skyReflection * skyVis + scatterLight * (1.0 - skyVis);
 
     #if WATER_REFLECTIONS == 1

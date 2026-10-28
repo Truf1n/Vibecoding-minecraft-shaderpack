@@ -22,6 +22,10 @@ void main() {
 
 #ifdef FRAGMENT_SHADER
 
+uniform sampler2D depthtex0;
+// lighting.glsl: contact shadows (traced through the depth buffer, so only here).
+#define CONTACT_SHADOW_PASS
+
 #include "/lib/gbuffer/layout.glsl"
 #include "/lib/materials/blockIds.glsl"
 #include "/lib/util/encoding.glsl"
@@ -44,7 +48,6 @@ uniform sampler2D colortex1;
 uniform sampler2D colortex2;
 uniform sampler2D colortex3;
 uniform sampler2D colortex4;
-uniform sampler2D depthtex0;
 #if SSAO > 0
     uniform sampler2D colortex15; // ambient occlusion + bent normal, half size (ssao.glsl)
 

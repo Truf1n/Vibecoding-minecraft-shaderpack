@@ -64,7 +64,13 @@ vec3 GradeLightColor(vec3 hue) {
         vec4 c10 = mix(BounceTexel(base + ivec3(0, 1, 0)), BounceTexel(base + ivec3(1, 1, 0)), f.x);
         vec4 c01 = mix(BounceTexel(base + ivec3(0, 0, 1)), BounceTexel(base + ivec3(1, 0, 1)), f.x);
         vec4 c11 = mix(BounceTexel(base + ivec3(0, 1, 1)), BounceTexel(base + ivec3(1, 1, 1)), f.x);
-        return mix(mix(c00, c10, f.y), mix(c01, c11, f.y), f.z);
+        vec4 value = mix(mix(c00, c10, f.y), mix(c01, c11, f.y), f.z);
+        // Fades out over the last 12 blocks towards the volume's edges (it ends 64 blocks
+        // above and below the camera, 128 to the sides), so there is never a visible edge
+        // where it stops, e.g. when flying up away from the ground.
+        vec3 toEdge = min(p, vec3(VOXEL_SIZE) - 1.0 - p);
+        float fade = saturate(min(toEdge.x, min(toEdge.y, toEdge.z)) / 12.0);
+        return mix(vec4(0.0, 0.0, 0.0, 1.0), value, fade);
     }
     // At a surface: looked up half a block off it, into the space the light arrives through.
     vec4 SurfaceBounceSky(vec3 playerPos, vec3 normal) {
@@ -106,6 +112,34 @@ vec3 GradeLightColor(vec3 hue) {
         vec3 hue = peak > 1e-4 ? light / peak : FireColor();
         return GradeLightColor(mix(FireColor(), hue, trust));
     }
+
+    #ifdef LIGHTNING_SHADOWS
+        uniform usampler3D voxelSampler;
+
+        // Lightning shadows (W4, plan item Q23): during a flash, whether the bolt can be seen
+        // from a surface, by stepping through the voxel volume towards the bolt (aimed a
+        // little up its length, where most of its light comes from): hills, trees and
+        // buildings throw hard shadows for an instant. Leaves let some through. Beyond 40
+        // blocks of path, or outside the volume, counted as clear.
+        float LightningVoxelShadow(vec3 playerPos, vec3 normal) {
+            vec3 bolt = lightningBoltPosition.xyz;
+            float across = length(bolt.xz - playerPos.xz);
+            vec3 target = vec3(bolt.x, clamp(playerPos.y + across * 0.5 + 4.0, bolt.y, bolt.y + 220.0), bolt.z);
+            vec3 p = playerPos + cameraPosition + normal * 0.6 - vec3(VoxelOrigin());
+            vec3 dir = normalize(target - playerPos);
+            float pathLength = min(length(target - playerPos), 40.0);
+            float vis = 1.0;
+            for (float t = 0.5; t < pathLength; t += 0.7) {
+                ivec3 v = ivec3(floor(p + dir * t));
+                if (!InVoxelVolume(v)) break;
+                uint voxel = texelFetch(voxelSampler, v, 0).r;
+                uint priority = VoxelPriority(voxel);
+                if (priority == VOXEL_PRIORITY_SOLID) return 0.0;
+                if (priority == VOXEL_PRIORITY_TINT && VoxelBlockId(voxel) == BLOCK_LEAVES) vis *= 0.7;
+            }
+            return vis;
+        }
+    #endif
 #else
     vec4 SurfaceBounceSky(vec3 playerPos, vec3 normal) { return vec4(0.0, 0.0, 0.0, 1.0); }
     vec4 BlocklightDirection(vec3 playerPos, vec3 normal) { return vec4(0.0, 1.0, 0.0, 0.0); }

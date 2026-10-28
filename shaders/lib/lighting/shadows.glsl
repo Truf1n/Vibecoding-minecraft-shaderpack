@@ -1,4 +1,4 @@
-// Sun/moon shadows (plan items L1-L5, L19).
+// Sun/moon shadows (plan items L1-L5, L19; soft shadows and far shadows: W4).
 // Needs common.glsl and shadowSpace.glsl. Not available in the Nether (no shadow pass).
 
 #include "/lib/materials/caustics.glsl"
@@ -18,6 +18,33 @@ vec3 ShadowLightDir() { return vec3(shadowModelView[0][2], shadowModelView[1][2]
 
 // Blocks between two shadow-map depths.
 float ShadowDepthToBlocks(float deltaDepth) { return deltaDepth * 2.0 / SHADOW_Z_SCALE / abs(shadowProjection[2][2]); }
+
+// Per-pixel turn of the filter spiral, changing every frame (TAA averages the frames).
+float ShadowNoise() {
+    #ifdef FRAGMENT_SHADER
+        return fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + float(frameCounter % 64) * 0.618034);
+    #else
+        return 0.5;
+    #endif
+}
+
+// Point i of n on a disc of radius 1, evenly spread (golden-angle spiral), turned by phi.
+vec2 VogelDisk(int i, int n, float phi) {
+    float r = sqrt((float(i) + 0.5) / float(n));
+    float a = float(i) * 2.39996323 + phi;
+    return r * vec2(cos(a), sin(a));
+}
+
+// How wide shadows blur per block between the caster and the receiver: the apparent size of
+// the light. In overcast weather the light comes from a wide bright patch of cloud instead
+// of the sun's disc, so shadows go very soft.
+float SunPenumbra() {
+    float size = 0.014 * SHADOW_PENUMBRA;
+    #ifdef WORLD_OVERWORLD
+        size *= 1.0 + 4.0 * stormRain;
+    #endif
+    return size;
+}
 
 struct ShadowResult {
     vec3 light;        // 0 = fully shadowed, 1 = lit; tinted by coloured glass
@@ -56,20 +83,49 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
     vec3 coord = DistortShadowClip(clip) * 0.5 + 0.5;
     coord.z -= 0.00002;
 
-    // 3x3 hardware-filtered PCF (each tap is itself bilinear-filtered: 36 effective samples).
-    float spacing = SHADOW_SOFTNESS / float(shadowMapResolution);
+    // Soft shadows (W4, plan items Q8, Q11): percentage-closer soft shadows. A few taps
+    // around the point find how far above it the things casting the shadow are; the
+    // further, the wider the blur (the sun is a disc, not a point): sharp where a post
+    // meets the ground, soft at the tip of a tree's shadow. Overcast skies widen the "sun"
+    // a lot. The taps lie on a spiral turned per pixel and per frame (TAA blends them).
+    float noise = ShadowNoise();
+    float texelsPerBlock = 1.0 / localTexel;
+    float uvPerTexel = 1.0 / float(shadowMapResolution);
+    float sunSize = SunPenumbra(); // blocks of blur per block between caster and receiver
+    float minRadius = SHADOW_SOFTNESS * 0.5; // texels
     #if PLAYER_SHADOW_QUALITY > 0
         // Finer filtering close to the player (crisper shadows of you and around you).
         float nearPlayer = 1.0 - smoothstep(4.0, 20.0, length(playerPos));
-        spacing *= mix(1.0, PLAYER_SHADOW_QUALITY == 1 ? 0.55 : 0.35, nearPlayer);
+        minRadius *= mix(1.0, PLAYER_SHADOW_QUALITY == 1 ? 0.55 : 0.35, nearPlayer);
     #endif
-    float opaque = 0.0;
-    for (int x = -1; x <= 1; x++) {
-        for (int y = -1; y <= 1; y++) {
-            opaque += texture(shadowtex1HW, coord + vec3(vec2(x, y) * spacing, 0.0));
+    float radius = minRadius;
+    if (sunSize > 0.0) {
+        // Blocker search: up to 8 blocks above (beyond that the blur is wide anyway).
+        float searchTexels = clamp(sunSize * 8.0 * texelsPerBlock, minRadius, 24.0);
+        float blockerSum = 0.0, blockers = 0.0;
+        // Only casters at least a tenth of a block above count (not the surface itself
+        // where it slopes away from the light).
+        float blockerBias = 0.1 / ShadowDepthToBlocks(1.0);
+        for (int i = 0; i < 6; i++) {
+            vec2 o = VogelDisk(i, 6, noise * TAU) * searchTexels * uvPerTexel;
+            float d = textureLod(shadowtex1, coord.xy + o, 0.0).r;
+            if (d < coord.z - blockerBias) { blockerSum += d; blockers += 1.0; }
+        }
+        if (blockers > 0.0) {
+            float gap = ShadowDepthToBlocks(coord.z - blockerSum / blockers);
+            radius = clamp(gap * sunSize * texelsPerBlock, minRadius, 24.0);
         }
     }
-    opaque /= 9.0;
+    // Fewer taps far away, where a pixel covers more than the blur anyway.
+    int taps = length(playerPos) > 64.0 ? SHADOW_SAMPLES / 2 : SHADOW_SAMPLES;
+    float opaque = 0.0, allVis = 0.0;
+    for (int i = 0; i < taps; i++) {
+        vec3 o = vec3(VogelDisk(i, taps, noise * TAU + 1.3) * radius * uvPerTexel, 0.0);
+        opaque += texture(shadowtex1HW, coord + o);
+        allVis += texture(shadowtex0HW, coord + o);
+    }
+    opaque /= float(taps);
+    allVis /= float(taps);
     r.light = vec3(opaque);
 
     // Translucent casters nearest to the sun. Water absorbs the light per colour and
@@ -77,7 +133,6 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
     // the shadow map, as for any caster). Glass or ice: the caustics are worked out as if
     // it were not there - the water under it comes from the column maps, since the shadow
     // map only sees the glass - and its tint goes on top.
-    float allVis = texture(shadowtex0HW, coord);
     if (allVis < opaque - 0.01) {
         vec3 worldPos = playerPos + cameraPosition;
         vec3 L = ShadowLightDir();

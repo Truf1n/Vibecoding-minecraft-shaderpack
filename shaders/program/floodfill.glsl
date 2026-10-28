@@ -28,8 +28,8 @@ layout(r32ui) uniform readonly uimage3D voxelImg;
 layout(r11f_g11f_b10f) uniform image3D floodImgA;
 layout(r11f_g11f_b10f) uniform image3D floodImgB;
 // Light volume (docs/WORLD_MODEL.md F1): rgb sun bounce (per unit of sunlight), a sky visibility.
-layout(rgba8) uniform image3D bounceImgA;
-layout(rgba8) uniform image3D bounceImgB;
+layout(rgba16f) uniform image3D bounceImgA;
+layout(rgba16f) uniform image3D bounceImgB;
 layout(r32ui) uniform readonly uimage3D albedoImg; // packed (voxels.glsl)
 uniform sampler2DShadow shadowtex1HW;
 uniform mat4 shadowModelView;
@@ -60,12 +60,20 @@ vec4 PreviousBounce(ivec3 p, bool fromA) {
 }
 
 // Sunlight reaching the middle of a block space (shadow map; outside it: assumed lit).
+// Four taps about a third of a block apart: one tap flips between lit and shadowed as the
+// (coarse, far away) shadow map shifts with the camera, and the bounce would flicker.
 float SunVisibility(ivec3 v) {
     vec3 playerPos = vec3(v + VoxelOrigin()) + 0.5 - cameraPosition;
-    vec3 clip = (shadowProjection * vec4((shadowModelView * vec4(playerPos, 1.0)).xyz, 1.0)).xyz;
-    if (length(clip.xy) > 0.98) return 1.0;
-    vec3 coord = DistortShadowClip(clip) * 0.5 + 0.5;
-    return texture(shadowtex1HW, coord - vec3(0.0, 0.0, 0.0005));
+    vec3 shadowView = (shadowModelView * vec4(playerPos, 1.0)).xyz;
+    float vis = 0.0;
+    for (int i = 0; i < 4; i++) {
+        vec2 o = vec2(i & 1, i >> 1) * 0.6 - 0.3;
+        vec3 clip = (shadowProjection * vec4(shadowView + vec3(o, 0.0), 1.0)).xyz;
+        if (length(clip.xy) > 0.98) { vis += 1.0; continue; }
+        vec3 coord = DistortShadowClip(clip) * 0.5 + 0.5;
+        vis += texture(shadowtex1HW, coord - vec3(0.0, 0.0, 0.0005));
+    }
+    return vis * 0.25;
 }
 
 void main() {
@@ -136,6 +144,10 @@ void main() {
             if (max(injected.r, max(injected.g, injected.b)) > 0.01) bounced = max(bounced, injected * SunVisibility(v) * 0.7);
         }
         bounce = vec4(bounced, saturate(sky));
+        // Smoothed over a fraction of a second, so nothing in it flickers (the spreading
+        // above still settles within a few frames).
+        vec4 before = PreviousBounce(prev, fromA);
+        if (InVolume(prev)) bounce = mix(before, bounce, 1.0 - exp(-clamp(frameTime, 0.0, 0.1) / 0.2));
     }
 
     if (fromA) {

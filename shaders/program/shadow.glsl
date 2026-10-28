@@ -47,6 +47,10 @@
 #endif
 
 uniform mat4 shadowModelViewInverse;
+#if defined FAR_SHADOWS && defined WORLD_OVERWORLD
+    #define FAR_HEIGHT_WRITER
+    #include "/lib/lighting/farShadows.glsl"
+#endif
 
 in vec2 mc_Entity;
 in vec4 mc_midTexCoord;
@@ -80,6 +84,12 @@ void main() {
         bool voxel = (gl_VertexID & 3) == 0;
     #else
         bool voxel = false;
+    #endif
+    #if defined FAR_SHADOWS && defined WORLD_OVERWORLD
+        // Far-shadow height map: one corner of every face looking up (not water).
+        if (terrain && gl_Normal.y > 0.5 && (gl_VertexID & 3) == 0 && !IsWater(blockId)) {
+            WriteFarHeight((shadowModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz + cameraPosition);
+        }
     #endif
     if (terrain && (columnInfo || voxel)) {
         vec3 worldPos = (shadowModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz + cameraPosition;
@@ -182,6 +192,15 @@ void main() {
 
     vec4 albedo = texture(gtexture, texCoord);
     if (albedo.a < 0.1) discard;
+    #ifdef TRANSLUCENT_ENTITY_SHADOWS
+        // See-through parts of mobs (slimes' outer layer, ...): a share of their texels,
+        // as many as they are opaque, cast shadow; the soft-shadow filter averages them
+        // into a partial shadow.
+        if (renderStage == MC_RENDER_STAGE_ENTITIES && albedo.a < 0.95) {
+            float pattern = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+            if (albedo.a * vertColor.a < pattern) discard;
+        }
+    #endif
     outShadowColor = albedo;
     outShadowCaster = vec4(0.0);
 }

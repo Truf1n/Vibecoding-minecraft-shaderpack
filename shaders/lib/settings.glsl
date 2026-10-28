@@ -101,7 +101,25 @@
 // Iris reads these two constants directly; they are also menu options.
 const int shadowMapResolution = 4096; //[1024 2048 3072 4096 6144 8192]
 const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0 320.0 384.0 512.0]
+// Smallest shadow blur (shadow-map texels): edges right where an object touches the ground.
 #define SHADOW_SOFTNESS 1.5 //[0.5 1.0 1.5 2.0 3.0 4.0]
+// Size of the sun's disc for shadows: shadows are sharp where an object meets the ground and
+// soften the further they fall from it (more in overcast weather). 0 = always sharp.
+#define SHADOW_PENUMBRA 1.00 //[0.00 0.50 0.75 1.00 1.50 2.00 3.00]
+// Shadow filter samples (fewer far away).
+#define SHADOW_SAMPLES 12 //[8 12 16 24]
+// Tiny shadows the shadow map is too coarse for (grass, small items, where things meet the
+// ground), traced on screen within ~24 blocks.
+#define CONTACT_SHADOWS
+// Shadows beyond the shadow distance, from a coarse height map of the terrain (mountains,
+// valleys at sunset). Draws more of the world in the shadow pass (some CPU/GPU cost).
+#define FAR_SHADOWS
+// How far far shadows reach, in multiples of the shadow distance (limited by render distance).
+#define FAR_SHADOW_RANGE 3.0 //[2.0 3.0 4.0 6.0]
+// See-through mobs and their see-through parts (slimes, ...) cast partial shadows.
+#define TRANSLUCENT_ENTITY_SHADOWS
+// Lightning casts shadows from hills, trees and buildings (needs Coloured Lighting).
+#define LIGHTNING_SHADOWS
 // How fast shadow resolution drops with distance: low = even detail everywhere,
 // high = very sharp under you and blocky far away.
 #define SHADOW_FALLOFF 0.75 //[0.40 0.50 0.60 0.70 0.75 0.80 0.85 0.90]
