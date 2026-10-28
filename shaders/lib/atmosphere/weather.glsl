@@ -80,28 +80,39 @@ float RainExposure(float skylight) {
     return smoothstep(0.86, 0.96, skylight) * (1.0 - inSnowyBiome) * (1.0 - inSandyBiome);
 }
 
-// Expanding rings from raindrops, as a slope (xz) to bend a flat surface's normal.
+// Expanding rings from raindrops, as a slope (dh/dx, dh/dz) to add to the surface's own
+// (the waves, a flat puddle). Each drop sends out a short train of wavelets that spreads at
+// about 1.5 blocks/s and dies out in under a second; the rings of neighbouring drops
+// overlap and add up (they interfere), and they ride on whatever the surface does.
 // Two overlapping grids of drops, each landing at its own time.
 vec2 RainRipples(vec2 p) {
+    const float spacing = 0.7;    // blocks between drops in one grid
+    const float life = 0.75;      // seconds a ring lasts
+    const float speed = 1.5;      // blocks per second
+    const float k = TAU / 0.16;   // wavelets 0.16 blocks apart
     vec2 slope = vec2(0.0);
     for (int layer = 0; layer < 2; layer++) {
-        vec2 q = p * 1.6 + float(layer) * vec2(0.37, 0.71);
+        vec2 q = p / spacing + float(layer) * vec2(0.37, 0.71);
         vec2 cell = floor(q);
         for (int y = -1; y <= 1; y++) {
             for (int x = -1; x <= 1; x++) {
                 vec2 c = cell + vec2(x, y);
                 float seed = Hash13(vec3(c, float(layer)));
-                vec2 drop = c + 0.5 + (vec2(Hash13(vec3(c, 5.3)), Hash13(vec3(c, 9.1))) - 0.5) * 0.8;
-                float phase = fract(frameTimeCounter * 0.9 + seed);
-                vec2 d = q - drop;
+                float age = fract(frameTimeCounter / life + seed) * life;
+                vec2 drop = (c + 0.5 + (vec2(Hash13(vec3(c, 5.3)), Hash13(vec3(c, 9.1))) - 0.5) * 0.8) * spacing;
+                vec2 d = p - drop;
                 float r = length(d);
-                float radius = phase * 0.9;
-                float ring = (r - radius) * 22.0;
-                if (abs(ring) < PI) slope += d / max(r, 1e-3) * (sin(ring) * (1.0 - phase) * (1.0 - phase));
+                float front = age * speed;
+                float x0 = r - front;
+                // A packet of a few wavelets around the front, fading as it spreads.
+                float envelope = exp(-x0 * x0 / 0.012) * exp(-age * 3.5) / (1.0 + front * 4.0);
+                if (envelope < 1e-3) continue;
+                float dhdr = envelope * (k * cos(k * x0) - 2.0 * x0 / 0.012 * sin(k * x0));
+                slope += d / max(r, 1e-3) * dhdr;
             }
         }
     }
-    return slope * 0.18;
+    return slope * 0.006;
 }
 
 // Where water collects on a flat, exposed surface (0..1), from a large smooth pattern,

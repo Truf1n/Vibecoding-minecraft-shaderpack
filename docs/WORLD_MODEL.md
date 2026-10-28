@@ -11,7 +11,18 @@ Status: **W1 implemented (M10-W1):**
 - clouds, plants, rain slant, water waves, caustics and storm fog driven by it;
 - auto exposure.
 
-W2 onwards: design only.
+**W2 implemented (M10-W2):**
+- the analytic wave field: wind sea on fixed headings, ripples from gusts, swell; fetch and
+  shelter;
+- rain rings added onto the waves;
+- Jacobian caustics with dispersion;
+- roughness from the unresolved waves;
+- interactive ripples.
+
+Still to do from W2: shorelines (Q16). Underwater light shafts stay along the unrefracted
+sun direction: the shadow map can only be looked up along it.
+
+W3 onwards: design only.
 
 ---
 

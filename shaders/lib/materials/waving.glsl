@@ -4,6 +4,7 @@
 // Needs: common.glsl, blockIds.glsl.
 
 #include "/lib/util/noise.glsl"
+#include "/lib/materials/waves.glsl"
 
 // Wind on a plant (world state system C): the world's wind direction and speed, with gusts
 // - patches of stronger wind carried along by the air (the distance it has moved), so a
@@ -30,11 +31,11 @@ vec3 Wind(vec3 worldPos, float response) {
 vec3 WavingOffset(int id, vec3 worldPos, bool top, float skylight) {
     #ifdef WAVING_LILY_PADS
         if (id == BLOCK_LILY_PAD) {
-            // Rides the same swell as the water surface (gbuffers_forward.glsl).
+            // Rides the same waves as the water surface (gbuffers_forward.glsl, waves.glsl).
             #ifdef WAVING_WATER_VERTEX
-                float t = wsJet.z * WATER_WAVE_SPEED;
-                float wave = sin(worldPos.x * 0.65 + t * 1.3) * sin(worldPos.z * 0.55 + t * 1.1) * 0.5 + 0.5;
-                return vec3(0.0, -wave * 0.05, 0.0);
+                float shelter = smoothstep(0.35, 0.85, skylight);
+                float h = Waves(worldPos.xz, GetWaveConditions(shelter, 0.6, 0.5), 0.0, true).height;
+                return vec3(0.0, clamp(h - 0.05, -0.1, 0.0), 0.0);
             #endif
         }
     #endif

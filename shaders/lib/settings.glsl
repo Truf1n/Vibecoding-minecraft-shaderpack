@@ -191,6 +191,11 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define WATER_REFRACTION 100     //[0 25 50 75 100 150 200]
 #define WATER_FOAM 2             //[0 1 2 3]
 #define WATER_CAUSTICS
+// You, mobs and boats leave ripples and wakes on the water.
+#define INTERACTIVE_RIPPLES
+// Colour fringes on caustics (different colours focus at slightly different depths):
+// 1 = physically correct (subtle), higher exaggerates.
+#define CAUSTIC_DISPERSION 4.0 //[0.0 1.0 2.0 4.0 6.0 8.0]
 // Translucent blocks more opaque than the limit cast no caustics on the water under them.
 //#define OPAQUE_BLOCKS_CAUSTICS
 #define CAUSTICS_OPACITY_LIMIT 0.50 //[0.30 0.40 0.50 0.60 0.70 0.80 0.90]

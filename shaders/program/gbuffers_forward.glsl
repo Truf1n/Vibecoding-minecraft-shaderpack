@@ -18,6 +18,9 @@
 #ifdef PROG_GBUFFERS_WATER
 in vec2 mc_Entity;
 #include "/lib/materials/columnMaps.glsl"
+#include "/lib/util/encoding.glsl"
+#include "/lib/util/noise.glsl"
+#include "/lib/materials/waves.glsl"
 
 // True if any block space touching this surface corner is covered by a block (the corner
 // is shared by up to four water blocks, so they all agree and the surface has no cracks).
@@ -70,7 +73,8 @@ void main() {
         {
             float fallSpeed = mix(9.0, 2.5, inSnowyBiome);
             vec2 wind = WindDir() * min(WindSpeed() / fallSpeed, 1.5) * WAVING_INTENSITY;
-            playerPos.xz += wind * (playerPos.y + cameraPosition.y - floor(cameraPosition.y));
+            // Higher up, a drop is further upwind (it is carried along as it falls).
+            playerPos.xz -= wind * (playerPos.y + cameraPosition.y - floor(cameraPosition.y));
             wavedWater = true;
         }
     #endif
@@ -82,9 +86,10 @@ void main() {
         // Not where the water is pressed right under a block.
         vec3 wp = playerPos + cameraPosition;
         if (IsWater(blockId) && worldNormal.y > 0.9 && !CornerUnderBlock(wp)) {
-            float t = wsJet.z * WATER_WAVE_SPEED;
-            float wave = sin(wp.x * 0.65 + t * 1.3) * sin(wp.z * 0.55 + t * 1.1) * 0.5 + 0.5;
-            playerPos.y -= wave * 0.05;
+            // The long waves of the wave field (waves.glsl), calm without wind.
+            float shelter = smoothstep(0.35, 0.85, RemapLightmap(lmCoord).y);
+            float h = Waves(wp.xz, GetWaveConditions(shelter, 0.6, 0.5), 0.0, true).height;
+            playerPos.y += clamp(h - 0.05, -0.1, 0.0);
             wavedWater = true;
         }
     #endif
@@ -147,6 +152,10 @@ uniform sampler2D gtexture;
     #include "/lib/materials/ice.glsl"
     #include "/lib/materials/caustics.glsl"
     #include "/lib/materials/columnMaps.glsl"
+    #ifdef INTERACTIVE_RIPPLES
+        #define RIPPLE_READER
+        #include "/lib/materials/ripples.glsl"
+    #endif
     #if defined WORLD_OVERWORLD && CLOUD_STYLE == 1
         #include "/lib/atmosphere/cloudBuffer.glsl"
     #endif

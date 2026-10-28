@@ -1,29 +1,19 @@
 // Water: textureless, biome-tinted, smooth procedural waves, screen-space reflections of
 // the scene with a sky fallback, a soft sun/moon glint, and depth-based opacity.
 // Needs: sky.glsl, lighting.glsl (+ shadows.glsl outside the Nether), fog.glsl,
-// space.glsl, translucent.glsl, ssr.glsl, caustics.glsl.
+// space.glsl, translucent.glsl, ssr.glsl, caustics.glsl (which brings waves.glsl).
 
-// Wave height in blocks: a few drifting octaves, large swells first. `detail` fades the
-// small ripples out with distance so far water does not alias.
-float WaveHeight(vec2 p, float detail) {
-    // The waves run along the wind (world state): the pattern is turned to the wind's
-    // direction and driven by the wave clock, which runs faster in stronger wind.
-    float t = wsJet.z * WATER_WAVE_SPEED;
-    vec2 q = mat2(wsWind.x, -wsWind.y, wsWind.y, wsWind.x) * p / WATER_WAVE_SIZE;
-    float h = 0.0;
-    h += SmoothNoise(q * 0.35 + vec2( 0.42,  0.15) * t) * 0.55;
-    h += SmoothNoise(mat2(0.8, -0.6, 0.6, 0.8) * q * 0.75 + vec2(-0.25,  0.48) * t) * 0.28;
-    h += SmoothNoise(mat2(0.6, 0.8, -0.8, 0.6) * q * 1.6  + vec2( 0.62, -0.31) * t) * 0.12 * detail;
-    h += SmoothNoise(q * 3.3 + vec2(-0.70, -0.55) * t) * 0.05 * detail;
-    return h;
-}
-
-vec3 WaveNormal(vec2 p, float strength, float detail) {
-    const float e = 0.06;
-    float h0 = WaveHeight(p, detail);
-    float hx = WaveHeight(p + vec2(e, 0.0), detail);
-    float hz = WaveHeight(p + vec2(0.0, e), detail);
-    return normalize(vec3((h0 - hx) / e * strength, 1.0, (h0 - hz) / e * strength));
+// How open the water is ("fetch"): the share of water surface at the same level in two
+// rings (5 and 12 blocks) around the point. Ponds stay calm, lakes and the sea get waves.
+float WaterFetch(vec3 worldPos) {
+    vec3 p = vec3(worldPos.x, worldPos.y - 0.2, worldPos.z);
+    float count = 0.0;
+    for (int i = 0; i < 8; i++) {
+        vec2 d = vec2(cos(float(i) * 0.785398), sin(float(i) * 0.785398));
+        count += ColumnHas(waterSurfacesSampler, p + vec3(d.x * 5.0, 0.0, d.y * 5.0)) ? 1.0 : 0.0;
+        count += ColumnHas(waterSurfacesSampler, p + vec3(d.x * 12.0, 0.0, d.y * 12.0)) ? 1.0 : 0.0;
+    }
+    return smoothstep(0.3, 0.95, count / 16.0);
 }
 
 // GGX specular (normalized). Roughness grows with distance so the glint stays a few
@@ -93,18 +83,25 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
     vec3 faceN = dot(geoNormal, V) >= 0.0 ? geoNormal : -geoNormal;
     vec3 N = faceN;
     float detail = 1.0 - smoothstep(12.0, 48.0, dist);
+    float waveRoughness = 0.0;
     if (abs(geoNormal.y) > 0.5) {
-        // Stronger wind, rougher water (a light breeze ~2-3 blocks/s gives the old look).
-        float windWaves = clamp(0.55 + 0.17 * WindSpeed(), 0.5, 2.2);
-        N = WaveNormal(worldPos.xz, WATER_WAVE_STRENGTH * 0.22 * windWaves / (1.0 + dist * 0.01), detail);
+        // The wave field (waves.glsl): wind sea, ripples and swell from the world state,
+        // calm where no wind reaches (sky light low: caves, under roofs) and on small ponds.
+        float shelter = smoothstep(0.35, 0.85, surf.lm.y);
+        WaveConditions conditions = GetWaveConditions(shelter, WaterFetch(worldPos), GustAt(worldPos.xz));
+        float footprint = dist * PixelAngle();
+        WaveSample waves = Waves(worldPos.xz, conditions, footprint, false);
+        vec2 slope = waves.slope;
+        waveRoughness = sqrt(waves.unresolvedSlope2);
         #if defined RAIN_RIPPLES && defined WORLD_OVERWORLD
-            // Raindrops hitting the surface.
+            // Raindrops hitting the surface: their rings add onto the waves.
             float rain = VisibleRain() * smoothstep(0.86, 0.96, surf.lm.y) * (1.0 - inSnowyBiome) * (1.0 - inSandyBiome) * detail;
-            if (rain > 0.0) {
-                vec2 ripple = RainRipples(worldPos.xz) * rain;
-                N = normalize(N + vec3(ripple.x, 0.0, ripple.y));
-            }
+            if (rain > 0.0) slope += RainRipples(worldPos.xz) * rain;
         #endif
+        #ifdef INTERACTIVE_RIPPLES
+            slope += RippleSlope(worldPos.xz); // wakes and rings from swimmers, mobs, boats
+        #endif
+        N = WaveSurfaceNormal(slope);
         if (faceN.y < 0.0) N = -N;
     }
 
@@ -175,7 +172,7 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
         float verticalDepth = thickness * abs(V.y);
         float foamMask = 1.0 - smoothstep(0.05, 0.45, verticalDepth);
         if (foamMask > 0.0) {
-            float t = wsJet.z * WATER_WAVE_SPEED;
+            float t = wsJet.z * WATER_WAVE_SPEED * 0.3;
             float foamNoise = SmoothNoise(worldPos.xz * 3.0 + vec2(t * 0.6, -t * 0.4));
             foamNoise *= SmoothNoise(worldPos.xz * 5.5 - vec2(t * 0.3, t * 0.5) + 31.0);
             float foam = smoothstep(0.15, 0.45, foamNoise * foamMask * 1.6) * float(WATER_FOAM) * 0.5;
@@ -204,6 +201,8 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
         vec4 clouds = CloudsInDirection(R);
         skyReflection = skyReflection * clouds.a + clouds.rgb;
     #endif
+    // Rough water blurs what it mirrors: lean towards the average sky.
+    skyReflection = mix(skyReflection, SkyAmbientColor(sunDir.y) * 1.3, saturate(waveRoughness * 4.0));
     vec3 reflection = skyReflection * skyVis + scatterLight * (1.0 - skyVis);
 
     #if WATER_REFLECTIONS == 1
@@ -214,7 +213,9 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
         }
     #endif
 
-    float roughness = 0.08 + dist * 0.0015;
+    // The glint widens with distance and with the waves too small to draw (Q17): calm ponds
+    // give a sharp sun, a choppy sea a wide glitter.
+    float roughness = 0.08 + dist * 0.0015 + waveRoughness * 2.0;
     vec3 glint = SunLightColor(sunDir.y) * GGXSpecular(N, V, lightDir, roughness) * skyVis * skyVis * (1.0 - rainStrength);
 
     return PlainSurface(mix(body, reflection, fresnel) + glint, 1.0);

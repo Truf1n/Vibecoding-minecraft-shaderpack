@@ -8,6 +8,11 @@
 
 #define COLUMN_MAP_WRITER
 #include "/lib/materials/columnMaps.glsl"
+#ifdef INTERACTIVE_RIPPLES
+    #include "/lib/materials/ripples.glsl"
+    layout(r32ui) uniform uimage2D rippleLowImg;
+    layout(r32ui) uniform uimage2D rippleHighImg;
+#endif
 #include "/lib/util/encoding.glsl"
 #include "/lib/materials/waving.glsl"
 #ifdef COLORED_LIGHTING
@@ -82,6 +87,19 @@ void main() {
         }
     }
 
+    #ifdef INTERACTIVE_RIPPLES
+        // Entities (the player too): record how low and how high they reach above each
+        // quarter-block cell, for the ripple simulation to check against the water.
+        if (renderStage == MC_RENDER_STAGE_ENTITIES) {
+            vec3 wp = (shadowModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz + cameraPosition;
+            if (InRippleRange(wp.xz)) {
+                ivec2 texel = RippleTexel(RippleCellOf(wp.xz));
+                uint q = PackRippleHeight(wp.y);
+                imageAtomicMax(rippleHighImg, texel, q);
+                imageAtomicMax(rippleLowImg, texel, 0xFFFFFFFFu - q);
+            }
+        }
+    #endif
     vec4 clip = ftransform(); // orthographic: w == 1
     #ifdef LEAF_SHADOW_OPTIMIZATION
         // Leaves and vines with (almost) no sky light: in caves and interiors, where their

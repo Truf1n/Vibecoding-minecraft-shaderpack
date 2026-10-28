@@ -484,3 +484,10 @@ option.AUTO_EXPOSURE_MIN=Auto Exposure Minimum
 option.AUTO_EXPOSURE_MIN.comment=The darkest it may make the image (in bright views).
 option.AUTO_EXPOSURE_MAX=Auto Exposure Maximum
 option.AUTO_EXPOSURE_MAX.comment=The brightest it may make the image (in caves and at night).
+
+# ---- W2: water
+option.INTERACTIVE_RIPPLES=Interactive Ripples
+option.INTERACTIVE_RIPPLES.comment=You, mobs and boats leave rings and wakes on the water around you (a small wave simulation, 64 blocks across).
+option.CAUSTIC_DISPERSION=Caustic Dispersion
+option.CAUSTIC_DISPERSION.comment=Colour fringes on the light patterns under water: each colour focuses at a slightly different depth, so the fringes widen deeper down. 1 is physically correct (subtle); higher exaggerates it.
+value.CAUSTIC_DISPERSION.0.0=Off

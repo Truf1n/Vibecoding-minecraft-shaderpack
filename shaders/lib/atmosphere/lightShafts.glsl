@@ -78,7 +78,7 @@ vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float d
             // Path of the light through the water down to this point.
             float surfaceDepth = texture(shadowtex0, coord.xy).r;
             float path = max(ShadowDepthToBlocks(coord.z - surfaceDepth), 0.0);
-            vec3 light = UnderwaterLight(path, (p + cameraPosition).xz + L.xz * path, 1.0);
+            vec3 light = UnderwaterLight(path, (p + cameraPosition).xz + L.xz * path / 1.333, 1.0);
             sum += vis * light * exp(-t * WaterAbsorption());
         }
         float phase = 0.6 + 1.4 * HG(VdotL, 0.6) * 0.25;

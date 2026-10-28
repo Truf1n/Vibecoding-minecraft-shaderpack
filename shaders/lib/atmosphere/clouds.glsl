@@ -134,7 +134,9 @@ vec2 CloudWind() {
         float t = (float(worldDay) * 24000.0 + float(worldTime)) / 20.0; // seconds of game time
         return vec2(1.0, 0.35) * t * CLOUD_SPEED;
     #else
-        return wsWindOffset.zw * 0.25 * CLOUD_SPEED;
+        // (Sampled at position + this, so the pattern moves the opposite way: minus the
+        // drift moves the clouds along with the wind.)
+        return -wsWindOffset.zw * 0.25 * CLOUD_SPEED;
     #endif
 }
 

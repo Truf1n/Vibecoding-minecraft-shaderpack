@@ -84,7 +84,7 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
         vec4 caster = texelFetch(shadowcolor1, ivec2(coord.xy * float(shadowMapResolution)), 0);
         if (caster.r > 0.5) {
             float path = max(ShadowDepthToBlocks(coord.z - texture(shadowtex0, coord.xy).r), 0.0);
-            r.light = vec3(opaque) * UnderwaterLight(path, worldPos.xz + L.xz * path, 1.0);
+            r.light = vec3(opaque) * UnderwaterLight(path, worldPos.xz + L.xz * path / 1.333, 1.0);
         } else {
             #ifdef COLORED_SHADOWS
                 vec4 glass = texelFetch(shadowcolor0, ivec2(coord.xy * float(shadowMapResolution)), 0);
@@ -105,7 +105,7 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
                     // Fairly opaque blocks (tinted glass, ...) let no focused light through.
                     if (caster.g > CAUSTICS_OPACITY_LIMIT) causticStrength = 0.0;
                 #endif
-                r.light *= UnderwaterLight(path, worldPos.xz + L.xz * path, causticStrength);
+                r.light *= UnderwaterLight(path, worldPos.xz + L.xz * path / 1.333, causticStrength);
             }
         }
     }
