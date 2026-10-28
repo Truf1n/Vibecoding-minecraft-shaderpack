@@ -46,16 +46,17 @@ uniform sampler2D colortex3;
 uniform sampler2D colortex4;
 uniform sampler2D depthtex0;
 #if SSAO > 0
-    uniform sampler2D colortex15; // ambient occlusion, half size (ssao.glsl)
+    uniform sampler2D colortex15; // ambient occlusion + bent normal, half size (ssao.glsl)
 
-    // Upsamples the half-size occlusion with a small blur that follows the depth (so it
-    // does not bleed across edges and the per-frame sample pattern smooths out).
-    float SampleAO(ivec2 pixel, float depth) {
+    // Upsamples the half-size occlusion and bent normal with a small blur that follows the
+    // depth (so it does not bleed across edges and the per-frame slices smooth out).
+    vec4 SampleAO(ivec2 pixel, float depth) {
         float linear = ScreenToView(vec2(pixel) / vec2(viewWidth, viewHeight), depth).z;
         vec2 pos = (vec2(pixel) + 0.5) * 0.5 - 0.5;
         ivec2 base = ivec2(floor(pos));
         ivec2 maxTexel = textureSize(colortex15, 0) - 1;
-        float sum = 0.0, wsum = 0.0;
+        vec4 sum = vec4(0.0);
+        float wsum = 0.0;
         for (int y = -1; y <= 2; y++) {
             for (int x = -1; x <= 2; x++) {
                 ivec2 t = clamp(base + ivec2(x, y), ivec2(0), maxTexel);
@@ -63,11 +64,21 @@ uniform sampler2D depthtex0;
                 ivec2 full = min(t * 2 + 1, ivec2(viewWidth, viewHeight) - 1);
                 float z = ScreenToView((vec2(full) + 0.5) / vec2(viewWidth, viewHeight), texelFetch(depthtex0, full, 0).r).z;
                 float w = exp(-dot(d, d) * 0.5) * exp(-abs(z - linear) / (0.05 * abs(linear) + 0.1));
-                sum += texelFetch(colortex15, t, 0).r * w;
+                sum += texelFetch(colortex15, t, 0) * w;
                 wsum += w;
             }
         }
-        return pow(sum / max(wsum, 1e-4), SSAO_STRENGTH);
+        vec4 ao = sum / max(wsum, 1e-4);
+        return vec4(normalize(ao.rgb * 2.0 - 1.0), pow(ao.a, SSAO_STRENGTH));
+    }
+
+    // Multi-bounce (Jimenez 2016): light bouncing around inside a corner comes back off the
+    // surface itself, so bright surfaces lose less to occlusion, and keep their colour.
+    vec3 MultiBounceAO(float ao, vec3 albedo) {
+        vec3 a = 2.0404 * albedo - 0.3324;
+        vec3 b = -4.7951 * albedo + 0.6417;
+        vec3 c = 2.7552 * albedo + 0.6903;
+        return max(vec3(ao), ((ao * a + b) * ao + c) * ao);
     }
 #endif
 
@@ -140,7 +151,11 @@ void main() {
         surf.useShadowMap = shadingModel != SM_HAND; // hand depth uses its own projection
 
         #if SSAO > 0
-            if (shadingModel != SM_HAND) lightingAO = SampleAO(pixel, depth);
+            if (shadingModel != SM_HAND) {
+                vec4 ao = SampleAO(pixel, depth);
+                lightingAO = MultiBounceAO(ao.a, albedo);
+                lightingBentNormal = ao.rgb;
+            }
         #endif
         vec3 sunLight;
         vec3 light = GetLighting(surf, sunDir, lightDir, sunLight);
@@ -191,6 +206,14 @@ void main() {
                 float fresnel = (0.02 + 0.98 * pow(1.0 - saturate(dot(puddleNormal, V)), 5.0)) * gloss;
                 color = mix(color, refl, fresnel);
                 color += sunLight * SpecularHighlight(puddleNormal, V, lightDir, mix(0.5, 0.06, puddle), vec3(0.02)) * gloss;
+                #ifdef COLORED_LIGHTING
+                    // Block-light glints on puddles (Q7).
+                    if (lm.x > 0.05) {
+                        vec4 from = BlocklightDirection(playerPos, vec3(0.0, 1.0, 0.0));
+                        vec3 blockColor = WorldBlocklightColor(playerPos, vec3(0.0, 1.0, 0.0), lm.x) * BlocklightFalloff(lm.x) * BLOCKLIGHT_I;
+                        color += blockColor * SpecularHighlight(puddleNormal, V, from.xyz, mix(0.5, 0.1, puddle), vec3(0.02)) * gloss * from.w;
+                    }
+                #endif
             }
         #endif
         color = ApplyFog(color, playerPos, sunDir, false);

@@ -23,6 +23,8 @@ vec3 GradeLightColor(vec3 hue) {
 
     uniform sampler3D floodSamplerA;
     uniform sampler3D floodSamplerB;
+    uniform sampler3D bounceSamplerA;
+    uniform sampler3D bounceSamplerB;
     uniform int heldItemId;
     uniform int heldItemId2;
 
@@ -47,6 +49,42 @@ vec3 GradeLightColor(vec3 hue) {
         return mix(mix(c00, c10, f.y), mix(c01, c11, f.y), f.z);
     }
 
+    // Light volume (docs/WORLD_MODEL.md F1): sun bounce (rgb, per unit of sunlight) and sky
+    // visibility (a) at a position (volume coordinates), blended between the eight nearest
+    // blocks. Outside the volume: no bounce, open sky.
+    vec4 BounceTexel(ivec3 p) {
+        if (!InVoxelVolume(p)) return vec4(0.0, 0.0, 0.0, 1.0);
+        return (frameCounter & 1) == 0 ? texelFetch(bounceSamplerB, p, 0) : texelFetch(bounceSamplerA, p, 0);
+    }
+    vec4 VolumeBounceSky(vec3 p) {
+        p -= 0.5;
+        ivec3 base = ivec3(floor(p));
+        vec3 f = p - vec3(base);
+        vec4 c00 = mix(BounceTexel(base), BounceTexel(base + ivec3(1, 0, 0)), f.x);
+        vec4 c10 = mix(BounceTexel(base + ivec3(0, 1, 0)), BounceTexel(base + ivec3(1, 1, 0)), f.x);
+        vec4 c01 = mix(BounceTexel(base + ivec3(0, 0, 1)), BounceTexel(base + ivec3(1, 0, 1)), f.x);
+        vec4 c11 = mix(BounceTexel(base + ivec3(0, 1, 1)), BounceTexel(base + ivec3(1, 1, 1)), f.x);
+        return mix(mix(c00, c10, f.y), mix(c01, c11, f.y), f.z);
+    }
+    // At a surface: looked up half a block off it, into the space the light arrives through.
+    vec4 SurfaceBounceSky(vec3 playerPos, vec3 normal) {
+        return VolumeBounceSky(playerPos + cameraPosition + normal * 0.5 - vec3(VoxelOrigin()));
+    }
+
+    // Which way the block light comes from at a surface (Q4): the direction in which the
+    // volume's light grows, from its slope across the space in front of the surface; w: how
+    // clear that direction is (0 = light from all around).
+    vec4 BlocklightDirection(vec3 playerPos, vec3 normal) {
+        vec3 p = playerPos + cameraPosition + normal * 0.6 - vec3(VoxelOrigin());
+        const float e = 0.5;
+        float level = Luminance(VoxelLight(p));
+        vec3 g = vec3(Luminance(VoxelLight(p + vec3(e, 0.0, 0.0))), Luminance(VoxelLight(p + vec3(0.0, e, 0.0))),
+                      Luminance(VoxelLight(p + vec3(0.0, 0.0, e)))) - level;
+        float len = length(g);
+        // Light from one side falls by ~7% over half a block; lights all around cancel out.
+        return len > 1e-6 && level > 1e-4 ? vec4(g / len, saturate(len / (level * 0.07))) : vec4(0.0, 1.0, 0.0, 0.0);
+    }
+
     // Colour of light from a held item (torch, soul lantern, coloured candle, ...).
     vec3 HeldLightColor() {
         int id = heldBlockLightValue >= heldBlockLightValue2 ? heldItemId : heldItemId2;
@@ -69,6 +107,8 @@ vec3 GradeLightColor(vec3 hue) {
         return GradeLightColor(mix(FireColor(), hue, trust));
     }
 #else
+    vec4 SurfaceBounceSky(vec3 playerPos, vec3 normal) { return vec4(0.0, 0.0, 0.0, 1.0); }
+    vec4 BlocklightDirection(vec3 playerPos, vec3 normal) { return vec4(0.0, 1.0, 0.0, 0.0); }
     vec3 HeldLightColor() { return DefaultBlocklightColor(); }
     vec3 WorldBlocklightColor(vec3 playerPos, vec3 normal, float lmBlock) { return DefaultBlocklightColor(); }
 #endif

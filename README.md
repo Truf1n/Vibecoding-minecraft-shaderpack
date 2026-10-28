@@ -90,13 +90,13 @@ docs/PLAN.md           research, feature list (IDs), milestones
 |---|---|---|
 | Shadow map | `shadow` (in the Nether only for the voxels) | shadowtex0/1, shadowcolor0 (glass tint), shadowcolor1 (water mask), column bit maps (water, glass, block undersides near the player) |
 | Interactive ripples | `shadowcomp1`, `shadowcomp2` (compute, Overworld/End) | entity heights per eighth-block cell (shadow pass) → "crosses the water" flags → wave-equation step on a fine near grid and a coarse far grid in rippleImg |
-| Coloured light | `shadowcomp` (compute) | floodfill of the voxel volume → floodImgA/B (alternating) |
+| Light volume | `shadowcomp` (compute) | floodfill of the voxel volume → block-light hue (floodImgA/B); sky visibility and sun bounce from sunlit block faces (bounceImgA/B, from the blocks' colours in albedoImg) |
 | Sun / moon | `gbuffers_skytextured` (vanilla sky disc and stars are discarded) | colortex0 |
 | Opaque geometry | `gbuffers_terrain/entities/block/hand` | G-buffer: colortex1 albedo+AO, colortex2 normal+lightmap, colortex3 shading model+emission+smoothness+metalness |
 | Overlays | `gbuffers_clouds/armor_glint/spidereyes/beaconbeam/lightning` | colortex4 (premultiplied) |
 | World state | `begin` (compute, 1 thread) | weather smoothing, wind (integrated drift), air, wetness, snow, sun/sky colours → shader storage buffer 0 (lib/world/worldState.glsl) |
 | Clouds | `deferred` (half/quarter size, Overworld) | ray-marched clouds blended with the previous frames → colortex9 (light, transmittance), colortex10 (distance) |
-| Ambient occlusion | `deferred1` (half size) | hemisphere samples against the depth buffer → colortex15 |
+| Ambient occlusion | `deferred1` (half size) | GTAO: horizon search in 2-3 screen slices → occlusion + bent normal in colortex15 (multi-bounce applied when lighting) |
 | Deferred | `deferred2` | procedural sky + clouds behind everything; lights the G-buffer once per pixel (diffuse + highlights) → colortex0, copy in colortex7 |
 | Block reflections | `deferred3` (half/full size), `deferred4` | trace (blended with its reprojected history on rough surfaces) → colortex12; depth-aware, roughness-wide upsample × Fresnel added to colortex0/7 |
 | Translucent terrain | `gbuffers_water/hand_water` | colortex0 (sorted alpha blend; water opaque, refracting colortex7) + colortex5 tint |

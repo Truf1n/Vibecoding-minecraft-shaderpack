@@ -35,8 +35,11 @@ float BlocklightFalloff(float lmBlock) {
 }
 
 // Screen-space ambient occlusion at the pixel being lit (set by the deferred pass; 1 in
-// the forward passes). Darkens the ambient and block light, not the sun.
-float lightingAO = 1.0;
+// the forward passes), already coloured by the multi-bounce correction, and the bent normal
+// (the direction that sees the most sky; zero = use the surface normal). They darken and
+// steer the ambient, bounce and block light, never the sun.
+vec3 lightingAO = vec3(1.0);
+vec3 lightingBentNormal = vec3(0.0);
 
 struct Surface {
     vec3 playerPos; // camera-relative world position
@@ -60,12 +63,24 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
     if (worldPart + heldPart > 1e-4) {
         vec3 color = WorldBlocklightColor(s.playerPos, s.normal, s.lm.x) * worldPart + HeldLightColor() * heldPart;
         light = color / (worldPart + heldPart) * BlocklightFalloff(max(s.lm.x, held)) * BLOCKLIGHT_I * lightingAO * BlocklightFlicker(s.playerPos);
+        #ifdef DIRECTIONAL_BLOCKLIGHT
+        #ifdef COLORED_LIGHTING
+            // Directional block light (Q4): faces turned away from where the light comes
+            // from get less of it (the world's light only; a held light comes from you).
+            if (worldPart > heldPart * 0.5 && dot(s.normal, s.normal) > 0.5) {
+                vec4 from = BlocklightDirection(s.playerPos, s.normal);
+                float facing = 0.55 + 0.45 * saturate(dot(s.normal, from.xyz) * 0.5 + 0.5);
+                light *= mix(1.0, facing / 0.775, from.w * worldPart / (worldPart + heldPart));
+            }
+        #endif
+        #endif
     }
 
     bool hasNormal = dot(s.normal, s.normal) > 0.5;
     float NdotL = hasNormal ? dot(s.normal, lightDir) : 0.45;
     float diffuse = s.foliage ? 0.35 + 0.65 * abs(NdotL) : saturate(NdotL);
-    float upFacing = hasNormal ? 0.75 + 0.25 * s.normal.y : 0.9;
+    vec3 skyNormal = dot(lightingBentNormal, lightingBentNormal) > 0.5 ? lightingBentNormal : s.normal;
+    float upFacing = hasNormal ? 0.75 + 0.25 * skyNormal.y : 0.9;
 
     #if defined WORLD_NETHER
         // Biome-tinted ambient (crimson, warped, ...), from the same colours as the Nether fog.
@@ -105,6 +120,14 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
         #endif
         sunLight = directColor * sunVis * skyGate * s.ao;
         light += directColor * diffuse * sunVis * skyGate;
+        #if defined WORLD_OVERWORLD && defined COLORED_LIGHTING
+            // Light volume (F1): how much sky this spot can really see (caves, overhangs,
+            // under trees, beyond what Minecraft's sky light level says), and sunlight bounced
+            // off sunlit blocks nearby, in their colour (Q2, Q3).
+            vec4 bounceSky = SurfaceBounceSky(s.playerPos, hasNormal ? s.normal : vec3(0.0, 1.0, 0.0));
+            ambientColor *= mix(1.0, bounceSky.a, VOXEL_SKY_OCCLUSION);
+            light += directColor * bounceSky.rgb * SUN_BOUNCE * lightingAO;
+        #endif
         light += ambientColor * upFacing * AMBIENT_MULT * lightingAO;
         #ifdef WORLD_OVERWORLD
             // Lightning: the bolt's own light, and the flash of the whole sky.

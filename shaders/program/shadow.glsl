@@ -18,9 +18,11 @@
 #ifdef COLORED_LIGHTING
     #include "/lib/lighting/voxels.glsl"
     layout(r32ui) uniform uimage3D voxelImg;
+    layout(rgba8) uniform writeonly image3D albedoImg; // average colour of each block (sun bounce)
+    uniform sampler2D gtexture;
 
     // Records what fills this block space for the coloured-light floodfill (voxels.glsl).
-    void WriteVoxel(vec3 blockCenter, int id, int emission) {
+    void WriteVoxel(vec3 blockCenter, int id, int emission, vec2 midTexCoord) {
         uint priority;
         if (emission > 0) priority = VOXEL_PRIORITY_SOURCE;
         else if (IsWater(id)) priority = VOXEL_PRIORITY_WATER;
@@ -31,6 +33,13 @@
         ivec3 coord = ivec3(floor(blockCenter)) - VoxelOrigin();
         if (any(lessThan(coord, ivec3(0))) || any(greaterThanEqual(coord, VOXEL_SIZE))) return;
         imageAtomicMax(voxelImg, coord, EncodeVoxel(priority, id, emission));
+        // The block's average colour (mip level 4 of its sprite, with the biome tint), for
+        // the sunlight it bounces (light volume, floodfill.glsl). Faces of one block may
+        // differ (grass top and sides); any of them will do.
+        if (priority == VOXEL_PRIORITY_SOLID || priority == VOXEL_PRIORITY_TINT) {
+            vec3 albedo = textureLod(gtexture, midTexCoord, 4.0).rgb * gl_Color.rgb;
+            imageStore(albedoImg, coord, vec4(albedo, 1.0));
+        }
     }
 #endif
 
@@ -73,7 +82,7 @@ void main() {
         vec3 worldPos = (shadowModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz + cameraPosition;
         vec3 blockCenter = worldPos + at_midBlock.xyz / 64.0;
         #ifdef COLORED_LIGHTING
-            if (voxel) WriteVoxel(blockCenter, blockId, int(at_midBlock.w + 0.5));
+            if (voxel) WriteVoxel(blockCenter, blockId, int(at_midBlock.w + 0.5), mc_midTexCoord.xy);
         #endif
         bool underside = gl_Normal.y < -0.5 && abs(worldPos.y - (blockCenter.y - 0.5)) < 0.01;
         if (IsWater(blockId)) {

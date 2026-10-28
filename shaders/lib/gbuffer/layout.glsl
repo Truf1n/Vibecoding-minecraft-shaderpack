@@ -15,7 +15,7 @@ const int colortex11Format = RGBA16F;       // light shafts (half-size buffer): 
 const int colortex12Format = RGBA16F;       // block reflections (full or half size): light | linear depth
 const int colortex13Format = R11F_G11F_B10F; // bloom tiles (half-size buffer)
 const int colortex14Format = RGB10_A2;      // display image (sRGB) from the post pass
-const int colortex15Format = R8;            // screen-space ambient occlusion (half-size buffer)
+const int colortex15Format = RGBA8;         // ambient occlusion (a) + bent normal (rgb), half-size buffer
 */
 
 const bool colortex1Clear = true;

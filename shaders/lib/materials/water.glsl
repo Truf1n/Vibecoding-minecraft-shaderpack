@@ -217,6 +217,15 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
     // give a sharp sun, a choppy sea a wide glitter.
     float roughness = 0.08 + dist * 0.0015 + waveRoughness * 2.0;
     vec3 glint = SunLightColor(sunDir.y) * GGXSpecular(N, V, lightDir, roughness) * skyVis * skyVis * (1.0 - rainStrength);
+    #ifdef COLORED_LIGHTING
+        // Block-light glints (Q7): torches, lanterns and lava shine on the water, in their
+        // colour, from the direction their light comes from (light volume).
+        if (surf.lm.x > 0.05) {
+            vec4 from = BlocklightDirection(playerPos, vec3(0.0, 1.0, 0.0));
+            vec3 blockColor = WorldBlocklightColor(playerPos, vec3(0.0, 1.0, 0.0), surf.lm.x) * BlocklightFalloff(surf.lm.x) * BLOCKLIGHT_I;
+            glint += blockColor * GGXSpecular(N, V, from.xyz, roughness + 0.08) * from.w * 0.25;
+        }
+    #endif
 
     return PlainSurface(mix(body, reflection, fresnel) + glint, 1.0);
 }

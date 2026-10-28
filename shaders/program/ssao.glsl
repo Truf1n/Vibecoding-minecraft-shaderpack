@@ -1,10 +1,14 @@
-// Screen-space ambient occlusion (deferred1, plan item L8): soft contact shadows in
-// corners, where blocks meet and around mobs. Half size (size.buffer.colortex15): a ring of
-// samples in the hemisphere above each pixel, checked against the depth buffer; the set
-// turns a little every frame (TAA blends it) and the lighting pass upsamples it with a
-// depth-aware blur. Only the ambient and block light are darkened, never the sunlight.
-// Positions go through the projection matrices both ways, which carry Minecraft's view
-// bobbing, so the occlusion stays put on the blocks while walking.
+// Ground-truth ambient occlusion (deferred1, docs/WORLD_MODEL.md F2, plan item Q1): soft
+// contact shadows in corners, where blocks meet, under overhangs and around mobs, plus the
+// "bent normal": the direction the surface sees the most sky in, which steers its sky light.
+// Half size (size.buffer.colortex15). Horizon-based (GTAO, Jimenez 2016): in a few screen
+// directions (slices), the highest horizon on each side of the pixel within ~1 block is
+// found, and the cosine-weighted share of the hemisphere above them is integrated exactly.
+// The slices turn a little every frame (TAA blends them); the lighting pass upsamples the
+// result with a depth-aware blur and adds the multi-bounce correction (bright surfaces lose
+// less light to occlusion and keep their colour). Only ambient, bounce and block light are
+// darkened, never sunlight. Positions go through the projection matrices both ways, which
+// carry Minecraft's view bobbing, so the occlusion stays put on the blocks while walking.
 
 #include "/lib/common.glsl"
 
@@ -26,12 +30,14 @@ uniform sampler2D colortex2;
 uniform sampler2D depthtex0;
 
 /* RENDERTARGETS: 15 */
-layout(location = 0) out float outAO;
+layout(location = 0) out vec4 outAO; // rgb: bent normal (world, *0.5+0.5), a: occlusion (1 = open)
 
 #if SSAO == 2
-    const int AO_SAMPLES = 12;
+    const int AO_SLICES = 3;
+    const int AO_STEPS = 6;
 #else
-    const int AO_SAMPLES = 6;
+    const int AO_SLICES = 2;
+    const int AO_STEPS = 4;
 #endif
 const float AO_RADIUS = 1.1; // blocks
 
@@ -45,46 +51,70 @@ void main() {
     vec2 uv = gl_FragCoord.xy / size;
     ivec2 pixel = ivec2(uv * vec2(viewWidth, viewHeight));
     float depth = texelFetch(depthtex0, pixel, 0).r;
-    outAO = 1.0;
+    vec3 worldNormal = DecodeNormal(texelFetch(colortex2, pixel, 0).xy);
+    outAO = vec4(worldNormal * 0.5 + 0.5, 1.0);
     if (depth >= 1.0 || depth < 0.56) return; // sky, held item
 
     vec3 viewPos = ScreenToView(uv, depth);
-    vec3 normal = mat3(gbufferModelView) * DecodeNormal(texelFetch(colortex2, pixel, 0).xy);
+    vec3 normal = normalize(mat3(gbufferModelView) * worldNormal);
+    vec3 V = normalize(-viewPos);
 
-    // A frame of reference around the normal, turned by a per-pixel, per-frame angle.
+    // Screen radius of the search (in uv), from the world radius at this depth.
+    float radiusUV = AO_RADIUS * gbufferProjection[1][1] * 0.5 / max(-viewPos.z, 0.1);
+    if (radiusUV < 1.5 / size.y) return; // under two pixels: nothing to find
+
     float noise = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + float(frameCounter % 16) * 0.618034);
-    float angle = noise * TAU;
-    vec3 helper = abs(normal.z) < 0.9 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
-    vec3 tangent = normalize(cross(helper, normal));
-    vec3 bitangent = cross(normal, tangent);
+    float stepJitter = fract(noise * 7.31 + 0.37);
+    float visibility = 0.0;
+    vec3 bent = vec3(0.0);
+    for (int s = 0; s < AO_SLICES; s++) {
+        float phi = (float(s) + noise) * PI / float(AO_SLICES);
+        vec2 dir = vec2(cos(phi), sin(phi));
+        vec3 dirV = vec3(dir, 0.0);
+        vec3 orthoDir = dirV - dot(dirV, V) * V;
+        vec3 axis = normalize(cross(dirV, V));
+        vec3 projN = normal - axis * dot(normal, axis);
+        float projLen = length(projN);
+        if (projLen < 1e-4) continue;
+        float cosN = clamp(dot(projN, V) / projLen, -1.0, 1.0);
+        float n = sign(dot(orthoDir, projN)) * acos(cosN);
 
-    float occlusion = 0.0, weight = 0.0;
-    for (int i = 0; i < AO_SAMPLES; i++) {
-        // Spiral through the hemisphere: angles spread evenly, radii growing outwards,
-        // pointing more and more along the surface.
-        float fi = (float(i) + 0.5) / float(AO_SAMPLES);
-        float a = angle + float(i) * 2.39996; // golden angle
-        float r = AO_RADIUS * (0.15 + 0.85 * fi * fi);
-        float elevation = mix(0.85, 0.2, fi);
-        vec3 dir = normalize((tangent * cos(a) + bitangent * sin(a)) * sqrt(1.0 - elevation * elevation) + normal * elevation);
-        vec3 samplePos = viewPos + dir * r;
-
-        vec3 screen = ViewToScreenAO(samplePos);
-        if (any(lessThan(screen.xy, vec2(0.0))) || any(greaterThan(screen.xy, vec2(1.0)))) continue;
-        float sceneDepth = texelFetch(depthtex0, ivec2(screen.xy * vec2(viewWidth, viewHeight)), 0).r;
-        if (sceneDepth < 0.56) continue; // the held item hides nothing
-        float sceneZ = ScreenToView(screen.xy, sceneDepth).z;
-        // Occluded when the scene there is in front of the sample; things far in front
-        // (a separate object) count less.
-        float inFront = sceneZ - samplePos.z;
-        float range = smoothstep(0.0, 1.0, AO_RADIUS / max(abs(viewPos.z - sceneZ), 1e-3));
-        occlusion += (inFront > 0.03 ? 1.0 : 0.0) * range;
-        weight += 1.0;
+        // Highest horizon on each side (as the cosine of its angle from the view direction).
+        float horizonCos[2] = float[2](-1.0, -1.0);
+        for (int side = 0; side < 2; side++) {
+            vec2 sideDir = dir * (side == 0 ? -1.0 : 1.0) * vec2(size.y / size.x, 1.0);
+            for (int i = 0; i < AO_STEPS; i++) {
+                float t = (float(i) + stepJitter) / float(AO_STEPS);
+                vec2 sampleUV = uv + sideDir * radiusUV * t * t;
+                if (any(lessThan(sampleUV, vec2(0.0))) || any(greaterThan(sampleUV, vec2(1.0)))) break;
+                float sampleDepth = texelFetch(depthtex0, ivec2(sampleUV * vec2(viewWidth, viewHeight)), 0).r;
+                if (sampleDepth < 0.56) continue; // the held item hides nothing
+                vec3 d = ScreenToView(sampleUV, sampleDepth) - viewPos;
+                float len2 = dot(d, d);
+                float c = dot(d, V) * inversesqrt(max(len2, 1e-6));
+                // Farther than the radius counts less (a separate object behind).
+                float falloff = saturate(1.0 - len2 / (AO_RADIUS * AO_RADIUS * 1.5));
+                horizonCos[side] = max(horizonCos[side], mix(-1.0, c, falloff));
+            }
+        }
+        float h0 = n + max(-acos(horizonCos[0]) - n, -PI * 0.5);
+        float h1 = n + min(acos(horizonCos[1]) - n, PI * 0.5);
+        float sinN = sin(n);
+        float arc0 = -cos(2.0 * h0 - n) + cosN + 2.0 * h0 * sinN;
+        float arc1 = -cos(2.0 * h1 - n) + cosN + 2.0 * h1 * sinN;
+        visibility += projLen * 0.25 * (arc0 + arc1);
+        // Bent normal: the middle of the open arc in this slice.
+        float mid = (h0 + h1) * 0.5;
+        bent += projLen * (V * cos(mid) + normalize(orthoDir) * sin(mid));
     }
-    float ao = 1.0 - occlusion / max(weight, 1.0);
+    float ao = saturate(visibility / float(AO_SLICES));
     // Fade out towards the screen edges, where much of the surroundings is off screen.
     vec2 edge = smoothstep(vec2(0.0), vec2(0.06), uv) * smoothstep(vec2(0.0), vec2(0.06), 1.0 - uv);
-    outAO = mix(1.0, ao, edge.x * edge.y);
+    float edgeFade = edge.x * edge.y;
+    ao = mix(1.0, ao, edgeFade);
+    vec3 bentWorld = dot(bent, bent) > 1e-6 ? normalize(mat3(gbufferModelViewInverse) * normalize(bent)) : worldNormal;
+    bentWorld = normalize(mix(worldNormal, bentWorld, edgeFade));
+    outAO = vec4(bentWorld * 0.5 + 0.5, ao);
 }
 
 #endif

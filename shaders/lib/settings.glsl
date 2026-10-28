@@ -120,6 +120,12 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 // Screen-space ambient occlusion: 0 off, 1 medium, 2 high
 #define SSAO 1                  //[0 1 2]
 #define SSAO_STRENGTH 1.00      //[0.25 0.50 0.75 1.00 1.25 1.50 2.00]
+// Light volume (needs Coloured Lighting): sunlight bounced off sunlit blocks, in their
+// colour; how much the sky light is shut out by blocks around (caves, overhangs, trees).
+#define SUN_BOUNCE 1.00         //[0.00 0.25 0.50 0.75 1.00 1.50 2.00]
+#define VOXEL_SKY_OCCLUSION 0.80 //[0.00 0.25 0.50 0.65 0.80 1.00]
+// Faces turned away from a light get less of it (needs Coloured Lighting).
+#define DIRECTIONAL_BLOCKLIGHT
 // Block light flickering, in steps of 2% brightness.
 #define BLOCKLIGHT_FLICKER 2    //[0 1 2 3 4 5]
 #define AMBIENT_MULT 1.00   //[0.25 0.50 0.75 1.00 1.25 1.50 2.00]

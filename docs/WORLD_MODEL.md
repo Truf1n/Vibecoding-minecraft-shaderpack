@@ -22,7 +22,18 @@ Status: **W1 implemented (M10-W1):**
 Still to do from W2: shorelines (Q16). Underwater light shafts stay along the unrefracted
 sun direction: the shadow map can only be looked up along it.
 
-W3 onwards: design only.
+**W3 implemented (M10-W3):**
+- the light volume, added to the floodfill: sky visibility (falls down freely, spreads
+  sideways and up with losses) and sun bounce (sunlit faces next to air inject their average
+  colour, checked against the shadow map);
+- directional block light from the light gradient;
+- block-light glints on water and puddles;
+- GTAO with bent normals and multi-bounce, replacing the SSAO.
+
+Not done from W3: round-robin and brick skipping (the volume updates in full each frame;
+measure first). Block-light shadows (Q5) are still for later.
+
+W4 onwards: design only.
 
 ---
 
