@@ -167,6 +167,8 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define WATER_WAVE_SPEED 1.00    //[0.25 0.50 0.75 1.00 1.25 1.50 2.00]
 #define WATER_WAVE_SIZE 1.00     //[0.50 0.75 1.00 1.25 1.50 2.00]
 #define WATER_FOG_MULT 1.00      //[0.25 0.50 0.75 1.00 1.50 2.00 3.00]
+// Water looks different per biome: murky swamps, clear tropical seas, deep blue cold water...
+#define BIOME_WATER
 #define WATER_REFRACTION 100     //[0 25 50 75 100 150 200]
 #define WATER_FOAM 2             //[0 1 2 3]
 #define WATER_CAUSTICS

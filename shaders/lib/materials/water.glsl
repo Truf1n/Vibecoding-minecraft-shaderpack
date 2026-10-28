@@ -36,9 +36,10 @@ float GGXSpecular(vec3 N, vec3 V, vec3 L, float roughness) {
     return min(D * F * 0.25, 40.0) * saturate(dot(N, L));
 }
 
-// Biome-tinted, user-adjustable colour of light scattered inside the water.
-vec3 WaterScatterColor(vec3 biomeTint) {
-    vec3 c = mix(vec3(0.006, 0.030, 0.055), SrgbToLinear(biomeTint) * 0.07, 0.4);
+// Biome-styled (waterStyles.glsl), user-adjustable colour of light scattered inside the
+// water, still nudged by the biome tint itself (modded colours carry through).
+vec3 WaterScatterColor(WaterStyle style, vec3 biomeTint) {
+    vec3 c = mix(style.scatter, SrgbToLinear(biomeTint) * 0.07, 0.3);
     return c * vec3(WATER_COLOR_R, WATER_COLOR_G, WATER_COLOR_B);
 }
 
@@ -103,7 +104,8 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
         if (faceN.y < 0.0) N = -N;
     }
 
-    vec3 scatterLight = WaterScatterColor(biomeTint) * GetLighting(surf, sunDir, lightDir);
+    WaterStyle style = SurfaceWaterStyle(biomeTint);
+    vec3 scatterLight = WaterScatterColor(style, biomeTint) * GetLighting(surf, sunDir, lightDir);
 
     // ---- Seen from below -------------------------------------------------------------
     if (isEyeInWater == 1) {
@@ -159,7 +161,7 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
     float refrDist = length(ScreenToView(refrUV, texture(depthtex1, refrUV).r));
     float refrThickness = max(refrDist - surfaceDist, 0.0);
 
-    vec3 transmittance = exp(-refrThickness * WaterAbsorption());
+    vec3 transmittance = exp(-refrThickness * style.absorption * WATER_FOG_MULT);
     vec3 behind = texture(colortex7, refrUV).rgb;
     float inScatter = 1.0 - dot(transmittance, vec3(0.2126, 0.7152, 0.0722));
     vec3 body = behind * transmittance + scatterLight * inScatter;

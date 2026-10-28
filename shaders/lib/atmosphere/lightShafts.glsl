@@ -82,7 +82,8 @@ vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float d
             sum += vis * light * exp(-t * WaterAbsorption());
         }
         float phase = 0.6 + 1.4 * HG(VdotL, 0.6) * 0.25;
-        vec3 waterTint = vec3(UNDERWATER_COLOR_R, UNDERWATER_COLOR_G, UNDERWATER_COLOR_B) * vec3(0.35, 0.75, 0.85);
+        // The water's own colour (the default look gives about (0.35, 0.75, 0.85)).
+        vec3 waterTint = vec3(UNDERWATER_COLOR_R, UNDERWATER_COLOR_G, UNDERWATER_COLOR_B) * CameraWaterStyle().fogColor * vec3(35.0, 15.0, 12.0);
         return sum * stepLen * 0.012 * phase * waterTint * SunLightColor(sunDir.y) * VL_STRENGTH;
     }
 

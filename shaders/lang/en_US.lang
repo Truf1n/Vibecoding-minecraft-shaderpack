@@ -447,3 +447,5 @@ value.HAND_SWAY.0=Off
 value.HAND_SWAY.1=Subtle
 value.HAND_SWAY.2=Normal
 value.HAND_SWAY.3=Intense
+option.BIOME_WATER=Biome Water
+option.BIOME_WATER.comment=Water looks different per biome: rich deep blue and clearer in cold places, murky green in swamps, pale and clear in deserts, tropical turquoise in warm oceans, and more.

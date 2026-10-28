@@ -1,8 +1,10 @@
 // Fog (plan items F1-F4, N2, End haze). Needs sky.glsl.
 // All fog colours come from the sky, so distant terrain melts into the sky behind it.
 
+#include "/lib/materials/waterStyles.glsl"
+
 vec3 WaterFogColor(vec3 sunDir) {
-    vec3 c = vec3(0.010, 0.050, 0.070) * vec3(UNDERWATER_COLOR_R, UNDERWATER_COLOR_G, UNDERWATER_COLOR_B);
+    vec3 c = CameraWaterStyle().fogColor * vec3(UNDERWATER_COLOR_R, UNDERWATER_COLOR_G, UNDERWATER_COLOR_B);
     #ifdef WORLD_OVERWORLD
         // Darker at night and in caves; a little sky light keeps it from going black.
         float light = (0.2 + 0.8 * DayFactor(sunDir.y)) * mix(1.0, 0.25, caveFactor);
@@ -54,7 +56,7 @@ vec3 ApplyFog(vec3 color, vec3 playerPos, vec3 sunDir, bool isSky) {
         // The sky can only be seen from under water through the surface, a short way up
         // (the surface draws itself over it, except under glass lying on the water).
         float waterDist = isSky ? mix(dist, 6.0, smoothstep(0.05, 0.25, dir.y)) : dist;
-        return mix(color, WaterFogColor(sunDir), 1.0 - exp(-waterDist * 0.06));
+        return mix(color, WaterFogColor(sunDir), 1.0 - exp(-waterDist * CameraWaterStyle().fogDensity));
     }
     #ifdef LESS_LAVA_FOG
         const float denseFogRate = 0.15;

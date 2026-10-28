@@ -5,9 +5,11 @@
 // Shared by the water surface and by shadow lookups for anything under water.
 
 #include "/lib/util/noise.glsl"
+#include "/lib/materials/waterStyles.glsl"
 
-// Light absorbed per block of water (red goes first, so deep water turns blue-green).
-vec3 WaterAbsorption() { return vec3(0.30, 0.085, 0.060) * WATER_FOG_MULT; }
+// Light absorbed per block of water (red goes first, so deep water turns blue-green), for
+// the water the camera is in (per-biome looks: waterStyles.glsl).
+vec3 WaterAbsorption() { return CameraWaterStyle().absorption * WATER_FOG_MULT; }
 
 // Bright moving lines where wave crests focus light. Two drifting noise layers; their
 // difference is near zero along thin curves, which become the web. Averages about 1.
