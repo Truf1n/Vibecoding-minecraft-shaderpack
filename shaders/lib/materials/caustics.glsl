@@ -14,7 +14,7 @@ vec3 WaterAbsorption() { return CameraWaterStyle().absorption * WATER_FOG_MULT; 
 // Bright moving lines where wave crests focus light. Two drifting noise layers; their
 // difference is near zero along thin curves, which become the web. Averages about 1.
 float Caustics(vec2 worldXZ) {
-    float t = frameTimeCounter * WATER_WAVE_SPEED;
+    float t = wsJet.z * WATER_WAVE_SPEED; // the world state's wave clock
     vec2 p = worldXZ / WATER_WAVE_SIZE;
     float a = SmoothNoise(p * 0.85 + vec2(0.31, 0.22) * t);
     float b = SmoothNoise(p * 1.25 + vec2(-0.27, 0.18) * t + 17.0);

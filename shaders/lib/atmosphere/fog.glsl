@@ -100,8 +100,8 @@ vec3 ApplyFog(vec3 color, vec3 playerPos, vec3 sunDir, bool isSky) {
                 color = mix(color, stormColor, smoothstep(0.0, 0.6, storm));
             } else {
                 vec3 probe = cameraPosition + dir * min(dist, 24.0);
-                vec2 drift = vec2(1.0, 0.4) * frameTimeCounter * (SnowStorm() * 3.0 + SandStorm() * 6.0);
-                float patches = 0.75 + 0.5 * SmoothNoise((probe.xz + drift) * 0.06 + probe.y * 0.03);
+                // Patches drift with the wind (the distance the air has moved).
+                float patches = 0.75 + 0.5 * SmoothNoise((probe.xz - wsWindOffset.xy) * 0.06 + probe.y * 0.03);
                 float density = 0.06 * storm * patches;
                 color = mix(color, stormColor, 1.0 - exp(-dist * density));
             }

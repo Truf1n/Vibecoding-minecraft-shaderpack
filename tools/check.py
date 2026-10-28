@@ -130,7 +130,10 @@ def run(overrides: dict, label: str, tmp: Path) -> int:
         programs = {}
         for f in sorted(folder.iterdir()):
             if f.suffix in STAGES:
-                programs.setdefault(f.stem, []).append(f)
+                # A compute shader is its own program even when a fragment/vertex pair
+                # shares its pass name (composite5.csh runs before composite5.fsh).
+                key = f.stem + ("_compute" if f.suffix == ".csh" else "")
+                programs.setdefault(key, []).append(f)
         for program, files in programs.items():
             err = check_program(world, program, files, overrides, tmp)
             if err:

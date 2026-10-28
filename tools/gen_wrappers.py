@@ -65,6 +65,13 @@ PROGRAMS = {
     "final":                ("final", []),
 }
 
+# Compute shaders that run at the start of a pass that also has a fragment program
+# (pass name -> template, defines). They write <pass>.csh next to <pass>.vsh/.fsh.
+EXTRA_COMPUTE = {
+    "begin":                ("worldState", ["WORLD_STATE_WRITER"]),   # world state (once per frame)
+    "composite5":           ("exposure", ["WORLD_STATE_WRITER"]),     # auto exposure, before post
+}
+
 # Programs left out of a dimension entirely (Iris skips missing passes).
 # (Passes switched off by options - TAA, clouds, light shafts - are disabled from
 # shaders.properties.)
@@ -95,6 +102,12 @@ def main() -> None:
                 lines += [f"#define {stage}", "", f'#include "/program/{template}.glsl"', ""]
                 (out_dir / f"{program}{ext}").write_text("\n".join(lines))
                 count += 1
+        for program, (template, defines) in EXTRA_COMPUTE.items():
+            lines = [VERSION, HEADER, "", f"#define {world}", f"#define PROG_{program.upper()}_COMPUTE"]
+            lines += [f"#define {d}" for d in defines]
+            lines += ["#define COMPUTE_SHADER", "", f'#include "/program/{template}.glsl"', ""]
+            (out_dir / f"{program}.csh").write_text("\n".join(lines))
+            count += 1
     print(f"wrote {count} wrapper files")
 
 

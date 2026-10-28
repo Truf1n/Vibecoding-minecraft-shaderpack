@@ -65,10 +65,11 @@ void main() {
     bool wavedWater = false;
     #ifdef WAVING_WEATHER
     #ifdef PROG_GBUFFERS_WEATHER
-        // Rain and snow fall at a slant in the wind, swaying a little (plan item V5).
+        // Rain and snow fall at a slant in the wind (plan item V5): the wind's speed over
+        // their falling speed (raindrops ~9 blocks/s, snowflakes ~2.5), from the world state.
         {
-            float t = frameTimeCounter * WAVING_SPEED;
-            vec2 wind = vec2(0.30 + 0.08 * sin(t * 0.7), 0.10 + 0.05 * sin(t * 0.53)) * WAVING_INTENSITY * mix(1.0, 1.6, thunderStrength);
+            float fallSpeed = mix(9.0, 2.5, inSnowyBiome);
+            vec2 wind = WindDir() * min(WindSpeed() / fallSpeed, 1.5) * WAVING_INTENSITY;
             playerPos.xz += wind * (playerPos.y + cameraPosition.y - floor(cameraPosition.y));
             wavedWater = true;
         }
@@ -81,7 +82,7 @@ void main() {
         // Not where the water is pressed right under a block.
         vec3 wp = playerPos + cameraPosition;
         if (IsWater(blockId) && worldNormal.y > 0.9 && !CornerUnderBlock(wp)) {
-            float t = frameTimeCounter * WATER_WAVE_SPEED;
+            float t = wsJet.z * WATER_WAVE_SPEED;
             float wave = sin(wp.x * 0.65 + t * 1.3) * sin(wp.z * 0.55 + t * 1.1) * 0.5 + 0.5;
             playerPos.y -= wave * 0.05;
             wavedWater = true;

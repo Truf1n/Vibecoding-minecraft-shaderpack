@@ -5,7 +5,13 @@ model instead of separate effects that each invent their own timing and colours.
 M9.5; replaces/absorbs parts of M2 (sky/fog), M3 (water), M5 (clouds/shafts), M6 (coloured
 light), M9 (weather).
 
-Status: **design, nothing implemented yet.**
+Status: **W1 implemented (M10-W1):**
+- the world state buffer: begin pass, weather smoothing, integrated wind with gusts, air,
+  wetness, snow depth, swell, sun and sky light once per frame;
+- clouds, plants, rain slant, water waves, caustics and storm fog driven by it;
+- auto exposure.
+
+W2 onwards: design only.
 
 ---
 

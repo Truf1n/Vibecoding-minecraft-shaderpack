@@ -93,6 +93,7 @@ docs/PLAN.md           research, feature list (IDs), milestones
 | Sun / moon | `gbuffers_skytextured` (vanilla sky disc and stars are discarded) | colortex0 |
 | Opaque geometry | `gbuffers_terrain/entities/block/hand` | G-buffer: colortex1 albedo+AO, colortex2 normal+lightmap, colortex3 shading model+emission+smoothness+metalness |
 | Overlays | `gbuffers_clouds/armor_glint/spidereyes/beaconbeam/lightning` | colortex4 (premultiplied) |
+| World state | `begin` (compute, 1 thread) | weather smoothing, wind (integrated drift), air, wetness, snow, sun/sky colours → shader storage buffer 0 (lib/world/worldState.glsl) |
 | Clouds | `deferred` (half/quarter size, Overworld) | ray-marched clouds blended with the previous frames → colortex9 (light, transmittance), colortex10 (distance) |
 | Ambient occlusion | `deferred1` (half size) | hemisphere samples against the depth buffer → colortex15 |
 | Deferred | `deferred2` | procedural sky + clouds behind everything; lights the G-buffer once per pixel (diffuse + highlights) → colortex0, copy in colortex7 |
@@ -104,6 +105,7 @@ docs/PLAN.md           research, feature list (IDs), milestones
 | Light shafts | `composite1` (half size), `composite2` (Overworld) | march → colortex11; depth-aware upsample added to colortex0 |
 | TAA | `composite3` | history colortex8 (the bloom and post passes read it from there) |
 | Bloom | `composite4` (half size) | six blurred mip levels of the scene → colortex13 tiles |
+| Auto exposure | `composite5` (compute) | log-average scene luminance → exposure in the world state |
 | Post | `composite5` | chromatic aberration, bloom, tonemap, colour balance/grading, vignette → colortex14 (sRGB) |
 | Output | `final` | FXAA, sharpening, dither, debug views |
 

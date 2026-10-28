@@ -25,12 +25,14 @@ uniform float sunAngle;       // 0 sunrise, 0.25 noon, 0.5 sunset, 0.75 midnight
 
 // World state
 uniform float rainStrength;
-uniform float wetness;        // rain strength smoothed: rises over ~30 s, dries over ~90 s
+// (stormRain, stormThunder, afterRain and wetness come from the world state: worldState.glsl)
+uniform float frameTime;      // seconds the last frame took
+uniform float temperature;    // biome temperature at the player (vanilla: snow below 0.15)
+uniform float rainfall;       // biome downfall at the player
+uniform float biomeWindiness; // custom: open, windy biomes > 1, sheltered forests < 1
 uniform float thunderStrength;
-uniform float stormRain, stormThunder; // custom (shaders.properties): slowly smoothed rain / thunder
 uniform float watSwamp, watMangrove, watWarm, watLukewarm, watCold, watMeadow, watCherry, watPale; // custom: water biome weights
 uniform float watDesert, watBadlands, watJungle, watMushroom;
-uniform float afterRain;      // custom: rain strength that lingers for minutes (rainbows)
 uniform float inSnowyBiome, inSandyBiome; // custom, 0..1
 uniform vec4 lightningBoltPosition; // camera-relative position of a lightning bolt; w = 1 while one exists
 uniform float endFlashIntensity;

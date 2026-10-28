@@ -120,7 +120,7 @@ void main() {
         color = mix(color, Bloom(uv), saturate(BloomAmount() * DistantBloom(uv)));
     #endif
 
-    color *= TM_EXPOSURE;
+    color *= TM_EXPOSURE * max(wsExposure.x, 0.01); // auto exposure (exposure.glsl), 1 when off
     // Dark desaturation: little colour is seen in the darkest parts of the image.
     float lum = Luminance(color);
     color = mix(color, vec3(lum), CB_DARK_DESATURATION * exp(-lum * 60.0));

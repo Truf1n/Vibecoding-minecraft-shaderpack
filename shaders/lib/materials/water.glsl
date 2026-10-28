@@ -6,8 +6,10 @@
 // Wave height in blocks: a few drifting octaves, large swells first. `detail` fades the
 // small ripples out with distance so far water does not alias.
 float WaveHeight(vec2 p, float detail) {
-    float t = frameTimeCounter * WATER_WAVE_SPEED;
-    vec2 q = p / WATER_WAVE_SIZE;
+    // The waves run along the wind (world state): the pattern is turned to the wind's
+    // direction and driven by the wave clock, which runs faster in stronger wind.
+    float t = wsJet.z * WATER_WAVE_SPEED;
+    vec2 q = mat2(wsWind.x, -wsWind.y, wsWind.y, wsWind.x) * p / WATER_WAVE_SIZE;
     float h = 0.0;
     h += SmoothNoise(q * 0.35 + vec2( 0.42,  0.15) * t) * 0.55;
     h += SmoothNoise(mat2(0.8, -0.6, 0.6, 0.8) * q * 0.75 + vec2(-0.25,  0.48) * t) * 0.28;
@@ -92,7 +94,9 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
     vec3 N = faceN;
     float detail = 1.0 - smoothstep(12.0, 48.0, dist);
     if (abs(geoNormal.y) > 0.5) {
-        N = WaveNormal(worldPos.xz, WATER_WAVE_STRENGTH * 0.22 / (1.0 + dist * 0.01), detail);
+        // Stronger wind, rougher water (a light breeze ~2-3 blocks/s gives the old look).
+        float windWaves = clamp(0.55 + 0.17 * WindSpeed(), 0.5, 2.2);
+        N = WaveNormal(worldPos.xz, WATER_WAVE_STRENGTH * 0.22 * windWaves / (1.0 + dist * 0.01), detail);
         #if defined RAIN_RIPPLES && defined WORLD_OVERWORLD
             // Raindrops hitting the surface.
             float rain = VisibleRain() * smoothstep(0.86, 0.96, surf.lm.y) * (1.0 - inSnowyBiome) * (1.0 - inSandyBiome) * detail;
@@ -171,7 +175,7 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
         float verticalDepth = thickness * abs(V.y);
         float foamMask = 1.0 - smoothstep(0.05, 0.45, verticalDepth);
         if (foamMask > 0.0) {
-            float t = frameTimeCounter * WATER_WAVE_SPEED;
+            float t = wsJet.z * WATER_WAVE_SPEED;
             float foamNoise = SmoothNoise(worldPos.xz * 3.0 + vec2(t * 0.6, -t * 0.4));
             foamNoise *= SmoothNoise(worldPos.xz * 5.5 - vec2(t * 0.3, t * 0.5) + 31.0);
             float foam = smoothstep(0.15, 0.45, foamNoise * foamMask * 1.6) * float(WATER_FOAM) * 0.5;

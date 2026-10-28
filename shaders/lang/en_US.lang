@@ -474,3 +474,13 @@ option.NO_CLOUDS_UNDERGROUND.comment=Skips the volumetric clouds while you are d
 option.DISTANT_LIGHT_BLOOM=Distant Light Bloom
 option.DISTANT_LIGHT_BLOOM.comment=At night and in caves, far-away lights glow a little wider, as if scattered by the air in between.
 value.DISTANT_LIGHT_BLOOM.0.00=Off
+
+# ---- W1: world state
+option.AUTO_EXPOSURE=Auto Exposure
+option.AUTO_EXPOSURE.comment=The image adapts to how bright the view is, like eyes: caves and nights get a bit brighter over a few seconds, bright snow and sunlit views a bit darker. Only part of the way, so dark places still look dark.
+option.AUTO_EXPOSURE_STRENGTH=Auto Exposure Strength
+option.AUTO_EXPOSURE_STRENGTH.comment=How far the image adapts. 1 is roughly half way (eyes never fully adapt in a game).
+option.AUTO_EXPOSURE_MIN=Auto Exposure Minimum
+option.AUTO_EXPOSURE_MIN.comment=The darkest it may make the image (in bright views).
+option.AUTO_EXPOSURE_MAX=Auto Exposure Maximum
+option.AUTO_EXPOSURE_MAX.comment=The brightest it may make the image (in caves and at night).

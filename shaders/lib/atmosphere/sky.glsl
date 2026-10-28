@@ -16,7 +16,10 @@ float SunsetFactor(float sunUp) { return smoothstep(-0.18, 0.0, sunUp) * (1.0 - 
 #include "/lib/atmosphere/colorMultipliers.glsl"
 #include "/lib/atmosphere/weather.glsl"
 
-void OverworldSkyColors(float sunUp, out vec3 zenith, out vec3 horizon) {
+// The sky colours, the sky's light and the sun's light are the same for every pixel in a
+// frame: the begin pass works them out once (these *Model functions) and stores them in
+// the world state; everything else reads them from there.
+void OverworldSkyColorsModel(float sunUp, out vec3 zenith, out vec3 horizon) {
     float day = DayFactor(sunUp);
     float sunset = SunsetFactor(sunUp);
 
@@ -46,16 +49,16 @@ void OverworldSkyColors(float sunUp, out vec3 zenith, out vec3 horizon) {
 }
 
 // Light reaching shaded surfaces from the whole sky (no sun disc).
-vec3 SkyAmbientColor(float sunUp) {
+vec3 SkyAmbientColorModel(float sunUp) {
     vec3 zenith, horizon;
-    OverworldSkyColors(sunUp, zenith, horizon);
+    OverworldSkyColorsModel(sunUp, zenith, horizon);
     return mix(horizon, zenith, 0.55) * LightMultiplier(sunUp);
 }
 
 // 1 at full moon, 0 at new moon.
 float MoonFullness() { return abs(float(moonPhase) - 4.0) / 4.0; }
 
-vec3 SunLightColor(float sunUp) {
+vec3 SunLightColorModel(float sunUp) {
     float day = DayFactor(sunUp);
     float sunset = SunsetFactor(sunUp);
     vec3 sun = mix(vec3(1.00, 0.93, 0.82) * 1.6, vec3(1.00, 0.48, 0.18) * 1.1, sunset);
@@ -65,6 +68,14 @@ vec3 SunLightColor(float sunUp) {
     #endif
     return mix(moon, sun, day) * (1.0 - 0.8 * stormRain) * StormDim() * LightMultiplier(sunUp);
 }
+
+// The frame's values (sunUp is the frame's sun elevation everywhere they are used).
+void OverworldSkyColors(float sunUp, out vec3 zenith, out vec3 horizon) {
+    zenith = wsSkyZenith.rgb;
+    horizon = wsSkyHorizon.rgb;
+}
+vec3 SkyAmbientColor(float sunUp) { return wsSkyAmbient.rgb; }
+vec3 SunLightColor(float sunUp) { return wsSun.rgb; }
 
 float ValueNoise2(vec2 p) {
     vec2 i = floor(p), f = fract(p);

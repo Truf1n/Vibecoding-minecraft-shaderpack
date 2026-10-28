@@ -9,6 +9,11 @@
 #define TAA_SMOOTHING 0.90  //[0.75 0.80 0.85 0.88 0.90 0.92 0.94 0.96]
 #define TAA_JITTER 1.00     //[0.00 0.25 0.50 0.75 1.00]
 #define IMAGE_SHARPENING 3  //[0 1 2 3 4 5 6 7 8 9 10]
+// Auto exposure: the image adapts to how bright the view is, like eyes (part of the way).
+#define AUTO_EXPOSURE
+#define AUTO_EXPOSURE_STRENGTH 0.60 //[0.20 0.40 0.60 0.80 1.00]
+#define AUTO_EXPOSURE_MIN 0.50      //[0.25 0.35 0.50 0.70 1.00]
+#define AUTO_EXPOSURE_MAX 3.00      //[1.00 1.50 2.00 3.00 4.00 6.00]
 #define TM_EXPOSURE 1.00 //[0.50 0.60 0.70 0.80 0.90 1.00 1.10 1.20 1.30 1.40 1.50 1.75 2.00]
 #define TM_CONTRAST 1.25 //[1.00 1.05 1.10 1.15 1.20 1.25 1.30 1.35 1.40 1.50]
 #define TM_WHITE_PATH 10.0 //[4.0 6.0 8.0 10.0 12.0 16.0 24.0]

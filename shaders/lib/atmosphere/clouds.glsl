@@ -58,7 +58,8 @@ CloudLayer MakeLayer(float bottom, float thickness, float scale, float amount, f
 // Rain adds cover to every style, and turns every style into an overcast sky over a minute
 // or two (stormRain, a slowly smoothed rain strength); thunderstorms make the deck
 // thicker and darker still (stormThunder).
-float CloudAmount() { return CLOUD_AMOUNT + stormRain * 0.25; }
+// Cover also varies from day to day and builds up on fair afternoons (world state).
+float CloudAmount() { return CLOUD_AMOUNT + wsAir.z + stormRain * 0.25; }
 
 // Overcast: a thick, nearly unbroken stratus deck under a high grey altostratus sheet.
 CloudLayer OvercastLayer(int i) {
@@ -126,14 +127,15 @@ CloudLayer GetCloudLayer(int i) {
 
 // ---- Density --------------------------------------------------------------------------
 
-// World-space drift: the wind moves the clouds; layers differ only in speed.
+// World-space drift: the distance the air aloft has moved (world state); layers differ only
+// in speed. Synced to world time: a fixed drift from the clock instead, the same for everyone.
 vec2 CloudWind() {
     #ifdef CLOUD_WORLD_TIME
         float t = (float(worldDay) * 24000.0 + float(worldTime)) / 20.0; // seconds of game time
+        return vec2(1.0, 0.35) * t * CLOUD_SPEED;
     #else
-        float t = frameTimeCounter;
+        return wsWindOffset.zw * 0.25 * CLOUD_SPEED;
     #endif
-    return vec2(1.0, 0.35) * t * CLOUD_SPEED;
 }
 
 // Smooth value noise in one texture read: the noise texture is linearly filtered, so
