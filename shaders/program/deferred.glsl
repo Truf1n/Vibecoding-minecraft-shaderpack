@@ -161,7 +161,17 @@ void main() {
         #endif
         color = albedo * light * diffuseScale;
         #if BLOCK_REFLECTIONS >= 1
-            if (smoothness > 0.05) color += sunLight * SpecularHighlight(normal, V, lightDir, roughness, f0) * smoothness;
+            if (smoothness > 0.05) {
+                // Specular anti-aliasing: where the normal changes quickly between pixels
+                // (bumpy texels, far away), widen the highlight so it cannot collapse into
+                // single flickering white pixels.
+                vec3 nRight = DecodeNormal(texelFetch(colortex2, pixel + ivec2(1, 0), 0).xy);
+                vec3 nUp = DecodeNormal(texelFetch(colortex2, pixel + ivec2(0, 1), 0).xy);
+                float variance = (2.0 - dot(normal, nRight) - dot(normal, nUp)) * 0.5;
+                float distanceBlur = length(playerPos) * 0.0015;
+                float aaRoughness = sqrt(roughness * roughness + min(2.0 * variance, 0.18)) + distanceBlur;
+                color += sunLight * SpecularHighlight(normal, V, lightDir, max(aaRoughness, 0.05), f0) * smoothness;
+            }
         #endif
         color += albedo * material.g * EMISSION_BRIGHTNESS;
 

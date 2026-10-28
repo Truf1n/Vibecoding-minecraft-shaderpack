@@ -177,9 +177,11 @@ flat in vec3 lightDir;
     layout(location = 0) out vec4 outColor;
     layout(location = 1) out vec4 outTint;
 #elif defined TRANSLUCENT_OIT
-    /* RENDERTARGETS: 5,6 */
+    /* RENDERTARGETS: 5,6,0,3 */
     layout(location = 0) out vec4 outTransmit;
     layout(location = 1) out vec4 outLight;
+    layout(location = 2) out vec4 outOpaque;   // solid texels: blended in by their alpha (0 or 1)
+    layout(location = 3) out vec4 outKeep;     // and marked "keep" for deferred (alpha 0 or 1)
 #elif defined FWD_UNLIT || defined ORDER_SAFE_LAYER
     /* RENDERTARGETS: 0,3 */
     layout(location = 0) out vec4 outColor;
@@ -350,10 +352,26 @@ void main() {
         #elif defined TRANSLUCENT_OIT
             if (albedo.a < alphaTestRef) discard;
             albedo.rgb = mix(albedo.rgb, entityColor.rgb, entityColor.a); // hurt flash
-            TranslucentOut layer = AlphaLayer(SrgbToLinear(albedo.rgb) * GetLighting(surf, sunDir, lightDir), albedo.a);
-            layer = FogLayer(layer, BorderFogAmount(length(playerPos)));
-            outTransmit = vec4(layer.transmit, 1.0);
-            outLight = vec4(layer.light, 1.0);
+            vec3 lit = SrgbToLinear(albedo.rgb) * GetLighting(surf, sunDir, lightDir);
+            if (albedo.a > 0.99) {
+                // Solid texels (player skins, most of any mob): drawn like an opaque surface,
+                // replacing what is behind. As order-independent layers they would add up
+                // with the body parts behind them and look see-through. Written to the scene
+                // directly and marked "keep", so it survives whether Iris draws this before
+                // or after the deferred pass.
+                outOpaque = vec4(ApplyFog(lit, playerPos, sunDir, false), 1.0);
+                outKeep = vec4(0.0, 0.0, 0.0, 1.0);
+                outTransmit = vec4(1.0);
+                outLight = vec4(0.0, 0.0, 0.0, 1.0);
+            } else {
+                // Really see-through texels (slime, ghosts, invisible players): layers.
+                TranslucentOut layer = AlphaLayer(lit, albedo.a);
+                layer = FogLayer(layer, BorderFogAmount(length(playerPos)));
+                outTransmit = vec4(layer.transmit, 1.0);
+                outLight = vec4(layer.light, 1.0);
+                outOpaque = vec4(0.0);
+                outKeep = vec4(0.0);
+            }
         #else
             if (albedo.a < alphaTestRef) discard;
             vec3 color = SrgbToLinear(albedo.rgb) * GetLighting(surf, sunDir, lightDir);

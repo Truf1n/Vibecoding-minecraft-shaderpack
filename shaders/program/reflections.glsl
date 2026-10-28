@@ -116,7 +116,7 @@ void main() {
     vec3 viewR = normalize(mat3(gbufferModelView) * R);
     vec3 viewN = normalize(mat3(gbufferModelView) * normal);
     vec4 hit = TraceSSR(viewPos, viewR, viewN, n1);
-    vec3 reflection = min(mix(fallback, hit.rgb, hit.a), vec3(24.0)); // no single fireflies
+    vec3 reflection = min(mix(fallback, hit.rgb, hit.a), vec3(8.0)); // no single fireflies
     float linear = LinearDepthOf(depth);
 
     // Blend with this spot's reflection from the previous frames (where it was then). The
@@ -168,6 +168,9 @@ void main() {
                 vec2 d = vec2(base + ivec2(x, y)) - pos;
                 float w = exp(-dot(d, d) / (2.0 * spread * spread));
                 w *= exp(-abs(s.a - linear) / (0.03 * linear + 0.05)) + 1e-4;
+                // Bright outliers (a ray that happened to hit the sun-lit snow or the
+                // sky) count less, so they don't flicker as single white pixels.
+                w /= 1.0 + Luminance(s.rgb);
                 sum += s.rgb * w;
                 wsum += w;
             }
