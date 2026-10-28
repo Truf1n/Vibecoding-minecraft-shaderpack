@@ -1,7 +1,9 @@
-// Fog (plan items F1-F4, N2, End haze). Needs sky.glsl.
+// Fog (plan items F1-F4, N2, End haze; mist and rain curtains: W5, air.glsl). Needs sky.glsl.
 // All fog colours come from the sky, so distant terrain melts into the sky behind it.
 
 #include "/lib/materials/waterStyles.glsl"
+#include "/lib/util/noise.glsl"
+#include "/lib/atmosphere/air.glsl"
 
 vec3 WaterFogColor(vec3 sunDir) {
     vec3 c = CameraWaterStyle().fogColor * vec3(UNDERWATER_COLOR_R, UNDERWATER_COLOR_G, UNDERWATER_COLOR_B);
@@ -87,6 +89,14 @@ vec3 ApplyFog(vec3 color, vec3 playerPos, vec3 sunDir, bool isSky) {
             #endif
         #endif
     }
+
+    #ifdef WORLD_OVERWORLD
+        // Mist and distant rain curtains (air.glsl), in front of terrain and sky alike.
+        float mistDepth = MistOpticalDepth(dir, isSky ? 2000.0 : dist);
+        if (mistDepth > 0.0) color = mix(color, MistColor(sunDir), 1.0 - exp(-mistDepth));
+        float curtain = RainCurtain(dir, isSky ? 1000.0 : dist);
+        if (curtain > 0.0) color = mix(color, RainCurtainColor(sunDir), curtain);
+    #endif
 
     #if defined WORLD_OVERWORLD && defined WEATHER_STORMS
         // Snowstorms and sandstorms: thick air you cannot see far through - at full

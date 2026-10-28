@@ -518,3 +518,17 @@ option.VOXEL_SKY_OCCLUSION=Sky Occlusion
 option.VOXEL_SKY_OCCLUSION.comment=How much the sky light is shut out by the blocks around (overhangs, caves, dense trees), worked out from the blocks themselves rather than Minecraft's light levels alone. Needs Coloured Lighting.
 option.DIRECTIONAL_BLOCKLIGHT=Directional Block Light
 option.DIRECTIONAL_BLOCKLIGHT.comment=Faces turned away from a light source get less of its light; torches, lanterns and lava also glint on water and puddles. Needs Coloured Lighting.
+
+option.MIST=Mist
+option.MIST.comment=Mist that forms on still, humid nights, lies thickest around sunrise and burns off through the morning, also after rain and in swamps. It pools low and drifts with the wind; sunlight makes shafts in it.
+value.MIST.0=Off
+value.MIST.50=50%
+value.MIST.100=100%
+value.MIST.150=150%
+value.MIST.200=200%
+option.RAIN_CURTAINS=Rain Curtains
+option.RAIN_CURTAINS.comment=Grey sheets of falling rain in the distance while it rains, moving with the clouds.
+option.LIGHT_FOG=Light Fog
+option.LIGHT_FOG.comment=Glowing haze around light sources (lava, torches, portals), strongest in caves and mist. Needs Coloured Lighting and Light Shaft Quality above Off.
+option.WATER_SHAFTS_FROM_ABOVE=Water Shafts From Above
+option.WATER_SHAFTS_FROM_ABOVE.comment=The light shafts under water also show, faintly, when looking into the water from above.

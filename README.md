@@ -96,6 +96,7 @@ docs/PLAN.md           research, feature list (IDs), milestones
 | Overlays | `gbuffers_clouds/armor_glint/spidereyes/beaconbeam/lightning` | colortex4 (premultiplied) |
 | World state | `begin` (compute, 1 thread) | weather smoothing, wind (integrated drift), air, wetness, snow, sun/sky colours → shader storage buffer 0 (lib/world/worldState.glsl) |
 | Clouds | `deferred` (half/quarter size, Overworld) | ray-marched clouds blended with the previous frames → colortex9 (light, transmittance), colortex10 (distance) |
+| Cloud panorama | `deferred` (compute, Overworld) | clouds in every direction above the horizon (skyViewImg, 1024×256), for reflections |
 | Ambient occlusion | `deferred1` (half size) | GTAO: horizon search in 2-3 screen slices → occlusion + bent normal in colortex15 (multi-bounce applied when lighting) |
 | Deferred | `deferred2` | procedural sky + clouds behind everything; lights the G-buffer once per pixel (diffuse + highlights) → colortex0, copy in colortex7 |
 | Block reflections | `deferred3` (half/full size), `deferred4` | trace (blended with its reprojected history on rough surfaces) → colortex12; depth-aware, roughness-wide upsample × Fresnel added to colortex0/7 |
@@ -103,7 +104,7 @@ docs/PLAN.md           research, feature list (IDs), milestones
 | Translucent mobs | `gbuffers_entities_translucent/block_translucent` | colortex5/6 (order-independent) |
 | Particles, weather | `gbuffers_textured/weather` | colortex0 (forward-lit, blended) |
 | Composite | `composite` | colortex0 × colortex5 + colortex6, underwater distortion |
-| Light shafts | `composite1` (half size), `composite2` (Overworld) | march → colortex11; depth-aware upsample added to colortex0 |
+| Air march | `composite1` (half size), `composite2` (Overworld) | light shafts, sunlit mist, glowing air around light sources, water shafts seen from above → colortex11 (accumulated over frames); depth-aware upsample added to colortex0 |
 | TAA | `composite3` | history colortex8 (the bloom and post passes read it from there) |
 | Bloom | `composite4` (half size) | six blurred mip levels of the scene → colortex13 tiles |
 | Auto exposure | `composite5` (compute) | log-average scene luminance → exposure in the world state |

@@ -88,6 +88,20 @@ void main() {
     wsAir = vec4(Approach(wsAir.x, temperatureC, 30.0), Approach(wsAir.y, humidity, 30.0),
                  Approach(wsAir.z, dailyCover + convection, 120.0), convection);
 
+    // ---- Mist (Q24) ---------------------------------------------------------------------
+    // Forms over the night in still, humid air as the ground cools, lies thickest around
+    // sunrise, and burns off through the morning as the sun climbs and the wind picks up.
+    // Rain leaves some behind for a while; swamps and jungles keep a little all day.
+    float overnight = timeOfDay >= 0.5 ? smoothstep(0.6, 0.97, timeOfDay) : 1.0 - smoothstep(0.01, 0.13, timeOfDay);
+    float calm = 1.0 - smoothstep(2.0, 7.0, speed);
+    float damp = saturate((humidity - 0.25) / 0.55);
+    float tropical = saturate((rainfall - 0.75) * 4.0) * step(0.6, temperature);
+    float mistTarget = saturate(overnight * calm * damp + afterRain * (1.0 - precipitation) * 0.35 * calm + tropical * 0.3)
+                     * (1.0 - stormThunder) * step(-8.0, wsAir.x);
+    wsMist.x = Approach(wsMist.x, mistTarget, 90.0);
+    // It pools low: up to a few blocks above sea level, deeper the more humid it is.
+    wsMist.y = 64.0 + 4.0 + 8.0 * humidity;
+
     // ---- Surfaces ----------------------------------------------------------------------
     // Rain soaks things in about half a minute; sun, wind and dry air dry them over minutes.
     float drying = (0.004 + 0.008 * day * (1.0 - stormRain) + 0.0008 * speed) * (1.0 - 0.5 * humidity);

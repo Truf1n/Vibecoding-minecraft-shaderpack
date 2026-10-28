@@ -315,6 +315,15 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 
 // ---- Light shafts --------------------------------------------------------------
 // 0 off, 1 low, 2 medium (with cloud shadows), 3 high
+// Morning mist and mist after rain (%), pooling low and drifting with the wind.
+#define MIST 100                //[0 50 100 150 200]
+// Grey sheets of rain in the distance while it rains.
+#define RAIN_CURTAINS
+// Glowing haze around light sources (lava, torches, portals), from the light volume;
+// strongest in caves. Needs Coloured Lighting and the air march (Light Shaft Quality).
+#define LIGHT_FOG 1.00          //[0.00 0.50 1.00 1.50 2.00 3.00]
+// Light shafts under the water also show faintly when looking into it from above.
+#define WATER_SHAFTS_FROM_ABOVE
 #define VL_QUALITY 2            //[0 1 2 3]
 #define VL_STRENGTH 1.00        //[0.25 0.50 0.75 1.00 1.25 1.50 2.00 3.00]
 

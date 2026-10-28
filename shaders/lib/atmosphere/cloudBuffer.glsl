@@ -33,13 +33,26 @@ vec4 SkyViewTexel(ivec2 t) {
     return texelFetch(skyViewSampler, t, 0);
 }
 
+// Bicubic (Catmull-Rom weights, 4x4 texels): sharper than bilinear, without its blocky
+// diamond pattern on cloud edges.
+vec4 CubicWeights(float f) {
+    float f2 = f * f, f3 = f2 * f;
+    return vec4(-0.5 * f3 + f2 - 0.5 * f, 1.5 * f3 - 2.5 * f2 + 1.0, -1.5 * f3 + 2.0 * f2 + 0.5 * f, 0.5 * f3 - 0.5 * f2);
+}
+
 vec4 CloudsInDirection(vec3 dir) {
     if (dir.y <= 0.0) return vec4(0.0, 0.0, 0.0, 1.0);
     vec2 pos = SkyViewCoord(dir) * vec2(SKY_VIEW_SIZE) - 0.5;
     ivec2 base = ivec2(floor(pos));
     vec2 f = pos - vec2(base);
-    vec4 c = mix(mix(SkyViewTexel(base), SkyViewTexel(base + ivec2(1, 0)), f.x),
-                 mix(SkyViewTexel(base + ivec2(0, 1)), SkyViewTexel(base + ivec2(1, 1)), f.x), f.y);
+    vec4 wx = CubicWeights(f.x), wy = CubicWeights(f.y);
+    vec4 c = vec4(0.0);
+    for (int y = 0; y < 4; y++) {
+        vec4 row = SkyViewTexel(base + ivec2(-1, y - 1)) * wx.x + SkyViewTexel(base + ivec2(0, y - 1)) * wx.y
+                 + SkyViewTexel(base + ivec2(1, y - 1)) * wx.z + SkyViewTexel(base + ivec2(2, y - 1)) * wx.w;
+        c += row * wy[y];
+    }
+    c = vec4(max(c.rgb, 0.0), clamp(c.a, 0.0, 1.0));
     // Fade in just above the horizon (the panorama's lowest row).
     float w = smoothstep(0.0, 0.03, dir.y);
     return vec4(c.rgb * w, mix(1.0, c.a, w));

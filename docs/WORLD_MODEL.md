@@ -52,7 +52,25 @@ the sunlight check is filtered over 4 taps.
 Not done from W4: tinted (coloured) shadows for see-through entities. The shadow map can't
 tell them apart from opaque casters, so they get dithered partial shadows instead.
 
-W5 onwards: design only.
+**W5 (part 1) implemented (M10-W5):**
+- **The air march** (composite1) replaces the light shafts:
+  - white-noise offsets, reprojected and accumulated over frames, with depth rejection;
+  - quadratic step spacing out to 320 blocks; haze, plus mist with its own transmittance;
+  - Light Fog from the light volume (Q6), lightning glow;
+  - water shafts seen from above (marched to depthtex1 through the surface; samples inside
+    water cells use the underwater scattering);
+  - shafts from cloud gaps beyond the shadow map.
+- **Mist (Q24):** wsMist in the world state (overnight, calm, humid, after rain, tropical),
+  analytic optical depth in the fog (flat layer plus exponential above, drifting patches).
+- **Rain curtains (Q19):** distance sheets in the fog, moving with the clouds.
+- **Cloud panorama for reflections:** 1024×256, a quarter re-marched per frame, bicubic.
+- **Fix:** solid texels of translucent entities are also written to the scene copy water
+  refracts (colortex7).
+
+Still to do from W5 (W5.2): cloud upgrade (Q26, P1, P13), physical sky option (Q25), Q27
+touches, storms with shape, sky visibility for mist in caves.
+
+W6 onwards: design only.
 
 ---
 

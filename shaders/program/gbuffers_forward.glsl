@@ -187,11 +187,12 @@ flat in vec3 lightDir;
     layout(location = 0) out vec4 outColor;
     layout(location = 1) out vec4 outTint;
 #elif defined TRANSLUCENT_OIT
-    /* RENDERTARGETS: 5,6,0,3 */
+    /* RENDERTARGETS: 5,6,0,3,7 */
     layout(location = 0) out vec4 outTransmit;
     layout(location = 1) out vec4 outLight;
     layout(location = 2) out vec4 outOpaque;   // solid texels: blended in by their alpha (0 or 1)
     layout(location = 3) out vec4 outKeep;     // and marked "keep" for deferred (alpha 0 or 1)
+    layout(location = 4) out vec4 outSceneCopy; // solid texels also into the opaque scene copy the water looks through
 #elif defined FWD_UNLIT || defined ORDER_SAFE_LAYER
     /* RENDERTARGETS: 0,3 */
     layout(location = 0) out vec4 outColor;
@@ -370,6 +371,10 @@ void main() {
                 // directly and marked "keep", so it survives whether Iris draws this before
                 // or after the deferred pass.
                 outOpaque = vec4(ApplyFog(lit, playerPos, sunDir, false), 1.0);
+                // Also into the scene copy water refracts (colortex7, made by the deferred
+                // pass, which Iris may run before this): else water drawn over a player or
+                // mob in it would hide them.
+                outSceneCopy = outOpaque;
                 outKeep = vec4(0.0, 0.0, 0.0, 1.0);
                 outTransmit = vec4(1.0);
                 outLight = vec4(0.0, 0.0, 0.0, 1.0);
@@ -380,6 +385,7 @@ void main() {
                 outTransmit = vec4(layer.transmit, 1.0);
                 outLight = vec4(layer.light, 1.0);
                 outOpaque = vec4(0.0);
+                outSceneCopy = vec4(0.0);
                 outKeep = vec4(0.0);
             }
         #else

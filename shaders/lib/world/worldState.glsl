@@ -26,6 +26,7 @@ layout(std430, binding = 0) WORLD_STATE_ACCESS buffer WorldStateBuffer {
     vec4 wsSkyHorizon;  // rgb: sky colour at the horizon
     vec4 wsSkyAmbient;  // rgb: light from the whole sky
     vec4 wsExposure;    // x: exposure in use; y: target; z: average scene luminance
+    vec4 wsMist;        // x: mist 0..1; y: height (absolute y) up to which it lies thick
 };
 
 // The weather values the effects used to get from custom uniforms.

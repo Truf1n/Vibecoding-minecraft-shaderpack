@@ -3,7 +3,7 @@
 
 // Cloud panorama layout (program/skyView.glsl): u = azimuth (0..1 around), v = elevation,
 // v^2 * 90 degrees (more texels near the horizon).
-const ivec2 SKY_VIEW_SIZE = ivec2(512, 128);
+const ivec2 SKY_VIEW_SIZE = ivec2(1024, 256);
 
 vec3 SkyViewDirection(vec2 uv) {
     float azimuth = uv.x * TAU;
