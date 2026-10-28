@@ -2,10 +2,12 @@
 #define RIPPLES_GLSL
 
 // Interactive ripples (plan item Q15): wave simulations on the water around the player, so
-// swimming, wading, mobs and boats leave rings and wakes. Two nested grids, like shadow
-// cascades: a fine one close by (16 cells per block, 16 blocks across) for crisp rings at
-// your feet, and a coarse one (4 per block, 64 blocks across) for wakes further out. Both
-// simulate the same disturbances; the water blends from one to the other.
+// swimming, wading, mobs and boats leave rings and wakes. Three nested grids, like shadow
+// cascades: fine close by (16 cells per block, 16 blocks across) for crisp rings at your
+// feet, medium (8 per block, 32 across) and coarse (4 per block, 64 across) for wakes
+// further out. All simulate the same disturbances; the water blends smoothly from one to
+// the next. Each grid's border absorbs the waves (instead of letting them wrap around and
+// come back), and rings die out within about 6 blocks of where they started.
 //   1. The shadow pass records, per eighth-of-a-block cell, the lowest and highest point of
 //      any entity (the player included) above it (rippleLowImg / rippleHighImg, cleared
 //      every frame).
@@ -13,8 +15,8 @@
 //      water surface here" (checked against the column maps), stored back in rippleHighImg.
 //   3. shadowcomp2 (program/ripples.glsl) steps the wave equation on both grids. Only a
 //      *change* of what is in the water makes waves (an entity moving in or out of a cell),
-//      so someone standing still makes none. Rings spread at ~2.2 blocks/s and fade over a
-//      few seconds. Two halves per grid take turns (read one, write the other).
+//      so someone standing still makes none. Rings spread at ~2.2 blocks/s and fade within
+//      a few seconds. Two halves per grid take turns (read one, write the other).
 //   4. The water reads the heights, smoothly interpolated, for extra slope (water.glsl).
 // The grids wrap around the world (like the column maps), so they need no shifting as the
 // player moves: a cell is reset when its spot comes back into range from the far side.
@@ -23,9 +25,10 @@ const int RIPPLE_SIZE = 256;            // cells per side of each grid (shaders.
 const float RIPPLE_MASK_CELLS = 8.0;    // entity records: cells per block
 const int RIPPLE_MASK_SIZE = 512;       // ... per side (64 blocks)
 
-// Grid 0: fine, near; grid 1: coarse, far.
-float RippleCellsPerBlock(int grid) { return grid == 0 ? 16.0 : 4.0; }
-float RippleRange(int grid) { return grid == 0 ? 7.5 : 31.0; } // blocks from the camera
+// Grid 0: fine, near; 1: medium; 2: coarse, far.
+const int RIPPLE_GRIDS = 3;
+float RippleCellsPerBlock(int grid) { return grid == 0 ? 16.0 : (grid == 1 ? 8.0 : 4.0); }
+float RippleRange(int grid) { return float(RIPPLE_SIZE) * 0.5 / RippleCellsPerBlock(grid) - 0.5; } // blocks from the camera
 
 ivec2 RippleCellOf(vec2 worldXZ, float cellsPerBlock) { return ivec2(floor(worldXZ * cellsPerBlock)); }
 ivec2 RippleWrap(ivec2 cell, int size) { return ivec2(mod(vec2(cell), float(size))); }
@@ -64,17 +67,21 @@ float UnpackRippleHeight(uint q) { return float(q) / 256.0 - 128.0 + cameraPosit
         return vec2(dx, dz) / (2.0 * e);
     }
 
-    // Slope (dh/dx, dh/dz) of the simulated ripples at a world position: the fine grid close
-    // by, blending into the coarse one, fading out at the edge of the coarse one.
+    // Slope (dh/dx, dh/dz) of the simulated ripples at a world position: the finest grid
+    // that covers the spot, blending over a wide band into the next one out (well inside
+    // its absorbing border), fading out towards the edge of the coarse one.
     vec2 RippleSlope(vec2 worldXZ) {
         vec2 d = abs(worldXZ - cameraPosition.xz);
         float r = max(d.x, d.y);
-        if (r > RippleRange(1)) return vec2(0.0);
-        float useNear = 1.0 - smoothstep(RippleRange(0) - 2.0, RippleRange(0) - 0.5, r);
+        if (r > RippleRange(2)) return vec2(0.0);
+        float w0 = 1.0 - smoothstep(RippleRange(0) * 0.45, RippleRange(0) * 0.8, r);
+        float w1 = (1.0 - w0) * (1.0 - smoothstep(RippleRange(1) * 0.45, RippleRange(1) * 0.8, r));
+        float w2 = 1.0 - w0 - w1;
         vec2 slope = vec2(0.0);
-        if (useNear > 0.0) slope += RippleGridSlope(0, worldXZ) * useNear;
-        if (useNear < 1.0) slope += RippleGridSlope(1, worldXZ) * (1.0 - useNear);
-        return slope * (1.0 - smoothstep(RippleRange(1) - 6.0, RippleRange(1), r));
+        if (w0 > 0.0) slope += RippleGridSlope(0, worldXZ) * w0;
+        if (w1 > 0.0) slope += RippleGridSlope(1, worldXZ) * w1;
+        if (w2 > 0.0) slope += RippleGridSlope(2, worldXZ) * w2;
+        return slope * (1.0 - smoothstep(RippleRange(2) * 0.6, RippleRange(2) * 0.8, r));
     }
 #endif
 

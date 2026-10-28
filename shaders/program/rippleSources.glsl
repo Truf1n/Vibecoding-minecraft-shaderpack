@@ -27,6 +27,8 @@ void main() {
     float top = UnpackRippleHeight(high);
     float bottom = UnpackRippleHeight(0xFFFFFFFFu - imageLoad(rippleLowImg, texel).r);
     float surface = ColumnWaterSurface(vec3(xz.x, bottom - 1.0, xz.y));
-    bool crosses = surface > -1e5 && bottom < surface + 0.1 && top > surface - 0.3;
+    // It has to actually dip into the water (standing on a block next to the water, or
+    // leaning over it, does not count).
+    bool crosses = surface > -1e5 && bottom < surface - 0.05 && top > surface - 0.3;
     imageStore(rippleHighImg, texel, uvec4(crosses ? 1u : 0u));
 }

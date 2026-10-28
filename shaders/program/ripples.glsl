@@ -9,7 +9,7 @@
 #include "/lib/materials/ripples.glsl"
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-const ivec3 workGroups = ivec3(16, 32, 1); // x: 256 cells; y: 256 per grid, two grids
+const ivec3 workGroups = ivec3(16, 48, 1); // x: 256 cells; y: 256 per grid, three grids
 
 uniform vec3 previousCameraPosition;
 
@@ -62,12 +62,19 @@ void main() {
     float dt = clamp(frameTime, 0.0, 0.05);
     const float waveSpeed = 2.2; // blocks per second
     float a = min(pow(waveSpeed * dt * cellsPerBlock, 2.0), 0.45);
-    float h = (2.0 * here.r - here.g + a * (neighbours - 4.0 * here.r)) * exp(-dt * 0.8);
+    // Damping: rings fade over ~2.5 s (they get ~6 blocks out); near the grid's border it
+    // gets much stronger, so waves are absorbed there instead of wrapping around to the
+    // other side and interfering.
+    vec2 fromCenter = abs((vec2(cell) + 0.5) / cellsPerBlock - cameraPosition.xz);
+    float border = smoothstep(0.7, 0.95, max(fromCenter.x, fromCenter.y) / RippleRange(grid));
+    float h = (2.0 * here.r - here.g + a * (neighbours - 4.0 * here.r)) * exp(-dt * (1.6 + 30.0 * border));
 
     // Something moving into (or out of) the water here: push the surface down (or let it
     // spring back up).
     float occupied = Occupied((vec2(cell) + 0.5) / cellsPerBlock);
     h -= 0.08 * (occupied - here.b);
+    // The last of a ring snaps to flat instead of shrinking forever.
+    if (abs(h) < 0.0015 && abs(here.r) < 0.0015) h = 0.0;
 
     imageStore(rippleImg, texel + writeBase, vec4(Clean(h), here.r, occupied, 0.0));
 }

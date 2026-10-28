@@ -40,8 +40,8 @@ void main() {
     float sunUp = SunElevation();
     float day = DayFactor(sunUp);
 
-    // ---- Weather (half-lives as in M9: clouds set in over a minute or two) -------------
-    stormRain = Approach(stormRain, rainStrength, rainStrength > stormRain ? 87.0 : 173.0);
+    // ---- Weather (clouds set in over a few minutes, clear a little slower) -------------
+    stormRain = Approach(stormRain, rainStrength, rainStrength > stormRain ? 200.0 : 260.0);
     stormThunder = Approach(stormThunder, thunderStrength, thunderStrength > stormThunder ? 43.0 : 130.0);
     afterRain = Approach(afterRain, rainStrength, rainStrength > afterRain ? 3.0 : 173.0);
     float precipitation = min(rainStrength, stormRain);
