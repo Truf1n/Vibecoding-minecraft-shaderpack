@@ -30,7 +30,7 @@ layout(r11f_g11f_b10f) uniform image3D floodImgB;
 // Light volume (docs/WORLD_MODEL.md F1): rgb sun bounce (per unit of sunlight), a sky visibility.
 layout(rgba8) uniform image3D bounceImgA;
 layout(rgba8) uniform image3D bounceImgB;
-layout(rgba8) uniform readonly image3D albedoImg;
+layout(r32ui) uniform readonly uimage3D albedoImg; // packed (voxels.glsl)
 uniform sampler2DShadow shadowtex1HW;
 uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
@@ -130,7 +130,7 @@ void main() {
                 if (nPriority != VOXEL_PRIORITY_SOLID && nPriority != VOXEL_PRIORITY_TINT) continue;
                 float facing = dot(-vec3(dirs6(i)), sunLightDir); // the face's normal points from it to here
                 if (facing <= 0.0) continue;
-                vec3 albedo = SrgbToLinear(imageLoad(albedoImg, n).rgb);
+                vec3 albedo = SrgbToLinear(UnpackVoxelAlbedo(imageLoad(albedoImg, n).r));
                 injected = max(injected, albedo * facing);
             }
             if (max(injected.r, max(injected.g, injected.b)) > 0.01) bounced = max(bounced, injected * SunVisibility(v) * 0.7);

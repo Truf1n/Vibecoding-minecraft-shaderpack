@@ -35,6 +35,14 @@ uint VoxelPriority(uint v) { return v >> 28; }
 int VoxelEmission(uint v) { return int((v >> 16) & 15u); }
 int VoxelBlockId(uint v) { return int(v & 65535u); }
 
+// Block colour for the sun bounce (albedoImg): face rank (top 3, sides 2, bottom 1) in the
+// top bits so an atomic max always picks the same face, then 8 bits per channel (sRGB).
+uint PackVoxelAlbedo(vec3 albedo, uint rank) {
+    uvec3 c = uvec3(clamp(albedo, 0.0, 1.0) * 255.0 + 0.5);
+    return (rank << 24) | (c.r << 16) | (c.g << 8) | c.b;
+}
+vec3 UnpackVoxelAlbedo(uint v) { return vec3((v >> 16) & 255u, (v >> 8) & 255u, v & 255u) / 255.0; }
+
 // How light passing through a block space is coloured / dimmed (stained glass passes only
 // its own colour).
 vec3 VoxelTint(uint priority, int id) {

@@ -51,8 +51,8 @@ uniform sampler2D depthtex0;
     // Upsamples the half-size occlusion and bent normal with a small blur that follows the
     // depth (so it does not bleed across edges and the per-frame slices smooth out).
     vec4 SampleAO(ivec2 pixel, float depth) {
-        float linear = ScreenToView(vec2(pixel) / vec2(viewWidth, viewHeight), depth).z;
-        vec2 pos = (vec2(pixel) + 0.5) * 0.5 - 0.5;
+        float linear = ScreenToView((vec2(pixel) + 0.5) / vec2(viewWidth, viewHeight), depth).z;
+        vec2 pos = vec2(pixel) * 0.5; // in AO texels (texel t holds full-size pixel 2t)
         ivec2 base = ivec2(floor(pos));
         ivec2 maxTexel = textureSize(colortex15, 0) - 1;
         vec4 sum = vec4(0.0);
@@ -61,7 +61,7 @@ uniform sampler2D depthtex0;
             for (int x = -1; x <= 2; x++) {
                 ivec2 t = clamp(base + ivec2(x, y), ivec2(0), maxTexel);
                 vec2 d = vec2(t) - pos;
-                ivec2 full = min(t * 2 + 1, ivec2(viewWidth, viewHeight) - 1);
+                ivec2 full = min(t * 2, ivec2(viewWidth, viewHeight) - 1); // the pixel the AO pass read
                 float z = ScreenToView((vec2(full) + 0.5) / vec2(viewWidth, viewHeight), texelFetch(depthtex0, full, 0).r).z;
                 float w = exp(-dot(d, d) * 0.5) * exp(-abs(z - linear) / (0.05 * abs(linear) + 0.1));
                 sum += texelFetch(colortex15, t, 0) * w;

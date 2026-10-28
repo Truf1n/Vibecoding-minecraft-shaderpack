@@ -18,7 +18,7 @@
 #ifdef COLORED_LIGHTING
     #include "/lib/lighting/voxels.glsl"
     layout(r32ui) uniform uimage3D voxelImg;
-    layout(rgba8) uniform writeonly image3D albedoImg; // average colour of each block (sun bounce)
+    layout(r32ui) uniform uimage3D albedoImg; // average colour of each block (sun bounce), packed (voxels.glsl)
     uniform sampler2D gtexture;
 
     // Records what fills this block space for the coloured-light floodfill (voxels.glsl).
@@ -35,10 +35,13 @@
         imageAtomicMax(voxelImg, coord, EncodeVoxel(priority, id, emission));
         // The block's average colour (mip level 4 of its sprite, with the biome tint), for
         // the sunlight it bounces (light volume, floodfill.glsl). Faces of one block may
-        // differ (grass top and sides); any of them will do.
+        // differ (grass top and sides): the top face's wins, then the sides', always the
+        // same one (an atomic max on the face rank in the top bits; a plain store would let
+        // a different face win every frame, and the bounce colour flicker).
         if (priority == VOXEL_PRIORITY_SOLID || priority == VOXEL_PRIORITY_TINT) {
             vec3 albedo = textureLod(gtexture, midTexCoord, 4.0).rgb * gl_Color.rgb;
-            imageStore(albedoImg, coord, vec4(albedo, 1.0));
+            uint rank = gl_Normal.y > 0.5 ? 3u : (gl_Normal.y < -0.5 ? 1u : 2u);
+            imageAtomicMax(albedoImg, coord, PackVoxelAlbedo(albedo, rank));
         }
     }
 #endif

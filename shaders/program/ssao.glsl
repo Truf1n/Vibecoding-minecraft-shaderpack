@@ -48,15 +48,22 @@ vec3 ViewToScreenAO(vec3 viewPos) {
 
 void main() {
     vec2 size = floor(vec2(viewWidth, viewHeight) * 0.5);
-    vec2 uv = gl_FragCoord.xy / size;
-    ivec2 pixel = ivec2(uv * vec2(viewWidth, viewHeight));
+    vec2 screen = vec2(viewWidth, viewHeight);
+    // Every position is rebuilt at the centre of the full-size pixel whose depth it reads:
+    // anywhere else, on ground seen at a low angle (where the depth changes fast from pixel
+    // to pixel), the point lands off the surface and makes false occlusion, in blotches.
+    ivec2 pixel = ivec2(gl_FragCoord.xy) * 2;
+    vec2 uv = (vec2(pixel) + 0.5) / screen;
     float depth = texelFetch(depthtex0, pixel, 0).r;
     vec3 worldNormal = DecodeNormal(texelFetch(colortex2, pixel, 0).xy);
     outAO = vec4(worldNormal * 0.5 + 0.5, 1.0);
     if (depth >= 1.0 || depth < 0.56) return; // sky, held item
 
-    vec3 viewPos = ScreenToView(uv, depth);
     vec3 normal = normalize(mat3(gbufferModelView) * worldNormal);
+    // Lifted a hair off the surface (more far away, where depth precision runs out), so a
+    // flat surface never shadows itself.
+    vec3 viewPos = ScreenToView(uv, depth);
+    viewPos += normal * (0.01 + 0.002 * -viewPos.z);
     vec3 V = normalize(-viewPos);
 
     // Screen radius of the search (in uv), from the world radius at this depth.
@@ -85,11 +92,13 @@ void main() {
             vec2 sideDir = dir * (side == 0 ? -1.0 : 1.0) * vec2(size.y / size.x, 1.0);
             for (int i = 0; i < AO_STEPS; i++) {
                 float t = (float(i) + stepJitter) / float(AO_STEPS);
-                vec2 sampleUV = uv + sideDir * radiusUV * t * t;
-                if (any(lessThan(sampleUV, vec2(0.0))) || any(greaterThan(sampleUV, vec2(1.0)))) break;
-                float sampleDepth = texelFetch(depthtex0, ivec2(sampleUV * vec2(viewWidth, viewHeight)), 0).r;
+                // At least one pixel out, so the first step never reads this pixel itself.
+                vec2 offset = sideDir * max(radiusUV * t * t, 1.5 / screen.y);
+                ivec2 samplePixel = ivec2((uv + offset) * screen);
+                if (any(lessThan(samplePixel, ivec2(0))) || any(greaterThanEqual(samplePixel, ivec2(screen)))) break;
+                float sampleDepth = texelFetch(depthtex0, samplePixel, 0).r;
                 if (sampleDepth < 0.56) continue; // the held item hides nothing
-                vec3 d = ScreenToView(sampleUV, sampleDepth) - viewPos;
+                vec3 d = ScreenToView((vec2(samplePixel) + 0.5) / screen, sampleDepth) - viewPos;
                 float len2 = dot(d, d);
                 float c = dot(d, V) * inversesqrt(max(len2, 1e-6));
                 // Farther than the radius counts less (a separate object behind).
