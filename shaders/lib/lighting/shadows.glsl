@@ -46,6 +46,22 @@ float SunPenumbra() {
     return size;
 }
 
+// How carefully GetShadow filters: 2 = soft shadows with the blocker search (opaque
+// surfaces, mobs); 1 = a plain 4-tap filter (water, particles, rain: the forward passes
+// where it ran for every pixel of every layer, and where nobody sees penumbra widths);
+// 3 = soft shadows with half the filter taps (the half-size shadow pass, P19/P20, which
+// adds the frames up over time).
+int shadowFilterQuality = 2;
+
+// Half-size soft shadows (P19, program/ssao.glsl): the lighting pass hands in the opaque
+// casters' filtered visibility, upsampled, and GetShadow skips its own filter - unless a
+// translucent caster (glass, water) lies over the point, which needs the full work (tint,
+// caustics). -1 = not available.
+float shadowOpaqueOverride = -1.0;
+// The opaque casters' filtered visibility from the last GetShadow (what the half-size pass
+// stores).
+float shadowLastOpaque = 1.0;
+
 struct ShadowResult {
     vec3 light;        // 0 = fully shadowed, 1 = lit; tinted by coloured glass
     float coverage;    // 1 inside the shadow map, fading to 0 at its edge
@@ -58,6 +74,7 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
     ShadowResult r;
     r.light = vec3(1.0);
     r.thickness = 0.0;
+    shadowLastOpaque = 1.0;
 
     vec3 shadowView = (shadowModelView * vec4(playerPos, 1.0)).xyz;
     vec3 clip = (shadowProjection * vec4(shadowView, 1.0)).xyz;
@@ -83,6 +100,17 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
     vec3 coord = DistortShadowClip(clip) * 0.5 + 0.5;
     coord.z -= 0.00002;
 
+    if (shadowOpaqueOverride >= 0.0) {
+        float allDepth = textureLod(shadowtex0, coord.xy, 0.0).r;
+        float opaqueDepth = textureLod(shadowtex1, coord.xy, 0.0).r;
+        if (allDepth >= opaqueDepth - 1e-5) {
+            // Nothing see-through in front: the half-size result is all there is to it.
+            r.light = vec3(shadowOpaqueOverride);
+            r.thickness = max(ShadowDepthToBlocks(coord.z - opaqueDepth), 0.0);
+            return r;
+        }
+    }
+
     // Soft shadows (W4, plan items Q8, Q11): percentage-closer soft shadows. A few taps
     // around the point find how far above it the things casting the shadow are; the
     // further, the wider the blur (the sun is a disc, not a point): sharp where a post
@@ -105,7 +133,7 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
         minRadius *= mix(1.0, PLAYER_SHADOW_QUALITY == 1 ? 0.55 : 0.35, nearPlayer);
     #endif
     float radius = minRadius;
-    if (sunSize > 0.0) {
+    if (sunSize > 0.0 && shadowFilterQuality >= 2) {
         // Blocker search: up to 8 blocks above (beyond that the blur is wide anyway).
         float searchTexels = clamp(sunSize * 8.0 * texelsPerBlock, minRadius, 24.0);
         float blockerSum = 0.0, blockers = 0.0;
@@ -128,7 +156,7 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
     // lies at other depths a few texels on) and streak it with its own shadow.
     if (foliage) radius = min(radius, minRadius + 1.5);
     // Fewer taps far away, where a pixel covers more than the blur anyway.
-    int taps = length(playerPos) > 64.0 ? SHADOW_SAMPLES / 2 : SHADOW_SAMPLES;
+    int taps = shadowFilterQuality < 2 ? 4 : (length(playerPos) > 64.0 || shadowFilterQuality == 3 ? SHADOW_SAMPLES / 2 : SHADOW_SAMPLES);
     float opaque = 0.0, allVis = 0.0;
     for (int i = 0; i < taps; i++) {
         vec2 disk = VogelDisk(i, taps, noise * TAU + 1.3) * radius;
@@ -139,6 +167,7 @@ ShadowResult GetShadow(vec3 playerPos, vec3 normal, bool foliage) {
     opaque /= float(taps);
     allVis /= float(taps);
     r.light = vec3(opaque);
+    shadowLastOpaque = opaque;
 
     // Translucent casters nearest to the sun. Water absorbs the light per colour and
     // focuses it into caustics, over the distance the light travelled through it (from

@@ -16,13 +16,17 @@ vec3 WaterAbsorption() { return CameraWaterStyle().absorption * WATER_FOG_MULT; 
 // Sunlight reaching a point `depth` blocks under the surface; surfaceXZ is where the
 // light ray entered the water. causticStrength < 1 when something flat (glass, ice)
 // covers the surface and calms the light.
+// Caustics from the long waves only (the light shafts in the water: their samples are far
+// apart, and the sharp lines of the small waves would turn into static there).
+bool causticsLongWavesOnly = false;
+
 vec3 UnderwaterLight(float depth, vec2 surfaceXZ, float causticStrength) {
     vec3 light = exp(-depth * WaterAbsorption());
     #ifdef WATER_CAUSTICS
         // From the wave field above (waves.glsl), assuming open water: light only reaches
         // here through water the sun can see.
         WaveConditions conditions = GetWaveConditions(1.0, 0.6, GustAt(surfaceXZ));
-        light *= mix(vec3(1.0), WaveCaustics(Waves(surfaceXZ, conditions, 0.0, false), depth), causticStrength);
+        light *= mix(vec3(1.0), WaveCaustics(Waves(surfaceXZ, conditions, 0.0, causticsLongWavesOnly), depth), causticStrength);
     #endif
     return light;
 }

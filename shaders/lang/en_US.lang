@@ -534,3 +534,5 @@ option.WATER_SHAFTS_FROM_ABOVE=Water Shafts From Above
 option.WATER_SHAFTS_FROM_ABOVE.comment=The light shafts under water also show, faintly, when looking into the water from above.
 option.COMPACT_TAA_HISTORY=Compact TAA History
 option.COMPACT_TAA_HISTORY.comment=Stores the TAA history at 11/10 bits per colour channel instead of 16: a little less memory traffic at high resolutions, but slow changes can stall and colours can drift slightly.
+option.HALF_RES_SHADOWS=Half-Size Shadows
+option.HALF_RES_SHADOWS.comment=Works out the soft sun shadows at half resolution (together with the ambient occlusion) and adds them up over frames: much faster at high resolutions, very slightly softer edges. Under glass and water the full path still runs.

@@ -31,6 +31,7 @@ const ivec3 workGroups = ivec3(64, 16, 1); // half the panorama each way: a quar
         vec3 sunDir = mat3(gbufferModelViewInverse) * normalize(sunPosition);
         vec3 lightDir = mat3(gbufferModelViewInverse) * normalize(shadowLightPosition);
         float dither = Hash13(vec3(vec2(texel), float(frameCounter % 4096)));
+        cloudPixelAngle = TAU / float(SKY_VIEW_SIZE.x); // a panorama texel across
         CloudSample c = MarchClouds(dir, sunDir, lightDir, dither);
         vec4 result = vec4(c.scatter * vec3(CLOUD_COLOR_R, CLOUD_COLOR_G, CLOUD_COLOR_B), c.transmittance);
         vec4 history = imageLoad(skyViewImg, texel);

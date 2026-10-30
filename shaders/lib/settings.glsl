@@ -111,6 +111,10 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define SHADOW_PENUMBRA 1.00 //[0.00 0.50 0.75 1.00 1.50 2.00 3.00]
 // Shadow filter samples (fewer far away).
 #define SHADOW_SAMPLES 12 //[8 12 16 24]
+// Soft sun shadows worked out at half size (with the ambient occlusion) and added up over
+// frames, then sharpened back by depth and normals: much faster at 4K, very slightly softer.
+// Under glass and water the full-size path still runs (tint, caustics).
+#define HALF_RES_SHADOWS
 // Tiny shadows the shadow map is too coarse for (grass, small items, where things meet the
 // ground), traced on screen within ~24 blocks.
 #define CONTACT_SHADOWS

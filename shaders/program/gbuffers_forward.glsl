@@ -35,6 +35,9 @@ bool CornerUnderBlock(vec3 wp) {
 }
 #endif
 
+#ifdef PROG_GBUFFERS_WATER
+    out float waterFetch; // how open the water is (columnMaps.glsl), per vertex
+#endif
 out vec2 texCoord;
 out vec2 lmCoord;
 out vec4 vertColor;
@@ -78,6 +81,11 @@ void main() {
             wavedWater = true;
         }
     #endif
+    #endif
+    #ifdef PROG_GBUFFERS_WATER
+        // 16 column-map reads, once per vertex instead of per pixel (it changes only from
+        // block to block).
+        waterFetch = IsWater(blockId) ? WaterFetch(playerPos + cameraPosition) : 0.0;
     #endif
     #ifdef WAVING_WATER_VERTEX
     #ifdef PROG_GBUFFERS_WATER
@@ -173,6 +181,9 @@ uniform sampler2D gtexture;
     #define ORDER_SAFE_LAYER
 #endif
 
+#ifdef PROG_GBUFFERS_WATER
+    in float waterFetch;
+#endif
 in vec2 texCoord;
 in vec2 lmCoord;
 in vec4 vertColor;
@@ -302,10 +313,17 @@ void main() {
         surf.ao = 1.0;
         surf.foliage = false;
         surf.useShadowMap = true;
+        #if !defined TRANSLUCENT_OIT && !defined WORLD_NETHER
+            // Water, glass, particles, rain: a plain 4-tap shadow filter (shadows.glsl).
+            shadowFilterQuality = 1;
+        #endif
 
         #if defined TRANSLUCENT_SORTED
             TranslucentSurface surface;
             if (IsWater(blockId)) {
+                #ifdef PROG_GBUFFERS_WATER
+                    vertexWaterFetch = waterFetch;
+                #endif
                 surface = ShadeWater(vertColor.rgb, blockId == BLOCK_WATER, playerPos, surf.normal, surf, sunDir, lightDir);
             } else if (IsGlass(blockId)) {
                 // The texture (vanilla or Continuity's connected one) supplies the frame; the

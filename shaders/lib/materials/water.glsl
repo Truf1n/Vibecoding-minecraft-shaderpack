@@ -3,18 +3,9 @@
 // Needs: sky.glsl, lighting.glsl (+ shadows.glsl outside the Nether), fog.glsl,
 // space.glsl, translucent.glsl, ssr.glsl, caustics.glsl (which brings waves.glsl).
 
-// How open the water is ("fetch"): the share of water surface at the same level in two
-// rings (5 and 12 blocks) around the point. Ponds stay calm, lakes and the sea get waves.
-float WaterFetch(vec3 worldPos) {
-    vec3 p = vec3(worldPos.x, worldPos.y - 0.2, worldPos.z);
-    float count = 0.0;
-    for (int i = 0; i < 8; i++) {
-        vec2 d = vec2(cos(float(i) * 0.785398), sin(float(i) * 0.785398));
-        count += ColumnHas(waterSurfacesSampler, p + vec3(d.x * 5.0, 0.0, d.y * 5.0)) ? 1.0 : 0.0;
-        count += ColumnHas(waterSurfacesSampler, p + vec3(d.x * 12.0, 0.0, d.y * 12.0)) ? 1.0 : 0.0;
-    }
-    return smoothstep(0.3, 0.95, count / 16.0);
-}
+// How open the water is at this pixel ("fetch", columnMaps.glsl): from the vertex shader
+// (it changes only from block to block), or worked out here where that has none (-1).
+float vertexWaterFetch = -1.0;
 
 // GGX specular (normalized). Roughness grows with distance so the glint stays a few
 // pixels wide instead of single flickering pixels.
@@ -88,7 +79,8 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
         // The wave field (waves.glsl): wind sea, ripples and swell from the world state,
         // calm where no wind reaches (sky light low: caves, under roofs) and on small ponds.
         float shelter = smoothstep(0.35, 0.85, surf.lm.y);
-        WaveConditions conditions = GetWaveConditions(shelter, WaterFetch(worldPos), GustAt(worldPos.xz));
+        float fetch = vertexWaterFetch >= 0.0 ? vertexWaterFetch : WaterFetch(worldPos);
+        WaveConditions conditions = GetWaveConditions(shelter, fetch, GustAt(worldPos.xz));
         float footprint = dist * PixelAngle();
         WaveSample waves = Waves(worldPos.xz, conditions, footprint, false);
         vec2 slope = waves.slope;
@@ -106,7 +98,8 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
     }
 
     WaterStyle style = SurfaceWaterStyle(biomeTint);
-    vec3 scatterLight = WaterScatterColor(style, biomeTint) * GetLighting(surf, sunDir, lightDir);
+    vec3 waterLight = GetLighting(surf, sunDir, lightDir); // (once: the foam below reuses it)
+    vec3 scatterLight = WaterScatterColor(style, biomeTint) * waterLight;
 
     // ---- Seen from below -------------------------------------------------------------
     if (isEyeInWater == 1) {
@@ -176,7 +169,7 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
             float foamNoise = SmoothNoise(worldPos.xz * 3.0 + vec2(t * 0.6, -t * 0.4));
             foamNoise *= SmoothNoise(worldPos.xz * 5.5 - vec2(t * 0.3, t * 0.5) + 31.0);
             float foam = smoothstep(0.15, 0.45, foamNoise * foamMask * 1.6) * float(WATER_FOAM) * 0.5;
-            body = mix(body, vec3(0.85, 0.92, 0.95) * GetLighting(surf, sunDir, lightDir) * 0.55, saturate(foam));
+            body = mix(body, vec3(0.85, 0.92, 0.95) * waterLight * 0.55, saturate(foam));
         }
     #endif
 
@@ -198,7 +191,8 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
     vec3 skyReflection = GetSkyReflection(R, sunDir, starFootprint);
     #if defined WORLD_OVERWORLD && CLOUD_STYLE == 1
         // Clouds, looked up where the reflected direction is on screen.
-        vec4 clouds = CloudsInDirection(R);
+        // (Bicubic up close; bilinear on distant water, where the waves blur it anyway.)
+        vec4 clouds = dist < 32.0 ? CloudsInDirection(R) : CloudsInDirectionFast(R);
         skyReflection = skyReflection * clouds.a + clouds.rgb;
     #endif
     // Rough water blurs what it mirrors: lean a little towards the average sky (only a

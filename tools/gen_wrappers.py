@@ -75,6 +75,7 @@ EXTRA_COMPUTE = {
     "begin":                ("worldState", ["WORLD_STATE_WRITER"]),   # world state (once per frame)
     "composite4":           ("exposure", ["WORLD_STATE_WRITER"]),     # auto exposure, before post
     "deferred":             ("skyView", []),                          # cloud panorama for reflections
+    "deferred2":            ("depthTiles", ["DEPTH_TILES_WRITER"]),   # nearest depth per tile (reflections; a pass that always runs)
 }
 
 # Programs left out of a dimension entirely (Iris skips missing passes).

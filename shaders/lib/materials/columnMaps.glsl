@@ -96,6 +96,19 @@ ivec2 ColumnCell(vec2 worldXZ, int word) {
     bool HasCeiling(vec3 worldPos) { return ColumnHas(ceilingSampler, worldPos); }
     bool HasGlassCeiling(vec3 worldPos) { return ColumnHas(glassCeilingSampler, worldPos); }
 
+    // How open the water is ("fetch"): the share of water surface at the same level in two
+    // rings (5 and 12 blocks) around the point. Ponds stay calm, lakes and the sea get waves.
+    float WaterFetch(vec3 worldPos) {
+        vec3 p = vec3(worldPos.x, worldPos.y - 0.2, worldPos.z);
+        float count = 0.0;
+        for (int i = 0; i < 8; i++) {
+            vec2 d = vec2(cos(float(i) * 0.785398), sin(float(i) * 0.785398));
+            count += ColumnHas(waterSurfacesSampler, p + vec3(d.x * 5.0, 0.0, d.y * 5.0)) ? 1.0 : 0.0;
+            count += ColumnHas(waterSurfacesSampler, p + vec3(d.x * 12.0, 0.0, d.y * 12.0)) ? 1.0 : 0.0;
+        }
+        return smoothstep(0.3, 0.95, count / 16.0);
+    }
+
     // Is there water on top of the see-through blocks stacked from this block space up?
     // (glass sunk in water vs glass at the surface with air above it)
     bool WaterAboveGlassStack(vec3 worldPos) {

@@ -48,31 +48,44 @@ uniform sampler2D colortex0;
 uniform sampler2D colortex1;
 uniform sampler2D colortex2;
 uniform sampler2D colortex4;
-#if SSAO > 0
-    uniform sampler2D colortex15; // ambient occlusion + bent normal, half size (ssao.glsl)
+#if SSAO > 0 || (defined HALF_RES_SHADOWS && !defined WORLD_NETHER)
+    #define HALF_SIZE_BUFFER
+    uniform sampler2D colortex15; // half size (ssao.glsl): bent normal height, occlusion, sunlight, depth
 
-    // Upsamples the half-size occlusion and bent normal with a small blur that follows the
-    // depth (so it does not bleed across edges and the per-frame slices smooth out).
-    vec4 SampleAO(ivec2 pixel, float depth) {
-        float linear = ScreenToView((vec2(pixel) + 0.5) / vec2(viewWidth, viewHeight), depth).z;
-        vec2 pos = vec2(pixel) * 0.5; // in AO texels (texel t holds full-size pixel 2t)
+    // Upsamples the half-size buffer. Occlusion and bent normal: a small blur that follows
+    // the depth (so it does not bleed across edges and the per-frame slices smooth out).
+    // Sunlight: only the four nearest, also matched by normal, so a face turned away from
+    // the sun (none there) never darkens the edge of a lit one; -1 where none fits (thin
+    // things the half-size buffer missed: the lighting then works it out itself).
+    vec2 SampleHalfSize(ivec2 pixel, float depth, vec3 normal, out float sun) {
+        vec2 screen = vec2(viewWidth, viewHeight);
+        float linear = ScreenToView((vec2(pixel) + 0.5) / screen, depth).z;
+        vec2 pos = vec2(pixel) * 0.5; // in half-size texels (texel t holds full-size pixel 2t)
         ivec2 base = ivec2(floor(pos));
         ivec2 maxTexel = textureSize(colortex15, 0) - 1;
-        vec4 sum = vec4(0.0);
-        float wsum = 0.0;
+        vec2 sum = vec2(0.0);
+        float wsum = 0.0, sunSum = 0.0, sunWeight = 0.0;
         for (int y = -1; y <= 2; y++) {
             for (int x = -1; x <= 2; x++) {
                 ivec2 t = clamp(base + ivec2(x, y), ivec2(0), maxTexel);
                 vec2 d = vec2(t) - pos;
-                ivec2 full = min(t * 2, ivec2(viewWidth, viewHeight) - 1); // the pixel the AO pass read
-                float z = ScreenToView((vec2(full) + 0.5) / vec2(viewWidth, viewHeight), texelFetch(depthtex0, full, 0).r).z;
-                float w = exp(-dot(d, d) * 0.5) * exp(-abs(z - linear) / (0.05 * abs(linear) + 0.1));
-                sum += texelFetch(colortex15, t, 0) * w;
+                ivec2 full = min(t * 2, ivec2(screen) - 1); // the pixel the half-size pass read
+                float z = ScreenToView((vec2(full) + 0.5) / screen, texelFetch(depthtex0, full, 0).r).z;
+                float depthWeight = exp(-abs(z - linear) / (0.05 * abs(linear) + 0.1));
+                vec4 v = texelFetch(colortex15, t, 0);
+                float w = exp(-dot(d, d) * 0.5) * depthWeight;
+                sum += v.rg * w;
                 wsum += w;
+                if (x >= 0 && x <= 1 && y >= 0 && y <= 1) {
+                    vec3 n = DecodeNormal(texelFetch(colortex2, full, 0).xy);
+                    float sw = (1.0 - abs(d.x)) * (1.0 - abs(d.y)) * depthWeight * pow(saturate(dot(n, normal)), 8.0) + 1e-5;
+                    sunSum += v.b * sw;
+                    sunWeight += sw;
+                }
             }
         }
-        vec4 ao = sum / max(wsum, 1e-4);
-        return vec4(normalize(ao.rgb * 2.0 - 1.0), pow(ao.a, SSAO_STRENGTH));
+        sun = sunWeight > 0.05 ? sunSum / sunWeight : -1.0;
+        return sum / max(wsum, 1e-4);
     }
 
     // Multi-bounce (Jimenez 2016): light bouncing around inside a corner comes back off the
@@ -159,11 +172,19 @@ void main() {
         surf.foliage = shadingModel == SM_FOLIAGE || shadingModel == SM_LEAVES;
         surf.useShadowMap = shadingModel != SM_HAND; // hand depth uses its own projection
 
-        #if SSAO > 0
+        #ifdef HALF_SIZE_BUFFER
             if (shadingModel != SM_HAND) {
-                vec4 ao = SampleAO(pixel, depth);
-                lightingAO = MultiBounceAO(ao.a, albedo);
-                lightingBentNormal = ao.rgb;
+                float sun;
+                vec2 half_ = SampleHalfSize(pixel, depth, normal, sun);
+                #if SSAO > 0
+                    lightingAO = MultiBounceAO(pow(half_.g, SSAO_STRENGTH), albedo);
+                    lightingBentUp = half_.r * 2.0 - 1.0;
+                #endif
+                #ifdef HALF_RES_SHADOWS
+                #ifndef WORLD_NETHER
+                    shadowOpaqueOverride = sun;
+                #endif
+                #endif
             }
         #endif
         vec3 sunLight;

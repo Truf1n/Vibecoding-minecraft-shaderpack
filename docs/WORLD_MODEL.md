@@ -91,6 +91,22 @@ tell them apart from opaque casters, so they get dithered partial shadows instea
 - **Already done or skipped:** P3 and P8 were already in place; P6 and P7 were excluded by
   request.
 
+**Performance pass (Perf2): the difficult items, plus water.**
+- **P17:** sparse light volume. Brick flags (has blocks / was active) in bufferObject.1;
+  bricks that are idle write dark open sky without gathering.
+- **P18:** nearest depth per 8×8 tile (deferred2.csh, bufferObject.2). Reflection rays in
+  front of a whole tile skip the depth read and grow their steps.
+- **P19/P20:** soft sun shadows at half size in the AO pass (Half-Size Shadows): half the
+  taps, a history with log-depth rejection, and a normal-matched upsample. Translucent
+  casters still take the full path. The AO buffer was repacked (bent-normal height, AO,
+  sun, depth).
+- **Water:** a cheap 4-tap shadow filter in the forward passes, lighting worked out once,
+  WaterFetch per vertex, bilinear cloud reflections far away.
+- **Fixes:**
+  - cloud detail filtered by pixel footprint (far cirrus streaks);
+  - stars no longer fade with the FOV;
+  - underwater shafts use long-wave caustics and quadratic steps.
+
 Still to do from W5 (W5.2): cloud upgrade (Q26, P1, P13), physical sky option (Q25), Q27
 touches, storms with shape, sky visibility for mist in caves.
 

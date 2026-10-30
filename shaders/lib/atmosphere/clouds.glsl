@@ -161,17 +161,35 @@ float CloudNoise3D(vec3 p) {
 
 // How covered a layer is at a spot, 0..1. The pattern is domain-warped (bent by a second,
 // larger noise) so it forms irregular streets and cells instead of round blobs.
+// Size (blocks) of a pixel's patch of the cloud layer where the ray currently samples it,
+// set by the march (0 = as fine as wanted). Noise finer than that fades to its average
+// instead of being sampled at one point: far away, near the horizon, a pixel covers many
+// of the cirrus fibres or small puffs, and point samples of them break up into streaks.
+float cloudFootprint = 0.0;
+// Angular size (radians) of one pixel of whatever the clouds are being drawn into, for the
+// detail filtering (set by the caller; 0 = no filtering).
+float cloudPixelAngle = 0.0;
+
+
+// 1 where noise of the given frequency (cycles per unit of p) is still resolved, fading
+// to 0 once a cycle gets smaller than about two pixels.
+float CloudDetailKeep(CloudLayer l, float frequency) {
+    float cycleBlocks = l.scale * min(l.stretch.x, l.stretch.y) / frequency;
+    return 1.0 - smoothstep(1.0, 2.5, cloudFootprint / cycleBlocks);
+}
+
 float LayerCoverage(CloudLayer l, int index, vec2 xz) {
     vec2 p = (xz + CloudWind() * l.wind) / l.scale / l.stretch + float(index) * vec2(53.1, 91.7);
     vec2 warp = vec2(CloudNoise(p * 0.45 + 31.7), CloudNoise(p * 0.45 + 77.1)) - 0.5;
     p += warp * 1.4;
     float n = CloudNoise(p) * 0.52
-            + CloudNoise(p * 2.13 + vec2(17.3, 5.1)) * 0.29
-            + CloudNoise(p * 4.41 + vec2(-3.7, 11.9)) * 0.19;
+            + mix(0.5, CloudNoise(p * 2.13 + vec2(17.3, 5.1)), CloudDetailKeep(l, 2.13)) * 0.29
+            + mix(0.5, CloudNoise(p * 4.41 + vec2(-3.7, 11.9)), CloudDetailKeep(l, 4.41)) * 0.19;
     float cov = smoothstep(1.0 - l.amount, 1.0 - l.amount + l.softness, n);
     if (l.sheet && cov > 0.0) {
         // Thin sheets are fibrous: fine lines along the stretch direction (cirrus).
-        float fibres = CloudNoise(p * vec2(1.5, 14.0) + 7.3) * 0.6 + CloudNoise(p * vec2(3.0, 31.0) + 2.9) * 0.4;
+        float fibres = mix(0.5, CloudNoise(p * vec2(1.5, 14.0) + 7.3), CloudDetailKeep(l, 14.0)) * 0.6
+                     + mix(0.5, CloudNoise(p * vec2(3.0, 31.0) + 2.9), CloudDetailKeep(l, 31.0)) * 0.4;
         cov *= smoothstep(0.25, 0.75, fibres);
     }
     return cov;
@@ -256,10 +274,14 @@ void AccumulateCloud(inout CloudAccum a, vec3 light, float sampleT, float t, flo
 void MarchLayer(CloudLayer l, int index, vec3 dir, float tNear, float tFar, int steps,
                 vec3 sunColor, vec3 ambient, float phase, vec3 lightDir, float dither, inout CloudAccum a) {
     vec3 camera = cameraPosition;
+    // A pixel's patch of the layer: its angular size at this distance, stretched along the
+    // view direction the flatter the ray meets the layer.
+    float footprintPerBlock = cloudPixelAngle / max(abs(dir.y), 0.03);
     if (l.sheet) {
         // One sample where the ray crosses the middle of the sheet.
         float t = (tNear + tFar) * 0.5;
         vec3 pos = camera + dir * t;
+        cloudFootprint = t * footprintPerBlock;
         float cov = LayerCoverage(l, index, pos.xz);
         if (cov <= 0.0) return;
         float od = min(cov * l.density * (tFar - tNear), 3.0);
@@ -277,6 +299,7 @@ void MarchLayer(CloudLayer l, int index, vec3 dir, float tNear, float tFar, int 
     float t = tNear + baseStep * dither;
     for (int i = 0; i < steps * 2 && t < tFar; i++) {
         vec3 pos = camera + dir * t;
+        cloudFootprint = t * footprintPerBlock;
         float stepLen = baseStep * (1.0 + smoothstep(CLOUD_FADE_DIST, CLOUD_FADE_DIST * 3.0, t));
         if (LayerCoverage(l, index, pos.xz) <= 0.0) { t += stepLen * 2.0; continue; }
         float density = LayerDensity(l, index, pos, true);
@@ -345,6 +368,7 @@ CloudSample MarchClouds(vec3 dir, vec3 sunDir, vec3 lightDir, float dither) {
         MarchLayer(l, next, dir, nearT[next], farT[next], steps, sunColor, ambient, phase, lightDir, dither, a);
     }
 
+    cloudFootprint = 0.0; // (shadows and light steps sample without filtering)
     CloudSample c;
     c.scatter = a.scatter;
     c.transmittance = 1.0 - a.opacity;

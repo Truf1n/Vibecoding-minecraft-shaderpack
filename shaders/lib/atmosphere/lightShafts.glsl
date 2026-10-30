@@ -91,18 +91,24 @@ vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float d
     vec3 dir = normalize(endPos - eye);
     float VdotL = dot(dir, lightDir);
 
+    // The shafts' caustics from the long waves only (caustics.glsl): their samples lie far
+    // apart, and the sharp lines of the small waves turned into static.
+    causticsLongWavesOnly = true;
+
     if (isEyeInWater == 1) {
-        // Under water: scattering by the water itself, with absorption along the way.
+        // Under water: scattering by the water itself, with absorption along the way. Steps
+        // packed closer near the camera (quadratic), where the shafts are seen sharpest.
         float dist = min(endDist, VL_MAX_DIST_WATER);
-        float stepLen = dist / float(VL_STEPS);
         vec3 L = ShadowLightDir();
         vec3 sum = vec3(0.0);
         for (int i = 0; i < VL_STEPS; i++) {
-            float t = (float(i) + dither) * stepLen;
-            sum += UnderwaterScatter(eye + dir * t, L) * exp(-t * WaterAbsorption());
+            float x = (float(i) + dither) / float(VL_STEPS);
+            float t = x * x * dist;
+            float stepLen = 2.0 * x * dist / float(VL_STEPS);
+            sum += UnderwaterScatter(eye + dir * t, L) * exp(-t * WaterAbsorption()) * stepLen;
         }
         float phase = 0.6 + 1.4 * HG(VdotL, 0.6) * 0.25;
-        return sum * stepLen * 0.012 * phase * UnderwaterScatterTint() * SunLightColor(sunDir.y) * VL_STRENGTH;
+        return sum * 0.012 * phase * UnderwaterScatterTint() * SunLightColor(sunDir.y) * VL_STRENGTH;
     }
 
     // Further than before for the sky and far land: shafts from gaps in the clouds.

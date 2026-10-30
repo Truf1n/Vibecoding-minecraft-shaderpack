@@ -5,6 +5,7 @@
 
 uniform sampler2D colortex7; // lit opaque scene (copied in deferred, before translucents)
 uniform sampler2D depthtex1; // opaque depth (without translucents)
+#include "/lib/materials/depthTiles.glsl"
 
 #define SSR_STEPS 24
 #define SSR_REFINE_STEPS 5
@@ -42,6 +43,12 @@ vec4 TraceSSR(vec3 viewPos, vec3 viewDir, vec3 planeNormal, float dither) {
 
         float rayLin = -pos.z;
         if (rayLin > far) break; // beyond everything drawn: only the sky is left
+        // In front of everything in this 8x8 tile (P18): nothing here to hit, no need to
+        // read the depth itself, and the steps may grow a little faster while it lasts.
+        if (rayLin < LinearizeDepth(DepthTileAt(screen.xy)) - 0.05) {
+            stepLen *= 1.12;
+            continue;
+        }
         float sceneLin = LinearizeDepth(texture(depthtex1, screen.xy).r);
         float behind = rayLin - sceneLin;
         if (behind > 0.0) {

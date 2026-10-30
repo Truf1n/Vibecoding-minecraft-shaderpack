@@ -17,6 +17,8 @@
 #include "/lib/materials/waving.glsl"
 #ifdef COLORED_LIGHTING
     #include "/lib/lighting/voxels.glsl"
+    #define VOXEL_BRICK_WRITER
+    #include "/lib/lighting/voxelBricks.glsl"
     layout(r32ui) uniform uimage3D voxelImg;
     layout(r32ui) uniform uimage3D albedoImg; // average colour of each block (sun bounce), packed (voxels.glsl)
     uniform sampler2D gtexture;
@@ -33,6 +35,7 @@
         ivec3 coord = ivec3(floor(blockCenter)) - VoxelOrigin();
         if (any(lessThan(coord, ivec3(0))) || any(greaterThanEqual(coord, VOXEL_SIZE))) return;
         imageAtomicMax(voxelImg, coord, EncodeVoxel(priority, id, emission));
+        MarkVoxelBrick(coord); // sparse floodfill (voxelBricks.glsl)
         // The block's average colour (mip level 4 of its sprite, with the biome tint), for
         // the sunlight it bounces (light volume, floodfill.glsl). Faces of one block may
         // differ (grass top and sides): the top face's wins, then the sides', always the

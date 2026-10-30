@@ -40,6 +40,18 @@ vec4 CubicWeights(float f) {
     return vec4(-0.5 * f3 + f2 - 0.5 * f, 1.5 * f3 - 2.5 * f2 + 1.0, -1.5 * f3 + 2.0 * f2 + 0.5 * f, 0.5 * f3 - 0.5 * f2);
 }
 
+// The same, bilinear (4 texels instead of 16), where detail does not show.
+vec4 CloudsInDirectionFast(vec3 dir) {
+    if (dir.y <= 0.0) return vec4(0.0, 0.0, 0.0, 1.0);
+    vec2 pos = SkyViewCoord(dir) * vec2(SKY_VIEW_SIZE) - 0.5;
+    ivec2 base = ivec2(floor(pos));
+    vec2 f = pos - vec2(base);
+    vec4 c = mix(mix(SkyViewTexel(base), SkyViewTexel(base + ivec2(1, 0)), f.x),
+                 mix(SkyViewTexel(base + ivec2(0, 1)), SkyViewTexel(base + ivec2(1, 1)), f.x), f.y);
+    float w = smoothstep(0.0, 0.03, dir.y);
+    return vec4(c.rgb * w, mix(1.0, c.a, w));
+}
+
 vec4 CloudsInDirection(vec3 dir) {
     if (dir.y <= 0.0) return vec4(0.0, 0.0, 0.0, 1.0);
     vec2 pos = SkyViewCoord(dir) * vec2(SKY_VIEW_SIZE) - 0.5;

@@ -108,11 +108,13 @@ vec3 Stars(vec3 dir, vec3 sunDir, float density, float brightness, float footpri
 
     // Soft Gaussian star, never narrower than ~1.5 pixels: a star smaller than a pixel
     // shimmers as the sky turns and it crosses pixel centres. Wider than its true size
-    // means dimmer (same total light).
+    // means dimmer (same total light). (No fading out at large pixel sizes: at 4K that
+    // limit sat just past the normal field of view, and sprinting or flying, which widens
+    // it, made every star vanish.) The drawn width stays inside the star's cell.
     const float starRadius = 0.16; // in cells
-    float spread = max(starRadius, footprint * cellsPerRadian * 1.5);
-    float energy = (starRadius * starRadius) / (spread * spread);
-    energy *= 1.0 - smoothstep(0.30, 0.42, spread); // too blurred to resolve: fade out
+    float wanted = max(starRadius, footprint * cellsPerRadian * 1.5);
+    float spread = min(wanted, 0.38);
+    float energy = (starRadius * starRadius) / (wanted * wanted);
     vec3 d = fract(c) - 0.5;
     float shape = exp(-2.0 * dot(d, d) / (spread * spread));
     vec3 tint = mix(vec3(0.75, 0.85, 1.0), vec3(1.0, 0.85, 0.7), fract(h * 37.0));

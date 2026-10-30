@@ -85,6 +85,7 @@ void main() {
         }
     }
     float dither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + float(frameCounter % 64) * 0.618034);
+    cloudPixelAngle = PixelAngle() * viewHeight / bufferSize.y; // a pixel of the (reduced-size) cloud buffer
     CloudSample c = MarchClouds(dir, sunDir, lightDir, dither);
     c.scatter *= vec3(CLOUD_COLOR_R, CLOUD_COLOR_G, CLOUD_COLOR_B);
 

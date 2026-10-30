@@ -15,6 +15,7 @@
 #include "/lib/lighting/shadowSpace.glsl"
 #include "/lib/lighting/lightColors.glsl"
 #include "/lib/lighting/voxels.glsl"
+#include "/lib/lighting/voxelBricks.glsl"
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 #if COLORED_LIGHT_RANGE == 2
@@ -77,38 +78,15 @@ float SunVisibility(ivec3 v) {
     return vis * 0.25;
 }
 
-void main() {
-    ivec3 v = ivec3(gl_GlobalInvocationID);
-    if (any(greaterThanEqual(v, VOXEL_SIZE))) return;
-
-    // Even frames read A and write B; odd frames the other way round (coloredLight.glsl
-    // reads whichever was written this frame).
-    bool fromA = (frameCounter & 1) == 0;
-    ivec3 shift = ivec3(floor(cameraPosition)) - ivec3(floor(previousCameraPosition));
-    ivec3 prev = v + shift;
-
-    // Half the volume per frame (P9), in a checkerboard that alternates: the other half
-    // carries its values over (moved with the camera). A cell's six neighbours are all of
-    // the half updated last frame, so light still spreads a block per frame.
-    if (((v.x + v.y + v.z + frameCounter) & 1) == 1) {
-        vec3 keepLight = PreviousLight(prev, fromA);
-        vec4 keepBounce = InVolume(prev) ? PreviousBounce(prev, fromA) : vec4(0.0, 0.0, 0.0, 1.0);
-        if (fromA) {
-            imageStore(floodImgB, v, vec4(keepLight, 1.0));
-            imageStore(bounceImgB, v, keepBounce);
-        } else {
-            imageStore(floodImgA, v, vec4(keepLight, 1.0));
-            imageStore(bounceImgA, v, keepBounce);
-        }
-        return;
-    }
-
+// The full update of one block space: light (block light, rgb) and bounce (rgb sun bounce,
+// a sky visibility).
+void UpdateCell(ivec3 v, ivec3 prev, bool fromA, out vec3 light, out vec4 bounce) {
     sunLightDir = mat3(gbufferModelViewInverse) * normalize(shadowLightPosition);
     uint voxel = imageLoad(voxelImg, v).r;
     uint priority = VoxelPriority(voxel);
     int id = VoxelBlockId(voxel);
 
-    vec3 light = vec3(0.0);
+    light = vec3(0.0);
     if (priority != VOXEL_PRIORITY_SOLID) {
         // Brightest of the six neighbours, per colour channel so different lights mix.
         light = max(light, PreviousLight(prev + ivec3(1, 0, 0), fromA));
@@ -125,7 +103,7 @@ void main() {
     if (emission > 0) light = max(light, LightSourceColor(id) * (float(emission) / 15.0));
 
     // ---- Light volume: sky visibility and sun bounce --------------------------------------
-    vec4 bounce = vec4(0.0);
+    bounce = vec4(0.0);
     if (priority != VOXEL_PRIORITY_SOLID) {
         // Sky: falls straight down unhindered, spreads sideways and (a little) upwards with
         // losses; see-through blocks let part of it through.
@@ -168,6 +146,60 @@ void main() {
         if (InVolume(prev)) bounce = mix(before, bounce, 1.0 - exp(-clamp(2.0 * frameTime, 0.0, 0.2) / 0.2));
     }
 
+}
+
+shared bool brickBusy;
+shared bool brickLit;
+
+void main() {
+    ivec3 v = ivec3(gl_GlobalInvocationID);
+
+    // Even frames read A and write B; odd frames the other way round (coloredLight.glsl
+    // reads whichever was written this frame).
+    bool fromA = (frameCounter & 1) == 0;
+    ivec3 shift = ivec3(floor(cameraPosition)) - ivec3(floor(previousCameraPosition));
+    ivec3 prev = v + shift;
+
+    // Sparse update (P17, voxelBricks.glsl): this workgroup is one brick. It needs work if
+    // it holds blocks now, or if anything within a block of where it was last frame was
+    // not trivially dark open sky.
+    ivec3 brick = ivec3(gl_WorkGroupID);
+    int current = (frameCounter & 1) * VOXEL_BRICK_COUNT, other = VOXEL_BRICK_COUNT - current;
+    if (gl_LocalInvocationIndex == 0u) {
+        bool busy = brickVoxels[current + BrickIndex(brick)] != 0u;
+        ivec3 lo = ivec3(floor(vec3(brick * 8 + shift - 1) / 8.0));
+        ivec3 hi = ivec3(floor(vec3(brick * 8 + shift + 8) / 8.0));
+        for (int z = lo.z; z <= hi.z && !busy; z++) {
+            for (int y = lo.y; y <= hi.y && !busy; y++) {
+                for (int x = lo.x; x <= hi.x && !busy; x++) {
+                    ivec3 b = ivec3(x, y, z);
+                    if (InBricks(b) && brickActive[other + BrickIndex(b)] != 0u) busy = true;
+                }
+            }
+        }
+        brickBusy = busy;
+        brickLit = false;
+        // Next frame's shadow pass marks the other half of the flags afresh.
+        brickVoxels[other + BrickIndex(brick)] = 0u;
+    }
+    barrier();
+
+    vec3 light = vec3(0.0);
+    vec4 bounce = vec4(0.0, 0.0, 0.0, 1.0); // dark, open sky
+    if (brickBusy && all(lessThan(v, VOXEL_SIZE))) {
+        // Half the volume per frame (P9), in a checkerboard that alternates: the other half
+        // carries its values over (moved with the camera). A cell's six neighbours are all
+        // of the half updated last frame, so light still spreads a block per frame.
+        if (((v.x + v.y + v.z + frameCounter) & 1) == 1) {
+            light = PreviousLight(prev, fromA);
+            if (InVolume(prev)) bounce = PreviousBounce(prev, fromA);
+        } else {
+            UpdateCell(v, prev, fromA, light, bounce);
+        }
+        bool trivial = max(light.r, max(light.g, light.b)) < 0.004 && max(bounce.r, max(bounce.g, bounce.b)) < 0.004 && bounce.a > 0.995;
+        if (!trivial) brickLit = true;
+    }
+
     if (fromA) {
         imageStore(floodImgB, v, vec4(light, 1.0));
         imageStore(bounceImgB, v, bounce);
@@ -175,4 +207,7 @@ void main() {
         imageStore(floodImgA, v, vec4(light, 1.0));
         imageStore(bounceImgA, v, bounce);
     }
+
+    barrier();
+    if (gl_LocalInvocationIndex == 0u) brickActive[current + BrickIndex(brick)] = brickLit ? 1u : 0u;
 }

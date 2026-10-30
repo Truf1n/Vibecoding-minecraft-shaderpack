@@ -84,7 +84,7 @@ float BlocklightFalloff(float lmBlock) {
 // (the direction that sees the most sky; zero = use the surface normal). They darken and
 // steer the ambient, bounce and block light, never the sun.
 vec3 lightingAO = vec3(1.0);
-vec3 lightingBentNormal = vec3(0.0);
+float lightingBentUp = -2.0; // height of the bent normal (the AO's most open direction); -2 = none
 
 struct Surface {
     vec3 playerPos; // camera-relative world position
@@ -124,8 +124,8 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
     bool hasNormal = dot(s.normal, s.normal) > 0.5;
     float NdotL = hasNormal ? dot(s.normal, lightDir) : 0.45;
     float diffuse = s.foliage ? 0.35 + 0.65 * abs(NdotL) : saturate(NdotL);
-    vec3 skyNormal = dot(lightingBentNormal, lightingBentNormal) > 0.5 ? lightingBentNormal : s.normal;
-    float upFacing = hasNormal ? 0.75 + 0.25 * skyNormal.y : 0.9;
+    float skyUp = lightingBentUp > -1.5 ? lightingBentUp : s.normal.y;
+    float upFacing = hasNormal ? 0.75 + 0.25 * skyUp : 0.9;
 
     #if defined WORLD_NETHER
         // Biome-tinted ambient (crimson, warped, ...), from the same colours as the Nether fog.
