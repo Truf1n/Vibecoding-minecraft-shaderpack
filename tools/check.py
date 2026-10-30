@@ -44,7 +44,8 @@ for i, name in enumerate(RENDER_STAGES):
 
 INCLUDE_RE = re.compile(r'^\s*#include\s+"([^"]+)"', re.M)
 # [ \t] rather than \s: a value must be on the same line as its #define.
-OPTION_RE = re.compile(r"^[ \t]*(//)?[ \t]*#define[ \t]+(\w+)(?:[ \t]+(\S+))?[ \t]*(?://[ \t]*\[([^\]]*)\])?", re.M)
+# (A value never starts with "//": `#define NAME // comment` is a boolean with a comment.)
+OPTION_RE = re.compile(r"^[ \t]*(//)?[ \t]*#define[ \t]+(\w+)(?:[ \t]+((?!//)\S+))?[ \t]*(?://[ \t]*\[([^\]]*)\])?", re.M)
 
 
 def expand(path: Path, stack=()) -> str:
@@ -156,6 +157,7 @@ def check_option_detection() -> int:
 
 def main() -> int:
     quick = "--quick" in sys.argv
+    only = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--only=")), None)  # e.g. --only=OPT_
     undetected = check_option_detection()
     if undetected and not quick:
         return 1
@@ -165,6 +167,8 @@ def main() -> int:
         variants = 0
         if not quick:
             for label, overrides in option_variants():
+                if only and not label.startswith(only):
+                    continue
                 failures += run(overrides, label, tmp)
                 variants += 1
     print(f"{'OK' if failures == 0 else 'FAILED'}: default + {variants} option variants, {failures} failure(s)")
