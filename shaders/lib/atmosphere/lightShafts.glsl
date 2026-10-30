@@ -68,6 +68,28 @@ vec3 UnderwaterScatter(vec3 p, vec3 L) {
     return vis * UnderwaterLight(path, (p + cameraPosition).xz + L.xz * path / 1.333, 1.0);
 }
 
+// The water's scattered light along a ray through water, from `start` (player space) for up
+// to `len` blocks, including the absorption on the way back to `start`. The steps follow
+// the absorption (exponentially spaced, each worth the same share of what comes back), so
+// the first few blocks, where nearly all of the light comes from, get most of them: evenly
+// spread steps left the near water to one or two of them, and which ones changed every
+// frame (static when looking sideways through the shafts). Further out the caustics lose
+// their finer waves, as the steps there are too far apart to see them.
+vec3 UnderwaterMarch(vec3 start, vec3 dir, float len, int steps, float dither, vec3 L) {
+    vec3 absorb = max(WaterAbsorption(), vec3(1e-3));
+    float rate = max(dot(absorb, vec3(1.0 / 3.0)), 0.01);
+    float total = 1.0 - exp(-rate * len); // share of the light that comes back from within len
+    vec3 sum = vec3(0.0);
+    for (int i = 0; i < steps; i++) {
+        float u = (float(i) + dither) / float(steps);
+        float t = -log(1.0 - u * total) / rate;
+        causticsFootprint = max(0.12, t * 0.06);
+        sum += UnderwaterScatter(start + dir * t, L) * exp(-(absorb - rate) * t);
+    }
+    causticsFootprint = 0.12;
+    return sum * (total / (rate * float(steps)));
+}
+
 // The water's own colour for its scattered light (the default look gives about (0.35, 0.75, 0.85)).
 vec3 UnderwaterScatterTint() {
     return vec3(UNDERWATER_COLOR_R, UNDERWATER_COLOR_G, UNDERWATER_COLOR_B) * CameraWaterStyle().fogColor * vec3(35.0, 15.0, 12.0);
@@ -95,22 +117,11 @@ vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float d
     vec3 dir = normalize(endPos - eye);
     float VdotL = dot(dir, lightDir);
 
-    // The shafts' caustics without the finest ripples (caustics.glsl): their lines are
-    // smaller than the gaps between samples and only turned into static.
-    causticsFootprint = 0.12;
-
     if (isEyeInWater == 1) {
         // Under water: scattering by the water itself, with absorption along the way.
-        float dist = min(endDist, VL_MAX_DIST_WATER);
-        float stepLen = dist / float(VL_STEPS);
-        vec3 L = ShadowLightDir();
-        vec3 sum = vec3(0.0);
-        for (int i = 0; i < VL_STEPS; i++) {
-            float t = (float(i) + dither) * stepLen;
-            sum += UnderwaterScatter(eye + dir * t, L) * exp(-t * WaterAbsorption());
-        }
+        vec3 sum = UnderwaterMarch(eye, dir, min(endDist, VL_MAX_DIST_WATER), VL_STEPS, dither, ShadowLightDir());
         float phase = 0.6 + 1.4 * HG(VdotL, 0.6) * 0.25;
-        return sum * stepLen * 0.012 * phase * UnderwaterScatterTint() * SunLightColor(sunDir.y) * VL_STRENGTH;
+        return sum * 0.012 * phase * UnderwaterScatterTint() * SunLightColor(sunDir.y) * VL_STRENGTH;
     }
 
     // Further than before for the sky and far land: shafts from gaps in the clouds.
@@ -138,17 +149,9 @@ vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float d
     vec3 sum = vec3(0.0);
     #if defined WATER_SHAFTS_FROM_ABOVE && !defined WORLD_NETHER
         if (waterStart < endDist) {
-            // The water's own shafts, from its surface on: denser just below it, where
-            // most of the light is, and only as far as the light can come back from.
-            float waterDist = min(endDist - waterStart, VL_MAX_DIST_WATER);
-            int waterSteps = max(VL_STEPS / 2, 4);
-            vec3 waterSum = vec3(0.0);
-            for (int i = 0; i < waterSteps; i++) {
-                float x = (float(i) + dither) / float(waterSteps);
-                float d = x * x * waterDist;
-                float stepLen = 2.0 * x * waterDist / float(waterSteps);
-                waterSum += UnderwaterScatter(eye + dir * (waterStart + d), L) * exp(-d * WaterAbsorption()) * stepLen;
-            }
+            // The water's own shafts, from its surface on.
+            vec3 waterSum = UnderwaterMarch(eye + dir * waterStart, dir, min(endDist - waterStart, VL_MAX_DIST_WATER),
+                                            max(VL_STEPS / 2, 4), dither, L);
             sum += waterSum * (0.012 * 0.5 * (0.6 + 0.35 * HG(VdotL, 0.6))) * UnderwaterScatterTint() * sunColor * VL_STRENGTH;
             dist = min(dist, waterStart);
         }
