@@ -94,7 +94,6 @@ bool IsStainedPane(int id)  { return id >= 3200 && id <= 3215; }
 bool IsGlass(int id) {
     return id == BLOCK_GLASS || id == BLOCK_GLASS_PANE || id == BLOCK_TINTED_GLASS || IsStainedGlass(id) || IsStainedPane(id);
 }
-bool IsPane(int id) { return id == BLOCK_GLASS_PANE || IsStainedPane(id); }
 
 // Shading models stored in the G-buffer (8 bits). 0 means "not deferred-lit":
 // the deferred pass keeps whatever colortex0 holds (sky, forward-rendered geometry).

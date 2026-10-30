@@ -60,11 +60,6 @@ float DecodeAODepth(float e) { return exp2(e * log2(1.0 + far)) - 1.0; }
 #endif
 const float AO_RADIUS = 1.1; // blocks
 
-vec3 ViewToScreenAO(vec3 viewPos) {
-    vec4 clip = gbufferProjection * vec4(viewPos, 1.0);
-    return clip.xyz / clip.w * 0.5 + 0.5;
-}
-
 // Ground-truth AO at a pixel: xyz bent normal (world), w occlusion.
 vec4 GroundTruthAO(vec2 uv, float depth, vec3 worldNormal, vec2 size, vec2 screen) {
     vec3 normal = normalize(mat3(gbufferModelView) * worldNormal);
@@ -164,7 +159,9 @@ void main() {
         int model = DecodeId(texelFetch(colortex3, pixel, 0).r);
         bool foliage = model == SM_FOLIAGE || model == SM_LEAVES;
         vec3 L = mat3(gbufferModelViewInverse) * normalize(shadowLightPosition);
-        if (foliage || dot(worldNormal, L) > 0.0) {
+        // (Where no sky light reaches, the lighting never asks for the sun: caves.)
+        float skylight = texelFetch(colortex2, pixel, 0).w;
+        if (skylight > 0.05 && (foliage || dot(worldNormal, L) > 0.0)) {
             shadowFilterQuality = 3;
             GetShadow(playerPos, worldNormal, foliage);
             sunVis = shadowLastOpaque;

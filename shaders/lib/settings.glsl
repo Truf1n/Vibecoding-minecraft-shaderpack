@@ -117,10 +117,10 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define HALF_RES_SHADOWS
 // Tiny shadows the shadow map is too coarse for (grass, small items, where things meet the
 // ground), traced on screen within ~24 blocks.
-#define CONTACT_SHADOWS
+//#define CONTACT_SHADOWS
 // Shadows beyond the shadow distance, from a coarse height map of the terrain (mountains,
 // valleys at sunset). Draws more of the world in the shadow pass (some CPU/GPU cost).
-#define FAR_SHADOWS
+//#define FAR_SHADOWS
 // How far far shadows reach, in multiples of the shadow distance (limited by render distance).
 #define FAR_SHADOW_RANGE 2.0 //[1.5 2.0 3.0 4.0 6.0]
 // See-through mobs and their see-through parts (slimes, ...) cast partial shadows.

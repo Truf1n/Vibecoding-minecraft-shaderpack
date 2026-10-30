@@ -41,11 +41,13 @@
         // differ (grass top and sides): the top face's wins, then the sides', always the
         // same one (an atomic max on the face rank in the top bits; a plain store would let
         // a different face win every frame, and the bounce colour flicker).
+        #ifdef WORLD_OVERWORLD // (only the Overworld's sun bounces)
         if (priority == VOXEL_PRIORITY_SOLID || priority == VOXEL_PRIORITY_TINT) {
             vec3 albedo = textureLod(gtexture, midTexCoord, 4.0).rgb * gl_Color.rgb;
             uint rank = gl_Normal.y > 0.5 ? 3u : (gl_Normal.y < -0.5 ? 1u : 2u);
             imageAtomicMax(albedoImg, coord, PackVoxelAlbedo(albedo, rank));
         }
+        #endif
     }
 #endif
 

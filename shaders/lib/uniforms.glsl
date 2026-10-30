@@ -11,7 +11,6 @@ uniform mat4 gbufferModelViewInverse;
 uniform mat4 gbufferProjection;
 uniform mat4 gbufferProjectionInverse;
 uniform vec3 cameraPosition;
-uniform vec3 cameraPositionFract; // fractional part of cameraPosition (pairs with block indices)
 uniform float near;
 uniform float far;
 uniform float viewWidth;
@@ -21,7 +20,6 @@ uniform float viewHeight;
 uniform vec3 sunPosition;     // view space
 uniform vec3 upPosition;      // view space
 uniform vec3 shadowLightPosition; // view space; the sun by day, the moon by night
-uniform float sunAngle;       // 0 sunrise, 0.25 noon, 0.5 sunset, 0.75 midnight
 
 // World state
 uniform float rainStrength;
@@ -37,7 +35,6 @@ uniform float inSnowyBiome, inSandyBiome, inDryBiome; // custom, 0..1
 uniform vec4 lightningBoltPosition; // camera-relative position of a lightning bolt; w = 1 while one exists
 uniform float endFlashIntensity;
 uniform vec3 endFlashPosition; // view space
-uniform vec3 skyColor;
 uniform vec3 fogColor;
 uniform int isEyeInWater;     // 0 air, 1 water, 2 lava, 3 powder snow
 uniform float nightVision;

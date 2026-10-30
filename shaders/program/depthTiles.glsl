@@ -13,6 +13,9 @@ const vec2 workGroupsRender = vec2(1.0 / 64.0, 1.0 / 64.0); // one thread per 8x
 uniform sampler2D depthtex0;
 
 void main() {
+    #if WATER_REFLECTIONS == 0 && BLOCK_REFLECTIONS != 2
+        return; // nothing traces reflections
+    #endif
     ivec2 tile = ivec2(gl_GlobalInvocationID.xy);
     ivec2 tiles = DepthTileCount();
     if (any(greaterThanEqual(tile, tiles))) return;

@@ -6,7 +6,7 @@
 //               biome, altitude and weather; the distance the air has moved (integrated, so
 //               a change of speed never makes clouds or waves jump)
 //   air       - temperature, humidity, cloud cover of the day and afternoon convection
-//   surface   - wetness (rain soaks in, sun and wind dry it), snow depth, swell direction
+//   surface   - wetness (rain soaks in, sun and wind dry it), snow depth
 //   light     - sun and sky colours for the frame (worked out once instead of per pixel)
 // Deterministic choices (wind of the day, cloudiness of the day) are seeded by the world
 // day, so they are the same for everyone on a server.
@@ -67,11 +67,10 @@ void main() {
     wsWind = vec4(dir, speed, gustiness);
 
     // Distances the air has moved. Aloft the wind is faster and turned clockwise (seen from
-    // above) by friction-free flow, ~25 degrees; the jet stream faster and turned more.
+    // above) by friction-free flow, ~25 degrees.
     if (firstFrame) { wsWindOffset = vec4(0.0); wsJet = vec4(0.0); }
     wsWindOffset.xy += dir * speed * dt;
     wsWindOffset.zw += Rotate(dir, -0.44) * (speed * 2.5 + 2.0) * dt;
-    wsJet.xy += Rotate(dir, -0.7) * (speed * 2.0 + 8.0) * dt;
     // Wave clock: each wave's speed comes from its length (waves.glsl); the clock itself
     // runs faster in stronger wind (integrated, so a change of wind never makes waves jump).
     wsJet.z += dt * (0.8 + 0.05 * speed);
@@ -113,11 +112,6 @@ void main() {
     float snowing = precipitation * step(wsAir.x, 0.0);
     float melting = step(0.0, wsAir.x) * (0.002 + 0.006 * day + 0.01 * precipitation);
     wsSurface.y = saturate(wsSurface.y + snowing * dt / 180.0 - melting * dt);
-    // The ocean swell slowly follows the prevailing wind.
-    float windAngle = atan(dir.y, dir.x);
-    float swell = firstFrame ? windAngle : wsSurface.z;
-    float diff = mod(windAngle - swell + PI, TAU) - PI;
-    wsSurface.z = mod(swell + diff * (1.0 - exp(-dt / 600.0)), TAU);
 
     // ---- Light -------------------------------------------------------------------------
     vec3 zenith, horizon;

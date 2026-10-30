@@ -131,6 +131,20 @@ void main() {
         #endif
     #endif
     gl_Position = ApplyTAAJitter(gl_Position);
+
+    // Vanilla sky geometry the deferred pass replaces: dropped here, before it is
+    // rasterised (the sky dome covers the whole screen; discarding it per pixel cost a
+    // full-screen of fragments every frame).
+    #if defined FWD_SKY
+        gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    #elif defined FWD_SKYTEX
+        #ifdef WORLD_END
+            gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+        #endif
+        #if SUN_MOON_STYLE == 1
+            if (renderStage == MC_RENDER_STAGE_SUN || renderStage == MC_RENDER_STAGE_MOON) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+        #endif
+    #endif
 }
 
 #endif

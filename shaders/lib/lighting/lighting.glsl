@@ -177,7 +177,9 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
             // Light volume (F1): how much sky this spot can really see (caves, overhangs,
             // under trees, beyond what Minecraft's sky light level says), and sunlight bounced
             // off sunlit blocks nearby, in their colour (Q2, Q3).
-            vec4 bounceSky = SurfaceBounceSky(s.playerPos, hasNormal ? s.normal : vec3(0.0, 1.0, 0.0));
+            // (Not where no sky light reaches at all: no ambient to scale and no sunlight
+            // to bounce there, 8 volume reads saved.)
+            vec4 bounceSky = s.lm.y > 0.02 ? SurfaceBounceSky(s.playerPos, hasNormal ? s.normal : vec3(0.0, 1.0, 0.0)) : vec4(0.0, 0.0, 0.0, 1.0);
             ambientColor *= mix(1.0, bounceSky.a, VOXEL_SKY_OCCLUSION);
             // Bounced light comes mostly from sunlit ground, which faces up: floors get
             // little of it (and never their own: the volume holds it just above them),

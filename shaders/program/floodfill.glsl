@@ -103,6 +103,14 @@ void UpdateCell(ivec3 v, ivec3 prev, bool fromA, out vec3 light, out vec4 bounce
     if (emission > 0) light = max(light, LightSourceColor(id) * (float(emission) / 15.0));
 
     // ---- Light volume: sky visibility and sun bounce --------------------------------------
+    // Only the Overworld's lighting uses them (and only with Sun Bounce or Sky Occlusion on):
+    // elsewhere the volume holds "dark, open sky" without working anything out.
+    bounce = vec4(0.0, 0.0, 0.0, 1.0);
+    bool lightVolume = false;
+    #ifdef WORLD_OVERWORLD
+        lightVolume = SUN_BOUNCE > 0.0 || VOXEL_SKY_OCCLUSION > 0.0;
+    #endif
+    if (!lightVolume) return;
     bounce = vec4(0.0);
     if (priority != VOXEL_PRIORITY_SOLID) {
         // Sky: falls straight down unhindered, spreads sideways and (a little) upwards with
