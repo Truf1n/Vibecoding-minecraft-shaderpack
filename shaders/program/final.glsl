@@ -114,8 +114,8 @@ void main() {
         vec3 color = Display(pixel);
     #endif
 
-    #if IMAGE_SHARPENING > 0
-        // Contrast-adaptive sharpening: sharpen less where the local contrast is already
+    #if IMAGE_SHARPENING > 0 && !(defined OPT_SHARPEN_IN_POST && CHROMATIC_ABERRATION == 0)
+        // Contrast-adaptive sharpening (unless the post pass did it, A6): sharpen less where the local contrast is already
         // high, so edges do not ring.
         vec3 n = Display(pixel + ivec2(0, 1));
         vec3 s = Display(pixel - ivec2(0, 1));

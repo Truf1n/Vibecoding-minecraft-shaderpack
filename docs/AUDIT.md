@@ -28,7 +28,25 @@ Kept on purpose:
 - `wsSurface.y` (snow depth, for W6);
 - `wsExposure.z` (average scene luminance, for debugging).
 
-## 2. Proposed: larger savings (need a decision)
+## 2. Larger savings: implemented (Opt1), each switchable on the Debug screen
+
+All six are on by default; each `OPT_*` option turns one off for comparison. Notes from
+implementing them:
+- **A1:** the map is made in `begin_a.csh` and stamped with the frame number. Readers fall back
+  to the direct evaluation for a stale map, for points above the lowest cloud base, or outside
+  the ±512-block grid.
+- **A2:** the direction comes from the exact slope of the trilinear blend. It changes slope at
+  block boundaries, which may show as faint per-block steps on walls lit from the side.
+- **A3:** a 4-frame ring of flags; both halves of the ping-pong must be flat before it idles.
+- **A4:** an 8-frame ring of "used" flags. One pixel in 256 marks use, and a direction's history
+  is replaced instead of blended when it was not refreshed 4 frames earlier.
+- **A5:** decided per block (all faces of a block agree), after every image write in the shadow
+  pass.
+- **A6:** `final` cannot be removed altogether: Iris only shows colortex0, which is
+  R11G11B10F, and a finished image stored there would band. So `final` stays as dither (and
+  FXAA, debug views), and the gain is the sharpening's neighbourhood reads moving to post.
+
+Original proposals:
 
 | # | Proposal | Expected gain | Risk |
 |---|---|---|---|

@@ -73,6 +73,7 @@ PROGRAMS = {
 # (pass name -> template, defines). They write <pass>.csh next to <pass>.vsh/.fsh.
 EXTRA_COMPUTE = {
     "begin":                ("worldState", ["WORLD_STATE_WRITER"]),   # world state (once per frame)
+    "begin_a":              ("cloudShadowMap", []),                   # cloud shadows once per frame (A1)
     "composite4":           ("exposure", ["WORLD_STATE_WRITER"]),     # auto exposure, before post
     "deferred":             ("skyView", []),                          # cloud panorama for reflections
     "deferred2":            ("depthTiles", ["DEPTH_TILES_WRITER"]),   # nearest depth per tile (reflections; a pass that always runs)
@@ -83,8 +84,8 @@ EXTRA_COMPUTE = {
 # shaders.properties.)
 # Clouds and light shafts are Overworld-only (no sun in the Nether, End beams come later).
 SKIP = {
-    "world-1": {"deferred", "composite", "shadowcomp1", "shadowcomp2"},
-    "world1": {"deferred", "composite"},
+    "world-1": {"deferred", "composite", "shadowcomp1", "shadowcomp2", "begin_a"},
+    "world1": {"deferred", "composite", "begin_a"},
 }
 
 STAGES = {".vsh": "VERTEX_SHADER", ".fsh": "FRAGMENT_SHADER"}

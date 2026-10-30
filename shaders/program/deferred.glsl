@@ -239,8 +239,15 @@ void main() {
                 #ifdef COLORED_LIGHTING
                     // Block-light glints on puddles (Q7).
                     if (lm.x > 0.05) {
-                        vec4 from = BlocklightDirection(playerPos, vec3(0.0, 1.0, 0.0));
-                        vec3 blockColor = WorldBlocklightColor(playerPos, vec3(0.0, 1.0, 0.0), lm.x) * BlocklightFalloff(lm.x) * BLOCKLIGHT_I;
+                        #ifdef OPT_VOLUME_GRADIENT
+                            vec3 blockColor;
+                            vec4 from;
+                            WorldBlocklight(playerPos, vec3(0.0, 1.0, 0.0), lm.x, blockColor, from);
+                        #else
+                            vec4 from = BlocklightDirection(playerPos, vec3(0.0, 1.0, 0.0));
+                            vec3 blockColor = WorldBlocklightColor(playerPos, vec3(0.0, 1.0, 0.0), lm.x);
+                        #endif
+                        blockColor *= BlocklightFalloff(lm.x) * BLOCKLIGHT_I;
                         color += blockColor * SpecularHighlight(puddleNormal, V, from.xyz, mix(0.5, 0.1, puddle), vec3(0.02)) * gloss * from.w;
                     }
                 #endif

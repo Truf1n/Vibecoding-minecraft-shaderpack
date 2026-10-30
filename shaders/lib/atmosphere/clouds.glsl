@@ -377,7 +377,7 @@ CloudSample MarchClouds(vec3 dir, vec3 sunDir, vec3 lightDir, float dither) {
 }
 
 // Fraction of sun/moon light that gets past the clouds to a point (cloud shadows).
-float CloudShadow(vec3 worldPos, vec3 lightDir) {
+float CloudShadowDirect(vec3 worldPos, vec3 lightDir) {
     #if defined WORLD_OVERWORLD && CLOUD_STYLE == 1 && CLOUD_SHADOWS > 0
         if (lightDir.y < 0.02) return 1.0;
         float od = 0.0;
@@ -399,6 +399,26 @@ float CloudShadow(vec3 worldPos, vec3 lightDir) {
     #else
         return 1.0;
     #endif
+}
+
+#include "/lib/atmosphere/cloudShadowMap.glsl"
+
+// Sunlight the clouds let through at a world position: from the cloud-shadow map where it
+// covers the point (A1), else worked out directly.
+float CloudShadow(vec3 worldPos, vec3 lightDir) {
+    #if defined OPT_CLOUD_SHADOW_MAP && !defined CLOUD_SHADOW_MAP_WRITER && defined WORLD_OVERWORLD && CLOUD_STYLE == 1 && CLOUD_SHADOWS > 0
+        if (csmFrame == frameCounter && lightDir.y >= 0.02 && worldPos.y < csmBase) {
+            vec2 q = worldPos.xz + lightDir.xz * ((csmBase - worldPos.y) / lightDir.y);
+            vec2 pos = (q - csmCenter) / CSM_CELL + float(CSM_SIZE / 2) - 0.5;
+            if (all(greaterThanEqual(pos, vec2(0.0))) && all(lessThan(pos, vec2(CSM_SIZE - 1)))) {
+                ivec2 b = ivec2(floor(pos));
+                vec2 f = pos - vec2(b);
+                int i = b.y * CSM_SIZE + b.x;
+                return mix(mix(csmValues[i], csmValues[i + 1], f.x), mix(csmValues[i + CSM_SIZE], csmValues[i + CSM_SIZE + 1], f.x), f.y);
+            }
+        }
+    #endif
+    return CloudShadowDirect(worldPos, lightDir);
 }
 
 #endif

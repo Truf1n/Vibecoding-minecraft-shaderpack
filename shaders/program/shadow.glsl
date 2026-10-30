@@ -52,6 +52,27 @@
 #endif
 
 uniform mat4 shadowModelViewInverse;
+
+#ifdef OPT_SHADOW_VIEW_CULLING
+    // Can the shadow of a block (centre, player space) fall anywhere the camera can see (A5)?
+    // Its shadow runs from it away from the sun, at most down to ~96 blocks below the
+    // camera. If that whole stretch lies outside one side of the view (with 2 blocks to
+    // spare for its size and soft edges), nothing it shades is on screen.
+    bool ShadowCanReachView(vec3 center) {
+        vec3 L = normalize(mat3(shadowModelViewInverse) * vec3(0.0, 0.0, 1.0)); // towards the sun
+        float reach = clamp((center.y + 96.0) / max(L.y, 0.05), 16.0, 2.0 * shadowDistance);
+        vec3 end = center - L * reach;
+        mat4 m = gbufferProjection * gbufferModelView;
+        vec4 w = vec4(m[0][3], m[1][3], m[2][3], m[3][3]);
+        for (int i = 0; i < 5; i++) { // left, right, bottom, top, near
+            int axis = i >> 1;
+            vec4 plane = w + ((i & 1) == 0 ? 1.0 : -1.0) * vec4(m[0][axis], m[1][axis], m[2][axis], m[3][axis]);
+            float inv = inversesqrt(dot(plane.xyz, plane.xyz));
+            if ((dot(plane.xyz, center) + plane.w) * inv < -2.0 && (dot(plane.xyz, end) + plane.w) * inv < -2.0) return false;
+        }
+        return true;
+    }
+#endif
 #if defined FAR_SHADOWS && defined WORLD_OVERWORLD
     #define FAR_HEIGHT_WRITER
     #include "/lib/lighting/farShadows.glsl"
@@ -144,6 +165,17 @@ void main() {
             && RemapLightmap((gl_TextureMatrix[1] * gl_MultiTexCoord1).xy).y < 0.15) {
             gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
             return;
+        }
+    #endif
+    #ifdef OPT_SHADOW_VIEW_CULLING
+        // Blocks whose shadow cannot reach the view (A5): everything this pass records about
+        // them is written above; only drawing them into the shadow map is skipped.
+        if (terrain) {
+            vec3 center = (shadowModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz + at_midBlock.xyz / 64.0;
+            if (!ShadowCanReachView(center)) {
+                gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+                return;
+            }
         }
     #endif
     if (terrain && IsPlant(blockId)) {

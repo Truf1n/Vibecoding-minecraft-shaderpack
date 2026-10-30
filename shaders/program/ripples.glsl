@@ -7,6 +7,7 @@
 
 #include "/lib/common.glsl"
 #include "/lib/materials/ripples.glsl"
+#include "/lib/world/frameFlags.glsl"
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 const ivec3 workGroups = ivec3(64, 64, 1);
@@ -45,6 +46,14 @@ float Occupied(vec2 xz) {
 
 void main() {
     ivec2 texel = ivec2(gl_GlobalInvocationID.xy);
+    #ifdef OPT_RIPPLE_IDLE
+        // Idle (A3): nothing crossed the water this frame, and the last two steps (both
+        // halves of the grid) left everything flat: nothing to do, and the water skips
+        // reading it (ripples.glsl). The flags of the frame after next start clear.
+        int f = frameCounter % 4;
+        if (texel == ivec2(0)) { rippleWaves[(f + 1) % 4] = 0u; rippleSource[(f + 1) % 4] = 0u; }
+        if (rippleWaves[(f + 3) % 4] == 0u && rippleWaves[(f + 2) % 4] == 0u && rippleSource[f] == 0u) return;
+    #endif
     ivec2 readBase = RippleBase(1 - RippleCurrentHalf()), writeBase = RippleBase(RippleCurrentHalf());
 
     // This texel's spot moved into the window since last frame: start flat.
@@ -84,4 +93,7 @@ void main() {
     if (abs(h) < 0.0015 && abs(here.r) < 0.0015) h = 0.0;
 
     imageStore(rippleImg, texel + writeBase, vec4(Clean(h), here.r, occupied, 0.0));
+    #ifdef OPT_RIPPLE_IDLE
+        if (h != 0.0 || here.r != 0.0 || occupied > 0.0) rippleWaves[f] = 1u; // still moving
+    #endif
 }

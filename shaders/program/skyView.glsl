@@ -18,12 +18,24 @@ const ivec3 workGroups = ivec3(64, 16, 1); // half the panorama each way: a quar
     #include "/lib/atmosphere/sky.glsl"
     #include "/lib/atmosphere/clouds.glsl"
     #include "/lib/atmosphere/skyView.glsl"
+    #include "/lib/world/frameFlags.glsl"
 
     layout(rgba16f) uniform image2D skyViewImg;
 
     void main() {
         ivec2 phase = ivec2(frameCounter & 1, (frameCounter >> 1) & 1);
         ivec2 texel = ivec2(gl_GlobalInvocationID.xy) * 2 + phase;
+        bool historyFresh = true;
+        #ifdef OPT_PANORAMA_ON_DEMAND
+            // Only while something on screen draws clouds from it (A4): last frame's flag.
+            // This frame's starts clear (set again by the surfaces drawn after this pass).
+            int f = frameCounter % 8;
+            if (gl_GlobalInvocationID.xy == uvec2(0)) panoramaUsed[f] = 0u;
+            if (panoramaUsed[(f + 7) % 8] == 0u && frameCounter > 8) return;
+            // This direction was last refreshed 4 frames ago only if the panorama was in use
+            // then too; otherwise its history is stale and is replaced, not blended.
+            historyFresh = panoramaUsed[(f + 3) % 8] != 0u;
+        #endif
         #ifdef NO_CLOUDS_UNDERGROUND
             if (caveFactor > 0.95) return; // the sky cannot be seen: keep what was there
         #endif
@@ -36,7 +48,7 @@ const ivec3 workGroups = ivec3(64, 16, 1); // half the panorama each way: a quar
         vec4 result = vec4(c.scatter * vec3(CLOUD_COLOR_R, CLOUD_COLOR_G, CLOUD_COLOR_B), c.transmittance);
         vec4 history = imageLoad(skyViewImg, texel);
         bool valid = all(equal(history, history)) && history.a >= 0.0 && history.a <= 1.0 && frameCounter > 2;
-        if (valid) result = mix(result, history, 0.6);
+        if (valid && historyFresh) result = mix(result, history, 0.6);
         imageStore(skyViewImg, texel, result);
     }
 #else

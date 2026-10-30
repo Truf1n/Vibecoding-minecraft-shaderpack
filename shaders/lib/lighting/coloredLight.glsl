@@ -99,10 +99,8 @@ vec3 GradeLightColor(vec3 hue) {
 
     // Colour of the world's block light reaching a surface. playerPos: camera-relative
     // position; normal: zero for sprites; lmBlock: Minecraft's block light there, 0..1.
-    vec3 WorldBlocklightColor(vec3 playerPos, vec3 normal, float lmBlock) {
-        // Look half a block off the surface, into the space the light arrives through.
-        vec3 p = playerPos + cameraPosition + normal * 0.5 - vec3(VoxelOrigin());
-        vec3 light = VoxelLight(p);
+    // Block-light colour from the volume's light at a spot (see WorldBlocklightColor).
+    vec3 BlocklightColorFromVolume(vec3 light, float lmBlock) {
         float peak = max(light.r, max(light.g, light.b));
         // Where the volume holds much less light than Minecraft's light level says is here
         // (light that came a way the volume does not know, or from outside it), its colour
@@ -111,6 +109,43 @@ vec3 GradeLightColor(vec3 hue) {
         float trust = smoothstep(0.08, 0.45, peak / expected);
         vec3 hue = peak > 1e-4 ? light / peak : FireColor();
         return GradeLightColor(mix(FireColor(), hue, trust));
+    }
+    vec3 WorldBlocklightColor(vec3 playerPos, vec3 normal, float lmBlock) {
+        // Look half a block off the surface, into the space the light arrives through.
+        vec3 p = playerPos + cameraPosition + normal * 0.5 - vec3(VoxelOrigin());
+        return BlocklightColorFromVolume(VoxelLight(p), lmBlock);
+    }
+
+    // The volume's light at a position and the slope of its brightness (per block), both
+    // from the same eight texels (the exact slope of the blend between them): one lookup
+    // instead of the five (40 texels) that colour and direction take separately (A2).
+    vec3 VoxelLightWithSlope(vec3 p, out vec3 slope) {
+        p -= 0.5;
+        ivec3 base = ivec3(floor(p));
+        vec3 f = p - vec3(base);
+        vec3 c000 = FloodLight(base), c100 = FloodLight(base + ivec3(1, 0, 0));
+        vec3 c010 = FloodLight(base + ivec3(0, 1, 0)), c110 = FloodLight(base + ivec3(1, 1, 0));
+        vec3 c001 = FloodLight(base + ivec3(0, 0, 1)), c101 = FloodLight(base + ivec3(1, 0, 1));
+        vec3 c011 = FloodLight(base + ivec3(0, 1, 1)), c111 = FloodLight(base + ivec3(1, 1, 1));
+        float l000 = Luminance(c000), l100 = Luminance(c100), l010 = Luminance(c010), l110 = Luminance(c110);
+        float l001 = Luminance(c001), l101 = Luminance(c101), l011 = Luminance(c011), l111 = Luminance(c111);
+        slope.x = mix(mix(l100 - l000, l110 - l010, f.y), mix(l101 - l001, l111 - l011, f.y), f.z);
+        slope.y = mix(mix(l010 - l000, l110 - l100, f.x), mix(l011 - l001, l111 - l101, f.x), f.z);
+        slope.z = mix(mix(l001 - l000, l101 - l100, f.x), mix(l011 - l010, l111 - l110, f.x), f.y);
+        return mix(mix(mix(c000, c100, f.x), mix(c010, c110, f.x), f.y), mix(mix(c001, c101, f.x), mix(c011, c111, f.x), f.y), f.z);
+    }
+
+    // Block-light colour (as WorldBlocklightColor) and direction (as BlocklightDirection)
+    // at a surface, from one volume lookup half a block off it (A2).
+    void WorldBlocklight(vec3 playerPos, vec3 normal, float lmBlock, out vec3 color, out vec4 from) {
+        vec3 p = playerPos + cameraPosition + normal * 0.5 - vec3(VoxelOrigin());
+        vec3 slope;
+        vec3 light = VoxelLightWithSlope(p, slope);
+        color = BlocklightColorFromVolume(light, lmBlock);
+        float level = Luminance(light);
+        vec3 g = slope * 0.5; // over half a block, as BlocklightDirection measures it
+        float len = length(g);
+        from = len > 1e-6 && level > 1e-4 ? vec4(g / len, saturate(len / (level * 0.07))) : vec4(0.0, 1.0, 0.0, 0.0);
     }
 
     #ifdef LIGHTNING_SHADOWS
@@ -145,6 +180,10 @@ vec3 GradeLightColor(vec3 hue) {
     vec4 BlocklightDirection(vec3 playerPos, vec3 normal) { return vec4(0.0, 1.0, 0.0, 0.0); }
     vec3 HeldLightColor() { return DefaultBlocklightColor(); }
     vec3 WorldBlocklightColor(vec3 playerPos, vec3 normal, float lmBlock) { return DefaultBlocklightColor(); }
+    void WorldBlocklight(vec3 playerPos, vec3 normal, float lmBlock, out vec3 color, out vec4 from) {
+        color = DefaultBlocklightColor();
+        from = vec4(0.0, 1.0, 0.0, 0.0);
+    }
 #endif
 
 #endif

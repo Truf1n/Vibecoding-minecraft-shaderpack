@@ -6,6 +6,7 @@
 #include "/lib/common.glsl"
 #include "/lib/materials/ripples.glsl"
 #include "/lib/materials/columnMaps.glsl"
+#include "/lib/world/frameFlags.glsl"
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 const ivec3 workGroups = ivec3(32, 32, 1);
@@ -31,4 +32,7 @@ void main() {
     // leaning over it, does not count).
     bool crosses = surface > -1e5 && bottom < surface - 0.05 && top > surface - 0.3;
     imageStore(rippleHighImg, texel, uvec4(crosses ? 1u : 0u));
+    #ifdef OPT_RIPPLE_IDLE
+        if (crosses) rippleSource[frameCounter % 4] = 1u; // wakes the simulation (A3)
+    #endif
 }

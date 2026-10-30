@@ -25,7 +25,16 @@ float SampleCloudDistance(vec2 uv) { return texture(colortex10, CloudBufferUV(uv
 // from the cloud panorama (program/skyView.glsl), so they are there whether or not that
 // direction is on screen. rgb scatter, a transmittance. Below the horizon: none.
 #include "/lib/atmosphere/skyView.glsl"
+#include "/lib/world/frameFlags.glsl"
 uniform sampler2D skyViewSampler;
+
+// Something on screen draws clouds from the panorama this frame: keep it updated (A4).
+// (One pixel in 256 says so; a single store per pixel would only fight over the flag.)
+void MarkPanoramaUsed() {
+    #if defined OPT_PANORAMA_ON_DEMAND && defined FRAGMENT_SHADER
+        if (((int(gl_FragCoord.x) | int(gl_FragCoord.y)) & 15) == 0) panoramaUsed[frameCounter % 8] = 1u;
+    #endif
+}
 
 vec4 SkyViewTexel(ivec2 t) {
     t.x = (t.x + SKY_VIEW_SIZE.x) % SKY_VIEW_SIZE.x;
@@ -42,6 +51,7 @@ vec4 CubicWeights(float f) {
 
 // The same, bilinear (4 texels instead of 16), where detail does not show.
 vec4 CloudsInDirectionFast(vec3 dir) {
+    MarkPanoramaUsed();
     if (dir.y <= 0.0) return vec4(0.0, 0.0, 0.0, 1.0);
     vec2 pos = SkyViewCoord(dir) * vec2(SKY_VIEW_SIZE) - 0.5;
     ivec2 base = ivec2(floor(pos));
@@ -53,6 +63,7 @@ vec4 CloudsInDirectionFast(vec3 dir) {
 }
 
 vec4 CloudsInDirection(vec3 dir) {
+    MarkPanoramaUsed();
     if (dir.y <= 0.0) return vec4(0.0, 0.0, 0.0, 1.0);
     vec2 pos = SkyViewCoord(dir) * vec2(SKY_VIEW_SIZE) - 0.5;
     ivec2 base = ivec2(floor(pos));

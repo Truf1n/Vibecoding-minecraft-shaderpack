@@ -114,6 +114,24 @@ void main() {
         color.b = textureLod(sceneTex, uv + shift, 0.0).b;
     #else
         color = texelFetch(sceneTex, ivec2(gl_FragCoord.xy), 0).rgb;
+        #if IMAGE_SHARPENING > 0
+        #ifdef OPT_SHARPEN_IN_POST
+            // Contrast-adaptive sharpening here instead of in the final pass (A6), on the
+            // scene compressed into 0..1 (c / (1 + c)) so it weighs contrast as it did on the
+            // display image; the final pass then only dithers.
+            ivec2 p = ivec2(gl_FragCoord.xy);
+            vec3 c = color / (1.0 + color);
+            vec3 n = texelFetch(sceneTex, p + ivec2(0, 1), 0).rgb, s = texelFetch(sceneTex, p - ivec2(0, 1), 0).rgb;
+            vec3 e = texelFetch(sceneTex, p + ivec2(1, 0), 0).rgb, w = texelFetch(sceneTex, p - ivec2(1, 0), 0).rgb;
+            n /= 1.0 + n; s /= 1.0 + s; e /= 1.0 + e; w /= 1.0 + w;
+            vec3 lo = min(c, min(min(n, s), min(e, w)));
+            vec3 hi = max(c, max(max(n, s), max(e, w)));
+            vec3 amount = sqrt(saturate(min(lo, 1.0 - hi) / max(hi, 1e-4)));
+            vec3 weight = -amount * float(IMAGE_SHARPENING) * 0.025;
+            c = clamp((c + (n + s + e + w) * weight) / (1.0 + 4.0 * weight), 0.0, 0.999);
+            color = c / (1.0 - c);
+        #endif
+        #endif
     #endif
 
     #ifdef BLOOM

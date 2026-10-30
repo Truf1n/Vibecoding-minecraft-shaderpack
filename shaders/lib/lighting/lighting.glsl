@@ -106,14 +106,23 @@ vec3 GetLighting(Surface s, vec3 sunDir, vec3 lightDir, out vec3 sunLight) {
     float worldPart = BlocklightFalloff(s.lm.x), heldPart = BlocklightFalloff(held);
     vec3 light = vec3(0.0);
     if (worldPart + heldPart > 1e-4) {
-        vec3 color = WorldBlocklightColor(s.playerPos, s.normal, s.lm.x) * worldPart + HeldLightColor() * heldPart;
+        #ifdef OPT_VOLUME_GRADIENT
+            vec3 worldColor;
+            vec4 from;
+            WorldBlocklight(s.playerPos, s.normal, s.lm.x, worldColor, from); // colour and direction in one lookup (A2)
+        #else
+            vec3 worldColor = WorldBlocklightColor(s.playerPos, s.normal, s.lm.x);
+        #endif
+        vec3 color = worldColor * worldPart + HeldLightColor() * heldPart;
         light = color / (worldPart + heldPart) * BlocklightFalloff(max(s.lm.x, held)) * BLOCKLIGHT_I * lightingAO * BlocklightFlicker(s.playerPos);
         #ifdef DIRECTIONAL_BLOCKLIGHT
         #ifdef COLORED_LIGHTING
             // Directional block light (Q4): faces turned away from where the light comes
             // from get less of it (the world's light only; a held light comes from you).
             if (worldPart > heldPart * 0.5 && dot(s.normal, s.normal) > 0.5) {
-                vec4 from = BlocklightDirection(s.playerPos, s.normal);
+                #ifndef OPT_VOLUME_GRADIENT
+                    vec4 from = BlocklightDirection(s.playerPos, s.normal);
+                #endif
                 float facing = 0.55 + 0.45 * saturate(dot(s.normal, from.xyz) * 0.5 + 0.5);
                 light *= mix(1.0, facing / 0.775, from.w * worldPart / (worldPart + heldPart));
             }

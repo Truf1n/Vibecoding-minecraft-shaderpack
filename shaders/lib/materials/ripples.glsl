@@ -41,6 +41,7 @@ uint PackRippleHeight(float y) { return uint(clamp((y - cameraPosition.y + 128.0
 float UnpackRippleHeight(uint q) { return float(q) / 256.0 - 128.0 + cameraPosition.y; }
 
 #ifdef RIPPLE_READER
+    #include "/lib/world/frameFlags.glsl"
     uniform sampler2D rippleSampler;
 
     float RippleTexel(ivec2 cell) {
@@ -61,6 +62,9 @@ float UnpackRippleHeight(uint q) { return float(q) / 256.0 - 128.0 + cameraPosit
     // Slope (dh/dx, dh/dz) of the simulated ripples at a world position, fading out beyond
     // RIPPLE_SHOWN blocks from the camera.
     vec2 RippleSlope(vec2 worldXZ) {
+        #ifdef OPT_RIPPLE_IDLE
+            if (rippleWaves[frameCounter % 4] == 0u) return vec2(0.0); // flat this frame (A3)
+        #endif
         vec2 d = abs(worldXZ - cameraPosition.xz);
         float fade = 1.0 - smoothstep(RIPPLE_SHOWN, RIPPLE_SHOWN + 4.0, max(d.x, d.y));
         if (fade <= 0.0) return vec2(0.0);

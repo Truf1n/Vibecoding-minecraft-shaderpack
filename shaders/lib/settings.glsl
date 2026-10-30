@@ -347,6 +347,13 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 // 0 off, 1 albedo, 2 world normal, 3 lightmap, 4 shading model, 5 vanilla AO, 6 emission,
 // 7 smoothness, 8 metalness
 #define DEBUG_VIEW 0 //[0 1 2 3 4 5 6 7 8]
+// Optimisations, each switchable to compare speed and look (docs/AUDIT.md):
+#define OPT_CLOUD_SHADOW_MAP     // A1: cloud shadows once per frame into a map, not per pixel and shaft step
+#define OPT_VOLUME_GRADIENT      // A2: block-light colour and direction from one light-volume lookup
+#define OPT_RIPPLE_IDLE          // A3: no ripple simulation or ripple reads while nothing ripples
+#define OPT_PANORAMA_ON_DEMAND   // A4: cloud panorama only updated while something reflects clouds
+#define OPT_SHADOW_VIEW_CULLING  // A5: blocks whose shadow cannot reach the view are not drawn into the shadow map
+#define OPT_SHARPEN_IN_POST      // A6: sharpening in the post pass; the final pass only dithers
 // Draws every particle flat magenta, to tell "not drawn" apart from "drawn but hidden".
 #define DEBUG_PARTICLES 0 //[0 1]
 

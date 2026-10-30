@@ -217,8 +217,15 @@ TranslucentSurface ShadeWater(vec3 biomeTint, bool sourceBlock, vec3 playerPos, 
         // Block-light glints (Q7): torches, lanterns and lava shine on the water, in their
         // colour, from the direction their light comes from (light volume).
         if (surf.lm.x > 0.05) {
-            vec4 from = BlocklightDirection(playerPos, vec3(0.0, 1.0, 0.0));
-            vec3 blockColor = WorldBlocklightColor(playerPos, vec3(0.0, 1.0, 0.0), surf.lm.x) * BlocklightFalloff(surf.lm.x) * BLOCKLIGHT_I;
+            #ifdef OPT_VOLUME_GRADIENT
+                vec3 blockColor;
+                vec4 from;
+                WorldBlocklight(playerPos, vec3(0.0, 1.0, 0.0), surf.lm.x, blockColor, from);
+            #else
+                vec4 from = BlocklightDirection(playerPos, vec3(0.0, 1.0, 0.0));
+                vec3 blockColor = WorldBlocklightColor(playerPos, vec3(0.0, 1.0, 0.0), surf.lm.x);
+            #endif
+            blockColor *= BlocklightFalloff(surf.lm.x) * BLOCKLIGHT_I;
             glint += blockColor * GGXSpecular(N, V, from.xyz, roughness + 0.08) * from.w * 0.25;
         }
     #endif
