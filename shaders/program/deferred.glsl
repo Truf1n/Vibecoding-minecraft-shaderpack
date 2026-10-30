@@ -70,9 +70,15 @@ uniform sampler2D colortex4;
                 ivec2 t = clamp(base + ivec2(x, y), ivec2(0), maxTexel);
                 vec2 d = vec2(t) - pos;
                 ivec2 full = min(t * 2, ivec2(screen) - 1); // the pixel the half-size pass read
-                float z = ScreenToView((vec2(full) + 0.5) / screen, texelFetch(depthtex0, full, 0).r).z;
-                float depthWeight = exp(-abs(z - linear) / (0.05 * abs(linear) + 0.1));
                 vec4 v = texelFetch(colortex15, t, 0);
+                #ifdef OPT_HALF_DEPTH_IN_BUFFER
+                    // The depth the half-size pass stored with it (B1), instead of reading it
+                    // again (16 reads and conversions per pixel); same log encoding as ssao.glsl.
+                    float z = -(exp2(v.a * log2(1.0 + far)) - 1.0);
+                #else
+                    float z = ScreenToView((vec2(full) + 0.5) / screen, texelFetch(depthtex0, full, 0).r).z;
+                #endif
+                float depthWeight = exp(-abs(z - linear) / (0.05 * abs(linear) + 0.1));
                 float w = exp(-dot(d, d) * 0.5) * depthWeight;
                 sum += v.rg * w;
                 wsum += w;

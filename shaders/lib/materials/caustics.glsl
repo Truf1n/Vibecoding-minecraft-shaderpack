@@ -8,6 +8,9 @@
 #include "/lib/util/noise.glsl"
 #include "/lib/materials/waterStyles.glsl"
 #include "/lib/materials/waves.glsl"
+#ifdef OPT_CAUSTICS_MAP
+    #include "/lib/materials/causticsMap.glsl"
+#endif
 
 // Light absorbed per block of water (red goes first, so deep water turns blue-green), for
 // the water the camera is in (per-biome looks: waterStyles.glsl).
@@ -26,6 +29,15 @@ vec3 UnderwaterLight(float depth, vec2 surfaceXZ, float causticStrength) {
     #ifdef WATER_CAUSTICS
         // From the wave field above (waves.glsl), assuming open water: light only reaches
         // here through water the sun can see.
+        #ifdef OPT_CAUSTICS_MAP
+            // The light shafts (the only ones to set a footprint): from the map (B3).
+            if (causticsFootprint > 0.0) {
+                WaveSample mapped;
+                mapped.height = 0.0; mapped.slope = vec2(0.0); mapped.unresolvedSlope2 = 0.0;
+                if (CausticsMapHessian(surfaceXZ, mapped.hessian))
+                    return light * mix(vec3(1.0), WaveCaustics(mapped, depth), causticStrength);
+            }
+        #endif
         WaveConditions conditions = GetWaveConditions(1.0, 0.6, GustAt(surfaceXZ));
         light *= mix(vec3(1.0), WaveCaustics(Waves(surfaceXZ, conditions, causticsFootprint, false), depth), causticStrength);
     #endif

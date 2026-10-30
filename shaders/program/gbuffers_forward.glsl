@@ -18,6 +18,9 @@
 #ifdef PROG_GBUFFERS_WATER
 in vec2 mc_Entity;
 #include "/lib/materials/columnMaps.glsl"
+#ifdef OPT_FETCH_MAP
+    #include "/lib/materials/fetchMap.glsl"
+#endif
 #include "/lib/util/encoding.glsl"
 #include "/lib/util/noise.glsl"
 #include "/lib/materials/waves.glsl"
@@ -85,7 +88,11 @@ void main() {
     #ifdef PROG_GBUFFERS_WATER
         // 16 column-map reads, once per vertex instead of per pixel (it changes only from
         // block to block).
-        waterFetch = IsWater(blockId) ? WaterFetch(playerPos + cameraPosition) : 0.0;
+        #ifdef OPT_FETCH_MAP
+            waterFetch = IsWater(blockId) ? WaterFetchCached(playerPos + cameraPosition) : 0.0; // (B7)
+        #else
+            waterFetch = IsWater(blockId) ? WaterFetch(playerPos + cameraPosition) : 0.0;
+        #endif
     #endif
     #ifdef WAVING_WATER_VERTEX
     #ifdef PROG_GBUFFERS_WATER

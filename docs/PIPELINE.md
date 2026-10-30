@@ -203,7 +203,10 @@ Smaller:
 - bloom tiles: 49 reads, over a sixth of the screen.
 - Everything else: under 0.2 ms each.
 
-## Candidates spotted while writing this up (not done yet)
+## Candidates spotted while writing this up
+
+B1–B7 are implemented (Opt2), each switchable on the Debug screen (`OPT_*`, on by default).
+B8 is left out on purpose while the light shafts still have open issues.
 
 | # | Where | What | Expected gain |
 |---|---|---|---|

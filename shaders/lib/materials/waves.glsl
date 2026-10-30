@@ -62,6 +62,57 @@ float WaveHash(vec3 p) {
 
 vec2 Heading(float degrees) { float a = radians(degrees); return vec2(cos(a), sin(a)); }
 
+// The wave table (B2): the waves' headings, lengths, speeds and shares change only with the
+// day (swell) and the wind, so the begin pass works them out once per frame (the world
+// state, wsWaveA/B) instead of every water pixel, caustic and light-shaft step hashing them
+// again. Same waves, same order as the loops in Waves() below.
+#ifdef WAVE_TABLE_WRITER
+    void SetTableWave(int i, vec2 dir, float wavelength, float share, float phase0) {
+        wavelength *= WATER_WAVE_SIZE;
+        float k = TAU / wavelength;
+        wsWaveA[i] = vec4(dir, k, sqrt(WAVE_GRAVITY * k) * WAVE_TIME_SCALE * WATER_WAVE_SPEED);
+        wsWaveB[i] = vec4(share, phase0, wavelength, 0.0);
+    }
+
+    void WriteWaveTable() {
+        vec2 wind = WindDir();
+        float a = WaveHash(vec3(float(worldDay), 1.3, 17.31)) * 360.0;
+        SetTableWave(0, Heading(a), 37.0, 1.0, 0.0);
+        SetTableWave(1, Heading(a + 23.0), 23.0, 0.8, 2.1);
+        for (int i = 0; i < 12; i++) {
+            float fi = float(i);
+            vec2 dir = Heading(fi * 30.0 + (WaveHash(vec3(fi, 3.1, 7.7)) - 0.5) * 24.0);
+            float along = max(dot(dir, wind), 0.0);
+            float weight = along * along * along * along / 2.25;
+            if (weight < 0.01) weight = 0.0;
+            SetTableWave(2 + 2 * i, dir, 3.5 * pow(2.2, WaveHash(vec3(fi, 5.9, 1.3))), weight, fi * 1.7);
+            SetTableWave(3 + 2 * i, dir, 1.5 * pow(2.1, WaveHash(vec3(fi, 8.3, 4.1))), weight * 0.75, fi * 2.9 + 1.0);
+        }
+        for (int i = 0; i < 6; i++) {
+            float fi = float(i);
+            vec2 dir = Heading(WaveHash(vec3(fi, 11.3, 2.9)) * 360.0);
+            float along = max(dot(dir, wind), 0.0);
+            SetTableWave(26 + i, dir, 0.4 * pow(3.0, WaveHash(vec3(fi, 6.1, 9.4))), (0.35 + 0.65 * along * along) * 0.55, fi * 3.7);
+        }
+    }
+#endif
+
+// AddWave for wave i of the table, with steepness scale `scale` (times its share).
+void AddTableWave(inout WaveSample w, vec2 p, float t, int i, float scale, float footprint) {
+    vec4 a = wsWaveA[i], b = wsWaveB[i];
+    float k = a.z;
+    float amp = scale * b.x / k * WATER_WAVE_STRENGTH;
+    float resolved = smoothstep(2.0, 4.0, b.z / max(footprint, 1e-4));
+    w.unresolvedSlope2 += 0.5 * pow(amp * k * (1.0 - resolved), 2.0);
+    amp *= resolved;
+    if (amp <= 0.0) return;
+    float theta = k * dot(a.xy, p) - a.w * t + b.y;
+    float s = sin(theta), c = cos(theta);
+    w.height += amp * s;
+    w.slope += amp * k * c * a.xy;
+    w.hessian -= amp * k * k * s * vec3(a.x * a.x, a.y * a.y, a.x * a.y);
+}
+
 // Conditions from the world state. shelter: 0 no wind reaches (caves, roofs) ... 1 open sky;
 // fetch: 0 a small pond ... 1 open water; gust: the local gust field.
 WaveConditions GetWaveConditions(float shelter, float fetch, float gust) {
@@ -100,6 +151,24 @@ WaveSample Waves(vec2 p, WaveConditions c, float footprint, bool lowDetail) {
     WaveSample w;
     w.height = 0.0; w.slope = vec2(0.0); w.hessian = vec3(0.0); w.unresolvedSlope2 = 0.0;
     float t = wsJet.z;
+    #ifdef OPT_WAVE_TABLE
+        if (c.swell > 0.0) {
+            AddTableWave(w, p, t, 0, c.swell, footprint);
+            AddTableWave(w, p, t, 1, c.swell, footprint);
+        }
+        if (c.windSea > 0.0) {
+            float groups = 0.55 + 0.9 * SmoothNoise((p - wsWindOffset.xy * 0.08) / (22.0 * WATER_WAVE_SIZE));
+            for (int i = 2; i < 26; i++) {
+                if (wsWaveB[i].x <= 0.0) continue;
+                AddTableWave(w, p, t, i, c.windSea * groups, footprint);
+            }
+        }
+        if (!lowDetail && c.ripples > 0.0) {
+            for (int i = 26; i < 32; i++) AddTableWave(w, p, t, i, c.ripples, footprint);
+            w.slope += ChopSlope(p, c.ripples * 1.6) * WATER_WAVE_STRENGTH * (1.0 - smoothstep(0.2, 0.6, footprint));
+        }
+        return w;
+    #endif
     vec2 wind = WindDir();
 
     // Swell: two long waves from the day's prevailing wind (fixed through the day).

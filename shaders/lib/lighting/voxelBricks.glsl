@@ -5,8 +5,9 @@
 // floodfill workgroup each), with two flags per brick in a storage buffer (bufferObject.1),
 // each kept for this frame and the next (by frame parity):
 //   voxels - the shadow pass put a block in it, or in a block space next to it;
-//   active - last frame, something in it was not trivially dark open sky (block light,
-//            bounced light, or less than full sky).
+//   active - 1: last frame, something in it was not trivially dark open sky (block light,
+//            bounced light, or less than full sky); 0: it was; 2: it was idle and holds
+//            exactly "dark, open sky" in the volume written that frame (B4: not rewritten).
 // A brick with no blocks whose surroundings were all trivial last frame cannot have
 // anything happen in it this frame: the floodfill writes "dark, open sky" there without
 // gathering anything (most of the air above the terrain).

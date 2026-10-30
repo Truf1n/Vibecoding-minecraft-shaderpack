@@ -30,6 +30,10 @@ layout(std430, binding = 0) WORLD_STATE_ACCESS buffer WorldStateBuffer {
     vec4 wsWaterScatter; // rgb: scattering of the water style at the camera (waterStyles.glsl); a: fog density
     vec4 wsWaterAbsorb;  // rgb: its absorption
     vec4 wsWaterFog;     // rgb: its underwater fog colour
+    // The wave table (B2, waves.glsl): every wave of the wave field, worked out once per
+    // frame. [0, 1] swell, [2, 25] wind sea (long and short per heading), [26, 31] ripples.
+    vec4 wsWaveA[32];    // xy: heading; z: wavenumber; w: angular speed
+    vec4 wsWaveB[32];    // x: strength share (0: left out); y: phase; z: wavelength (blocks)
 };
 
 // The weather values the effects used to get from custom uniforms.

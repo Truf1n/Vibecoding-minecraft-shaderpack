@@ -115,18 +115,31 @@ void UpdateCell(ivec3 v, ivec3 prev, bool fromA, out vec3 light, out vec4 bounce
     if (priority != VOXEL_PRIORITY_SOLID) {
         // Sky: falls straight down unhindered, spreads sideways and (a little) upwards with
         // losses; see-through blocks let part of it through.
-        float sky = PreviousBounce(prev + ivec3(0, 1, 0), fromA).a;
-        sky = max(sky, PreviousBounce(prev + ivec3(1, 0, 0), fromA).a * SKY_SIDE);
-        sky = max(sky, PreviousBounce(prev - ivec3(1, 0, 0), fromA).a * SKY_SIDE);
-        sky = max(sky, PreviousBounce(prev + ivec3(0, 0, 1), fromA).a * SKY_SIDE);
-        sky = max(sky, PreviousBounce(prev - ivec3(0, 0, 1), fromA).a * SKY_SIDE);
-        sky = max(sky, PreviousBounce(prev - ivec3(0, 1, 0), fromA).a * SKY_UP);
+        #ifdef OPT_FLOOD_SINGLE_READS
+            // Each neighbour read once, for both its sky and its bounce (B5).
+            vec4 n[6];
+            for (int i = 0; i < 6; i++) n[i] = PreviousBounce(prev + dirs6(i), fromA);
+            float sky = n[2].a; // dirs6: +x, -x, +y, -y, +z, -z
+            sky = max(sky, max(max(n[0].a, n[1].a), max(n[4].a, n[5].a)) * SKY_SIDE);
+            sky = max(sky, n[3].a * SKY_UP);
+        #else
+            float sky = PreviousBounce(prev + ivec3(0, 1, 0), fromA).a;
+            sky = max(sky, PreviousBounce(prev + ivec3(1, 0, 0), fromA).a * SKY_SIDE);
+            sky = max(sky, PreviousBounce(prev - ivec3(1, 0, 0), fromA).a * SKY_SIDE);
+            sky = max(sky, PreviousBounce(prev + ivec3(0, 0, 1), fromA).a * SKY_SIDE);
+            sky = max(sky, PreviousBounce(prev - ivec3(0, 0, 1), fromA).a * SKY_SIDE);
+            sky = max(sky, PreviousBounce(prev - ivec3(0, 1, 0), fromA).a * SKY_UP);
+        #endif
         if (priority == VOXEL_PRIORITY_TINT) sky *= id == BLOCK_LEAVES ? 0.8 : 0.92;
         else if (priority == VOXEL_PRIORITY_WATER) sky *= 0.9;
 
         // Bounce: the brightest of the neighbours' bounced light, spreading out...
         vec3 bounced = vec3(0.0);
-        for (int i = 0; i < 6; i++) bounced = max(bounced, PreviousBounce(prev + dirs6(i), fromA).rgb);
+        #ifdef OPT_FLOOD_SINGLE_READS
+            for (int i = 0; i < 6; i++) bounced = max(bounced, n[i].rgb);
+        #else
+            for (int i = 0; i < 6; i++) bounced = max(bounced, PreviousBounce(prev + dirs6(i), fromA).rgb);
+        #endif
         bounced *= BOUNCE_STEP;
         // ... and new light from sunlit faces next to this space: a solid neighbour whose
         // face towards this space looks at the sun bounces its colour (only where the sky,
@@ -158,6 +171,7 @@ void UpdateCell(ivec3 v, ivec3 prev, bool fromA, out vec3 light, out vec4 bounce
 
 shared bool brickBusy;
 shared bool brickLit;
+shared bool brickSkip;
 
 void main() {
     ivec3 v = ivec3(gl_GlobalInvocationID);
@@ -181,12 +195,19 @@ void main() {
             for (int y = lo.y; y <= hi.y && !busy; y++) {
                 for (int x = lo.x; x <= hi.x && !busy; x++) {
                     ivec3 b = ivec3(x, y, z);
-                    if (InBricks(b) && brickActive[other + BrickIndex(b)] != 0u) busy = true;
+                    if (InBricks(b) && brickActive[other + BrickIndex(b)] == 1u) busy = true;
                 }
             }
         }
         brickBusy = busy;
         brickLit = false;
+        // An idle brick that already holds the idle values in the volume written this frame
+        // (it was idle when that volume was last written, two frames ago: flag 2) need not
+        // write them again (B4): 12 bytes per cell, mostly empty air, every frame.
+        brickSkip = false;
+        #ifdef OPT_FLOOD_IDLE_SKIP
+            brickSkip = !busy && brickActive[current + BrickIndex(brick)] == 2u;
+        #endif
         // Next frame's shadow pass marks the other half of the flags afresh.
         brickVoxels[other + BrickIndex(brick)] = 0u;
     }
@@ -208,14 +229,23 @@ void main() {
         if (!trivial) brickLit = true;
     }
 
-    if (fromA) {
-        imageStore(floodImgB, v, vec4(light, 1.0));
-        imageStore(bounceImgB, v, bounce);
-    } else {
-        imageStore(floodImgA, v, vec4(light, 1.0));
-        imageStore(bounceImgA, v, bounce);
+    if (!brickSkip) {
+        if (fromA) {
+            imageStore(floodImgB, v, vec4(light, 1.0));
+            imageStore(bounceImgB, v, bounce);
+        } else {
+            imageStore(floodImgA, v, vec4(light, 1.0));
+            imageStore(bounceImgA, v, bounce);
+        }
     }
-
     barrier();
-    if (gl_LocalInvocationIndex == 0u) brickActive[current + BrickIndex(brick)] = brickLit ? 1u : 0u;
+    // 1: lit (neighbours must update); 0: dark but worked out; 2: idle, holding exactly the
+    // idle values (B4).
+    if (gl_LocalInvocationIndex == 0u) {
+        uint state = brickLit ? 1u : 0u;
+        #ifdef OPT_FLOOD_IDLE_SKIP
+            if (!brickBusy) state = 2u;
+        #endif
+        brickActive[current + BrickIndex(brick)] = state;
+    }
 }

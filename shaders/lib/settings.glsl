@@ -354,6 +354,13 @@ const float shadowDistance = 160.0;   //[64.0 96.0 128.0 160.0 192.0 224.0 256.0
 #define OPT_PANORAMA_ON_DEMAND   // A4: cloud panorama only updated while something reflects clouds
 #define OPT_SHADOW_VIEW_CULLING  // A5: blocks whose shadow cannot reach the view are not drawn into the shadow map
 #define OPT_SHARPEN_IN_POST      // A6: sharpening in the post pass; the final pass only dithers
+#define OPT_HALF_DEPTH_IN_BUFFER // B1: the half-size AO/shadow upsample takes depth from its own buffer
+#define OPT_WAVE_TABLE           // B2: wave directions, lengths and speeds worked out once per frame
+#define OPT_CAUSTICS_MAP         // B3: caustics for the light shafts from a map made once per frame
+#define OPT_FLOOD_IDLE_SKIP      // B4: idle parts of the light volume are not rewritten every frame
+#define OPT_FLOOD_SINGLE_READS   // B5: the light volume reads each neighbour's bounce once
+#define OPT_BLOOM_LINEAR_TAPS    // B6: bloom blur from 16 filtered reads instead of 49
+#define OPT_FETCH_MAP            // B7: water "openness" from a map refreshed in the background
 // Draws every particle flat magenta, to tell "not drawn" apart from "drawn but hidden".
 #define DEBUG_PARTICLES 0 //[0 1]
 

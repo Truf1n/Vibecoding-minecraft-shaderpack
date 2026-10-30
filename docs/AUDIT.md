@@ -96,3 +96,13 @@ Original proposals:
   They must exist off screen to be correct the moment you turn.
 - **Far shadows** (now off by default) were the one feature that drew extra off-screen terrain;
   their remaining cost is Iris sending that terrain through the shadow pass.
+
+## 5. Parked issues
+
+Known problems put aside for later, so they are not lost.
+
+| Issue | What is seen | Tried so far |
+|---|---|---|
+| Static in underwater light shafts | Camera under water, looking sideways through the shafts at distant blue water: blocky, flickering noise, like video compression | Steps that follow the absorption and caustics that lose fine waves with distance (did not fix it); the march into water from above now starts at the surface |
+| Ripples | "Not perfect" | Smoothing between detail levels; stopping them reverberating |
+| Far shadows, contact shadows | Flicker, artefacts on blocks; both off by default | Persistent height map with tile tags |

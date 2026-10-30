@@ -15,6 +15,9 @@
 #include "/lib/gbuffer/layout.glsl"
 #include "/lib/atmosphere/sky.glsl"
 #include "/lib/materials/waterStyles.glsl"
+#include "/lib/util/noise.glsl"
+#define WAVE_TABLE_WRITER
+#include "/lib/materials/waves.glsl"
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 const ivec3 workGroups = ivec3(1, 1, 1);
@@ -126,6 +129,9 @@ void main() {
     wsWaterScatter = vec4(water.scatter, water.fogDensity);
     wsWaterAbsorb = vec4(water.absorption, 0.0);
     wsWaterFog = vec4(water.fogColor, 0.0);
+
+    // The wave table (B2), after the wind above.
+    WriteWaveTable();
 
     if (firstFrame) wsExposure = vec4(1.0, 1.0, 0.3, 0.0);
     wsHeader.x = 1.0;
