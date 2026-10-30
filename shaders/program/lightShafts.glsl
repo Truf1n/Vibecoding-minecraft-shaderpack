@@ -73,7 +73,24 @@ void main() {
     // diagonal lines, in what the frames add up to), stepping on by the golden ratio every
     // frame, so a few frames already cover the ray evenly and the history settles fast.
     float dither = fract(Hash13(vec3(gl_FragCoord.xy, 7.31)) + float(frameCounter % 4096) * 0.618034);
-    vec3 shafts = MarchLightShafts(endPos, sky, sunDir, lightDir, dither);
+    // Where the view ray enters water (looking in from above): the farthest water surface of
+    // the four pixels, matching the farthest depth taken above.
+    float waterStart = 1e9;
+    #if defined WATER_SHAFTS_FROM_ABOVE && !defined WORLD_NETHER
+        if (isEyeInWater != 1) {
+            float surface = texelFetch(depthtex0, full, 0).r;
+            surface = max(surface, texelFetch(depthtex0, full + ivec2(1, 0), 0).r);
+            surface = max(surface, texelFetch(depthtex0, full + ivec2(0, 1), 0).r);
+            surface = max(surface, texelFetch(depthtex0, full + ivec2(1, 1), 0).r);
+            if (surface < depth) {
+                vec3 surfacePos = ViewToPlayer(ScreenToView(uv, surface)) - gbufferModelViewInverse[3].xyz;
+                vec3 inward = normalize(surfacePos - EyePlayerPos());
+                if (ColumnHas(waterCellsSampler, surfacePos + inward * 0.2 + cameraPosition))
+                    waterStart = length(surfacePos - EyePlayerPos());
+            }
+        }
+    #endif
+    vec3 shafts = MarchLightShafts(endPos, sky, sunDir, lightDir, dither, waterStart);
     float linear = LinearDepth(depth);
 
     // Previous frames: where this spot was on screen then (the sky: the same direction).

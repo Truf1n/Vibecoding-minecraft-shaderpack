@@ -84,7 +84,11 @@ vec3 UnderwaterScatterTint() {
 //   - looking into water from above: the shafts under the surface, faintly.
 // Mist dims what lies behind it along the way. Steps are packed closer near the camera;
 // the march is accumulated over frames (program/lightShafts.glsl), so few steps suffice.
-vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float dither) {
+// waterStart: distance along the ray to the water surface when looking into water from
+// above (1e9 otherwise). The water below gets its own short steps from that surface:
+// the air march's far steps are tens of blocks long, and one landing just under the bright
+// surface layer (or not) changed the result from frame to frame (static over deep water).
+vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float dither, float waterStart) {
     // Marched from the eye (view bobbing moves it off the origin, see EyePlayerPos).
     vec3 eye = EyePlayerPos();
     float endDist = sky ? 1e9 : length(endPos - eye);
@@ -127,14 +131,29 @@ vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float d
     #endif
     bool otherActive = wsMist.x > 0.001 || lightningBoltPosition.w > 0.5 || glowActive;
     #if defined WATER_SHAFTS_FROM_ABOVE && !defined WORLD_NETHER
-        otherActive = otherActive || !sky;
+        otherActive = otherActive || waterStart < endDist;
     #endif
     if (!sunActive && !otherActive) return vec3(0.0);
 
     vec3 sum = vec3(0.0);
+    #if defined WATER_SHAFTS_FROM_ABOVE && !defined WORLD_NETHER
+        if (waterStart < endDist) {
+            // The water's own shafts, from its surface on: denser just below it, where
+            // most of the light is, and only as far as the light can come back from.
+            float waterDist = min(endDist - waterStart, VL_MAX_DIST_WATER);
+            int waterSteps = max(VL_STEPS / 2, 4);
+            vec3 waterSum = vec3(0.0);
+            for (int i = 0; i < waterSteps; i++) {
+                float x = (float(i) + dither) / float(waterSteps);
+                float d = x * x * waterDist;
+                float stepLen = 2.0 * x * waterDist / float(waterSteps);
+                waterSum += UnderwaterScatter(eye + dir * (waterStart + d), L) * exp(-d * WaterAbsorption()) * stepLen;
+            }
+            sum += waterSum * (0.012 * 0.5 * (0.6 + 0.35 * HG(VdotL, 0.6))) * UnderwaterScatterTint() * sunColor * VL_STRENGTH;
+            dist = min(dist, waterStart);
+        }
+    #endif
     float mistDepth = 0.0;   // mist passed so far (optical depth)
-    float waterTravel = 0.0; // blocks of water passed so far (looking in from above)
-    float tPrev = 0.0;
     for (int i = 0; i < VL_STEPS; i++) {
         // Quadratic spacing: dense near the camera, sparse far out.
         float x = (float(i) + dither) / float(VL_STEPS);
@@ -143,18 +162,7 @@ vec3 MarchLightShafts(vec3 endPos, bool sky, vec3 sunDir, vec3 lightDir, float d
         vec3 p = eye + dir * t;
         vec3 worldPos = p + cameraPosition;
 
-        #if defined WATER_SHAFTS_FROM_ABOVE && !defined WORLD_NETHER
-            if (ColumnHas(waterCellsSampler, worldPos)) {
-                // Under the water surface: the water's own shafts, through the water so far.
-                waterTravel += t - tPrev;
-                tPrev = t;
-                sum += UnderwaterScatter(p, L) * exp(-waterTravel * WaterAbsorption()) * stepLen
-                     * (0.012 * 0.5 * (0.6 + 0.35 * HG(VdotL, 0.6))) * UnderwaterScatterTint() * sunColor * VL_STRENGTH;
-                continue;
-            }
-        #endif
-        tPrev = t;
-        vec3 transmit = exp(-mistDepth) * exp(-waterTravel * WaterAbsorption());
+        float transmit = exp(-mistDepth);
 
         // Haze, thicker low down: densest around sea level, thinning with height.
         float haze = exp(-max(worldPos.y - 63.0, 0.0) / 60.0) * (1.0 + rainStrength);
